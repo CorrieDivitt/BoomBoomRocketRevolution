@@ -105,6 +105,11 @@ Regenerate the full list with `python tools/xex/analyze.py "Game Files/default.x
 - Column attribute id → property: 65535 Rank (`0x10008001`), 65533 Gamer name (`0x40008002`), 65534 Score/rating (`0x20000001`), 1 Avg accuracy (`0x30000006`, double), 3 Hit ratio (`0x30000007`, double), 2 Grade (`0x10000008`, int32), 5 Lap (`0x10000004`, int32), 6 Time lasted (`0x30000005`, double), 4 BPM (`0x30000003`, double). Some views only have Rank/Name/Score.
 - Game wrappers (hooked by `src/leaderboards.cpp`): `XSessionWriteStats` 0x8215FA28, `XUserReadStats` 0x820E76E0, `XUserCreateStatsEnumeratorByRank` 0x820E77C8, `...ByXuid` 0x820E7828, `XEnumerate` 0x820E7368. The game's leaderboard manager lives around 0x820C1C40–0x820C5700.
 
+### Display / camera (widescreen work)
+- Game init `0x8207ECD8` calls `XGetVideoMode`: widescreen flag selects aspect 16:9 (`0x82003350`) or 4:3; hi-def flag stores 1280x720 at `0x821AA718/1C`. Only three code sites hardcode 1280/720 (`0x8207F298`, `0x820CC8EC`, `0x8212D770`/`0x820B9BB8`).
+- Camera objects start with `{float fov; float aspect; ...}`, position at `+0x50`; main camera at game object `0x821C1420 + 0x104B0` (fov 60 deg), another at `+0x103FC`. `0x82061018` = camera look-at/position setter.
+- High frame-rate tests use 120 fps (project convention).
+
 ## 4. Other observations
 - UI is Bizarre's **BZUI** system driven by Lua 5.1 scripts (`UISetup.lua`, `UIEnums.lua` inside `UIScript`) — a natural place to re-anchor UI for wide aspect ratios.
 - Debug strings report load times in *frames* ("InitLevel() took %f secs. %.1f frames"), suggesting a 60 Hz frame-locked loop — to be confirmed (R-301).

@@ -10,6 +10,7 @@
 // overwrite that value with the real frame time, keeping fade speed constant.
 
 #include "frame_stats.h"
+#include "widescreen.h"
 
 #include <rex/hook.h>
 
@@ -78,5 +79,6 @@ REX_HOOK_RAW(sub_82077100) {
   uint32_t bits;
   std::memcpy(&bits, &step, sizeof(bits));
   *reinterpret_cast<volatile uint32_t*>(base + kFadeStepAddr) = __builtin_bswap32(bits);
+  bbr::ApplyAspect(base);
   __imp__sub_82077100(ctx, base);
 }

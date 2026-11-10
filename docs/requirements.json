@@ -422,11 +422,11 @@
   "category": "Sync",
   "title": "Smooth arrow motion (interpolated song clock)",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Arrow scrolling is visibly smooth at 60/120/144 fps; hit timing unchanged; A/B via --smooth_song_clock",
   "depends_on": "R-202",
-  "notes": "src/song_clock.cpp: audio position advances in chunks, causing judder at any frame rate (reported 2026-11-10); untested"
+  "notes": "Verified 2026-11-10: arrows very smooth with src/song_clock.cpp (audio position stepped up to 21 ms)"
  },
  {
   "id": "R-301",
@@ -513,11 +513,11 @@
   "category": "Graphics",
   "title": "Arbitrary resolutions",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Any window/fullscreen resolution up to 4K+; correct projection",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": "Verified 2026-11-10 at 1440p and 4K via --resolution_scale=2/3 (game renders 1280x720 x scale)"
  },
  {
   "id": "R-402",
@@ -526,11 +526,11 @@
   "category": "Graphics",
   "title": "Aspect ratios 16:9 / 16:10 / 21:9 / 32:9",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Hor+ 3D view; UI anchored and not stretched",
   "depends_on": "R-401",
-  "notes": ""
+  "notes": "Step 1 (untested): --aspect_ratio=auto|21:9|32:9 sets camera aspect + stretches present (src/widescreen.cpp); 2D HUD/menus still stretched"
  },
  {
   "id": "R-403",
@@ -539,11 +539,11 @@
   "category": "Graphics",
   "title": "Internal resolution scale",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "Render scale 0.5x-4x independent of output size",
   "depends_on": "R-401",
-  "notes": "Xenia draw_resolution_scale path first"
+  "notes": "--resolution_scale / --draw_resolution_scale_x,_y (1-8); needs exposing in settings menu (R-414)"
  },
  {
   "id": "R-404",

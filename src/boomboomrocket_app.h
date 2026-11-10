@@ -7,6 +7,7 @@
 #include <rex/rex_app.h>
 
 #include "frame_stats.h"
+#include "widescreen.h"
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 
@@ -34,11 +35,26 @@ class BoomBoomRocketApp : public rex::ReXApp {
     // on the command line can't be told apart - use --license_mask=2 to test trial mode.
     if (rex::cvar::GetFlagByName("license_mask") == "0")
       rex::cvar::SetFlagByName("license_mask", "1");
+    // Non-16:9 aspect ratios: stretch the 1280x720 image over the whole window
+    // (the cameras are given the real aspect ratio in src/widescreen.cpp).
+    if (bbr::WidescreenRequested()) {
+      rex::cvar::SetFlagByName("present_letterbox", "false");
+      rex::cvar::SetFlagByName("present_safe_area_x", "100");
+      rex::cvar::SetFlagByName("present_safe_area_y", "100");
+    }
   }
   // void OnLoadXexImage(std::string& xex_image) override {}
   // void OnPostLoadXexImage() override {}
   // Feed the F3 debug overlay ("Guest: N FPS") from our per-frame hook.
-  void OnPostSetup() override { SetGuestFrameStats(bbr::GetFrameStats); }
+  void OnPostSetup() override {
+    SetGuestFrameStats(bbr::GetFrameStats);
+    bbr::SetWindowAspectProvider([this]() -> double {
+      auto* w = window();
+      if (!w) return 0.0;
+      const uint32_t width = w->GetActualPhysicalWidth(), height = w->GetActualPhysicalHeight();
+      return height ? double(width) / double(height) : 0.0;
+    });
+  }
   // void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {}
   // std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay() override;
   // std::unique_ptr<rex::ui::AchievementNotificationDialog>

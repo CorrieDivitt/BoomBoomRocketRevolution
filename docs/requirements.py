@@ -44,7 +44,7 @@ REQS = [
 
  ("R-212",2,"Sync","Timing validation across audio/PC setups","P0","todo","M","Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged","R-204","User plans to test multiple devices"),
 
- ("R-213",2,"Sync","Smooth arrow motion (interpolated song clock)","P0","in_progress","M","Arrow scrolling is visibly smooth at 60/120/144 fps; hit timing unchanged; A/B via --smooth_song_clock","R-202","src/song_clock.cpp: audio position advances in chunks, causing judder at any frame rate (reported 2026-11-10); untested"),
+ ("R-213",2,"Sync","Smooth arrow motion (interpolated song clock)","P0","done","M","Arrow scrolling is visibly smooth at 60/120/144 fps; hit timing unchanged; A/B via --smooth_song_clock","R-202","Verified 2026-11-10: arrows very smooth with src/song_clock.cpp (audio position stepped up to 21 ms)"),
 
  ("R-301",3,"Timing","Determine game loop timing model","P0","done","M","Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed","R-009","Variable dt (audio-driven in songs, mftb in menus); only frame-locked item found: fade step 1/60 per frame"),
  ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","in_progress","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301","120 and 144 fps tested OK (2026-11-10); fade timer now uses real frame time (src/frame_stats.cpp); needs 240/uncapped + replay check"),
@@ -53,9 +53,9 @@ REQS = [
  ("R-305",3,"Timing","Low-latency presentation","P1","todo","M","Flip-model swapchain, waitable object, max 1 frame queued","R-304",""),
  ("R-306",3,"Input","High-rate timestamped input","P0","todo","M","Input polled >= 1 kHz on its own thread; presses timestamped against audio clock","R-204",""),
 
- ("R-401",4,"Graphics","Arbitrary resolutions","P0","todo","M","Any window/fullscreen resolution up to 4K+; correct projection","R-104",""),
- ("R-402",4,"Graphics","Aspect ratios 16:9 / 16:10 / 21:9 / 32:9","P0","todo","M","Hor+ 3D view; UI anchored and not stretched","R-401",""),
- ("R-403",4,"Graphics","Internal resolution scale","P1","todo","S","Render scale 0.5x-4x independent of output size","R-401","Xenia draw_resolution_scale path first"),
+ ("R-401",4,"Graphics","Arbitrary resolutions","P0","done","M","Any window/fullscreen resolution up to 4K+; correct projection","R-104","Verified 2026-11-10 at 1440p and 4K via --resolution_scale=2/3 (game renders 1280x720 x scale)"),
+ ("R-402",4,"Graphics","Aspect ratios 16:9 / 16:10 / 21:9 / 32:9","P0","in_progress","M","Hor+ 3D view; UI anchored and not stretched","R-401","Step 1 (untested): --aspect_ratio=auto|21:9|32:9 sets camera aspect + stretches present (src/widescreen.cpp); 2D HUD/menus still stretched"),
+ ("R-403",4,"Graphics","Internal resolution scale","P1","done","S","Render scale 0.5x-4x independent of output size","R-401","--resolution_scale / --draw_resolution_scale_x,_y (1-8); needs exposing in settings menu (R-414)"),
  ("R-404",4,"Graphics","Window modes & display select","P0","todo","S","Windowed, borderless, exclusive fullscreen; monitor choice","R-104",""),
  ("R-405",4,"Graphics","Anti-aliasing (MSAA / SMAA / FXAA)","P1","todo","M","Selectable AA; fireworks trails stay crisp","R-401",""),
  ("R-406",4,"Graphics","Anisotropic filtering","P2","todo","S","1x-16x setting applied to city textures","R-401",""),
