@@ -5,7 +5,7 @@ import csv, json, os
 PHASES = {
  0: "Foundation & analysis", 1: "Recompile & boot", 2: "Audio & music sync",
  3: "Frame rate & timing", 4: "Graphics & resolution", 5: "Leaderboards & achievements",
- 6: "Input, UX & settings", 7: "QA, CI & release", 8: "Modern rhythm features"}
+ 6: "Input, UX & settings", 7: "QA, CI & release", 8: "Modern rhythm features", 9: "Accessibility (stretch)"}
 # id, phase, category, title, priority, status, effort, acceptance, depends_on, notes
 REQS = [
  ("R-001",0,"Analysis","Verify game dump (default.xex + content)","P0","done","S","default.xex parses; TitleID 5841086A; all 10 tracks present","", "XEX2, XDK 2.0.5426, image base 0x82000000, entry 0x820E83D8"),
@@ -45,7 +45,7 @@ REQS = [
  ("R-212",2,"Sync","Timing validation across audio/PC setups","P0","todo","M","Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged","R-204","User plans to test multiple devices"),
 
  ("R-301",3,"Timing","Determine game loop timing model","P0","done","M","Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed","R-009","Variable dt (audio-driven in songs, mftb in menus); only frame-locked item found: fade step 1/60 per frame"),
- ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","in_progress","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301","Test with --video_mode_refresh_rate=120/144/240 or --vsync=false; fix fade timer in 0x82077100"),
+ ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","in_progress","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301","120 and 144 fps tested OK (2026-11-10); fade timer now uses real frame time (src/frame_stats.cpp); needs 240/uncapped + replay check"),
  ("R-303",3,"Timing","Fixed-step sim with render interpolation","P1","todo","L","Simulation at 60 Hz, camera/particles interpolated per frame","R-301","Fallback if delta-time patching is impractical"),
  ("R-304",3,"Timing","Frame limiter, VSync, VRR","P0","todo","S","Cap options (30..360/unlimited), VSync toggle, G-Sync/FreeSync friendly","R-302",""),
  ("R-305",3,"Timing","Low-latency presentation","P1","todo","M","Flip-model swapchain, waitable object, max 1 frame queued","R-304",""),
@@ -87,6 +87,8 @@ REQS = [
  ("R-705",7,"Docs","Build & user guides","P1","todo","S","README build steps verified on a clean machine","R-006",""),
  ("R-706",7,"Release","Licensing decision for project code","P0","todo","S","LICENSE file chosen and compatible with ReXGlue (BSD-3) and FFmpeg terms","", "Open decision"),
  ("R-707",7,"Release","Public release v1.0","P0","todo","M","Tagged GitHub release with build artifacts (no game data)","R-110,R-111,R-204,R-302,R-401,R-502",""),
+ ("R-901",9,"Accessibility","Reduce background/camera motion option","P2","todo","M","Setting (Off/Reduced/Static) that damps or freezes the city camera movement from the *_SplCamera splines without affecting gameplay or note timing","R-104","Stretch goal: background movement can be disorienting (user feedback 2026-11-10)"),
+ ("R-902",9,"Research","Accessibility review","P2","todo","S","docs/ACCESSIBILITY.md: motion, flashing/brightness of fireworks, colour-blind-safe note colours, UI/text scaling, one-handed/remappable controls; prioritised list","R-104","Stretch goal"),
  ("R-801",8,"Research","Research modern rhythm-game features","P1","todo","M","docs/RHYTHM_FEATURES.md: survey (speed mods, timing feedback, measure/beat lines, etc.), feasibility vs .lvl beat data + engine hooks, prioritised list","R-109","Requested 2026-11-10"),
  ("R-802",8,"Feature","Note speed / scroll-speed modifier","P2","todo","M","Adjustable approach speed independent of song tempo; judging unchanged","R-801",""),
  ("R-803",8,"Feature","Timing feedback (early/late, ms offset)","P2","todo","M","Per-hit early/late indicator and end-of-song timing histogram / mean offset","R-801,R-306",""),

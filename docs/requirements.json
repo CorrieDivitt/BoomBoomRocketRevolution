@@ -439,7 +439,7 @@
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": "Test with --video_mode_refresh_rate=120/144/240 or --vsync=false; fix fade timer in 0x82077100"
+  "notes": "120 and 144 fps tested OK (2026-11-10); fade timer now uses real frame time (src/frame_stats.cpp); needs 240/uncapped + replay check"
  },
  {
   "id": "R-303",
@@ -921,6 +921,32 @@
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
   "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502",
   "notes": ""
+ },
+ {
+  "id": "R-901",
+  "phase": 9,
+  "phase_name": "Accessibility (stretch)",
+  "category": "Accessibility",
+  "title": "Reduce background/camera motion option",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Setting (Off/Reduced/Static) that damps or freezes the city camera movement from the *_SplCamera splines without affecting gameplay or note timing",
+  "depends_on": "R-104",
+  "notes": "Stretch goal: background movement can be disorienting (user feedback 2026-11-10)"
+ },
+ {
+  "id": "R-902",
+  "phase": 9,
+  "phase_name": "Accessibility (stretch)",
+  "category": "Research",
+  "title": "Accessibility review",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "S",
+  "acceptance": "docs/ACCESSIBILITY.md: motion, flashing/brightness of fireworks, colour-blind-safe note colours, UI/text scaling, one-handed/remappable controls; prioritised list",
+  "depends_on": "R-104",
+  "notes": "Stretch goal"
  },
  {
   "id": "R-801",

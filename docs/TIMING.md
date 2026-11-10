@@ -45,7 +45,8 @@ Reverse-engineered from the retail `default.xex` on 2026-11-10. Addresses are gu
 - **R-205/206 (offsets):** a user audio offset can be applied by patching/overriding `0x821A0508`
   (or wrapping `0x82080B00`); an input offset must be applied where presses are judged (to find).
 - **R-302 (high frame rate):** set `video_mode_refresh_rate` (24–240 Hz guest vblank) or
-  `--vsync=false`. Known frame-locked code: the fade timer in `0x82077100` (fades run faster at
-  >60 fps) — fix by scaling with dt. Particle/camera code still needs a visual check.
+  `--vsync=false`. Known frame-locked code: the fade timer in `0x82077100` reads its per-frame step from
+  `0x821D4330` (initialised once to 1/60). **Fixed:** `src/frame_stats.cpp` writes the real frame
+  time there before each call. Tested OK at 120 and 144 fps. Particle/camera code still needs a visual check.
 - **R-805 (practice slow-down):** the executable embeds the **SoundTouch** time-stretch library
   (string "SoundTouch : Sample rate not defined"), which may already support tempo changes.
