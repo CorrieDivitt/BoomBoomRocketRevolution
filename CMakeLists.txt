@@ -27,8 +27,3 @@ endif()
 
 rexglue_setup_target(boomboomrocket GPU_PLUGINS xenos)
 
-# Mid-asm hook declarations must be visible to the generated code: add them to its PCH.
-if(TARGET boomboomrocket_recomp)
-    target_precompile_headers(boomboomrocket_recomp PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/midasm_hooks.h")
-endif()

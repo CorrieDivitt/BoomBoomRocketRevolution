@@ -134,3 +134,23 @@ void BbrUiTransformHook(PPCRegister& f31, PPCRegister& f30, PPCRegister& r9) {
   f31.f64 = (f31.f64 / 0.75) * (4.0 / 3.0) / aspect;  // 640-wide design -> 480*aspect wide
   f30.f64 = (480.0 * aspect - 640.0) / 2.0;            // centre it
 }
+
+namespace {
+double UiAspect() {
+  std::lock_guard<std::mutex> lock(bbr::g_mutex);
+  return bbr::TargetAspect();
+}
+bool Near(double a, double b) { return std::fabs(a - b) < 1e-5; }
+}  // namespace
+
+// vScale.x: the 16:9 value is (2/640) * 0.75. Clip-space x = x * scale + offset.
+void BbrUiScaleXHook(PPCRegister& f0) {
+  if (!bbr::WidescreenRequested() || !Near(f0.f64, 1.5 / 640.0)) return;
+  f0.f64 = double(float((2.0 / 640.0) * (4.0 / 3.0) / UiAspect()));
+}
+
+// vOffset.x: the 16:9 value is -0.75 (so x = 320 lands on the screen centre).
+void BbrUiOffsetXHook(PPCRegister& f0) {
+  if (!bbr::WidescreenRequested() || !Near(f0.f64, -0.75)) return;
+  f0.f64 = double(float(-(4.0 / 3.0) / UiAspect()));
+}

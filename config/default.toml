@@ -44,3 +44,16 @@ longjmp_address = 0x821675A0
 address = 0x820A3054
 name = "BbrUiTransformHook"
 registers = ["f31", "f30", "r9"]
+
+# Same renderer: vertex shader constants vScale.x (f0 at 0x820A2DF4, 1.5/640 for 16:9)
+# and vOffset.x (loaded at 0x820A2E44, -0.75 for 16:9) - this is what positions the quads.
+[[midasm_hook]]
+address = 0x820A2DF4
+name = "BbrUiScaleXHook"
+registers = ["f0"]
+
+[[midasm_hook]]
+address = 0x820A2E44
+name = "BbrUiOffsetXHook"
+registers = ["f0"]
+after_instruction = true
