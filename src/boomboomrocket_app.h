@@ -21,7 +21,12 @@ class BoomBoomRocketApp : public rex::ReXApp {
 
   // Override virtual hooks for customization:
   // void OnPostInitLogging() override {}
-  // void OnPreSetup(rex::RuntimeConfig& config) override {}
+  // Use the Xenos GPU emulation plugin (rexgpu-xenos.dll, staged next to the exe
+  // by CMake) unless --gpu_plugin says otherwise. Without it there is no GPU and
+  // the game crashes during D3D setup.
+  void OnPreSetup(rex::RuntimeConfig& config) override {
+    if (config.gpu_plugin.empty()) config.gpu_plugin = "xenos";
+  }
   // void OnLoadXexImage(std::string& xex_image) override {}
   // void OnPostLoadXexImage() override {}
   // void OnPostSetup() override {}

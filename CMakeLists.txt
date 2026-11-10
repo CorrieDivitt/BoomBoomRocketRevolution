@@ -21,4 +21,4 @@ else()
     add_executable(boomboomrocket ${BOOMBOOMROCKET_SOURCES})
 endif()
 
-rexglue_setup_target(boomboomrocket)
+rexglue_setup_target(boomboomrocket GPU_PLUGINS xenos)
