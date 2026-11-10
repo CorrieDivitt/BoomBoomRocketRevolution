@@ -530,7 +530,20 @@
   "effort": "M",
   "acceptance": "Hor+ 3D view; UI anchored and not stretched",
   "depends_on": "R-401",
-  "notes": "Step 1 (untested): --aspect_ratio=auto|21:9|32:9 sets camera aspect + stretches present (src/widescreen.cpp); 2D HUD/menus still stretched"
+  "notes": "--aspect_ratio=auto: 3D view, menu shape, full-screen covers and edge anchoring work on 3440x1440 (src/widescreen.cpp). Arrows (point sprites) need --video_mode_height=536 for now; SDK point-size fix pending. Per-screen layout polish tracked in R-415"
+ },
+ {
+  "id": "R-415",
+  "phase": 4,
+  "phase_name": "Graphics & resolution",
+  "category": "UI",
+  "title": "Ultrawide menu/HUD layout pass",
+  "priority": "P1",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "During the full playtest, every menu and HUD screen is checked at 21:9 and 32:9: side elements follow the window edges, nothing splits from its group or pops during animations; fixes via grouping rules or per-screen overrides (--ui_anchor_debug log)",
+  "depends_on": "R-402,R-110",
+  "notes": "Edge anchoring works on most menus but not all (user test 2026-11-10); do with the full playtest"
  },
  {
   "id": "R-403",
