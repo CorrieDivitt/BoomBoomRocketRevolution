@@ -14,3 +14,6 @@ void BbrUiOffsetXHook(PPCRegister& f0);
 
 // Widget list walk (sub_8208B648) at 0x8208B6B4: r3 = widget about to render its quads.
 void BbrUiWidgetHook(PPCRegister& r3);
+
+// Arrow icon quad (sub_8206A600) at 0x8206A844: f0 = width/height factor (9/16).
+void BbrArrowAspectHook(PPCRegister& f0);

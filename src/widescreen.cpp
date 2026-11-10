@@ -187,6 +187,13 @@ void BbrUiScaleXHook(PPCRegister& f0) {
   f0.f64 = double(float((2.0 / 640.0) * (4.0 / 3.0) / UiAspect()));
 }
 
+// Arrow icons (sub_8206A600): a quad built in clip space around the rocket head, with
+// half-width = half-height * 9/16. f0 holds that 9/16 at 0x8206A844; use 1/aspect instead.
+void BbrArrowAspectHook(PPCRegister& f0) {
+  if (!bbr::WidescreenRequested() || !Near(f0.f64, 0.5625)) return;
+  f0.f64 = double(float(1.0 / UiAspect()));
+}
+
 // vOffset.x: the 16:9 value is -0.75 (so x = 320 lands on the screen centre).
 void BbrUiOffsetXHook(PPCRegister& f0) {
   if (!bbr::WidescreenRequested() || !Near(f0.f64, -0.75)) return;

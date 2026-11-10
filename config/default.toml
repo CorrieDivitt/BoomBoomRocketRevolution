@@ -62,3 +62,8 @@ after_instruction = true
 address = 0x8208B6B4
 name = "BbrUiWidgetHook"
 registers = ["r3"]
+
+[[midasm_hook]]
+address = 0x8206A844
+name = "BbrArrowAspectHook"
+registers = ["f0"]
