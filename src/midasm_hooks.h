@@ -12,5 +12,5 @@ void BbrUiTransformHook(PPCRegister& f31, PPCRegister& f30, PPCRegister& r9);
 void BbrUiScaleXHook(PPCRegister& f0);
 void BbrUiOffsetXHook(PPCRegister& f0);
 
-// Same renderer at 0x820A32E4: r26 = UI quad element about to be copied to the vertex buffer.
-void BbrUiQuadHook(PPCRegister& r26);
+// Widget list walk (sub_8208B648) at 0x8208B6B4: r3 = widget about to render its quads.
+void BbrUiWidgetHook(PPCRegister& r3);

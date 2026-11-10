@@ -12,9 +12,11 @@
 // config/default.toml) recomputes that scale and offset for the real aspect ratio,
 // which cancels the stretch and keeps the 2D layer centred at its native shape.
 //
-// Step 3: quads that covered the whole 16:9 screen (menu dimmers, fades) would now end
-// at the old 16:9 border, so BbrUiQuadHook pushes their side edges out to the real
-// screen edges just before the quad is copied to the vertex buffer.
+// Step 3: once per UI update (sub_820A1A98 fills the quad list) AnchorUi() walks the
+// list. Quads that covered the whole 16:9 screen (menu dimmers, fades) get their side
+// edges pushed out to the real screen edges, and groups of widgets that sit in the
+// outer part of the 16:9 layout are moved out to the matching side of the window.
+// Everything is recomputed from the current aspect ratio, so resizing the window works.
 
 #include "widescreen.h"
 #include "midasm_hooks.h"
@@ -36,7 +38,14 @@ REXCVAR_DEFINE_STRING(aspect_ratio, "16:9", "BBR",
                       "3D aspect ratio: 16:9 (original), auto (match window), 21:9, 32:9, 16:10 "
                       "or a number such as 2.39");
 
+REXCVAR_DEFINE_STRING(ui_anchor, "edges", "BBR",
+                      "Ultrawide 2D layout: edges (side menus / HUD follow the window edges) or "
+                      "center (keep the whole 16:9 layout centred)");
+REXCVAR_DEFINE_BOOL(ui_anchor_debug, false, "BBR", "Log the 2D layout groups every few seconds");
+
 REX_EXTERN(__imp__sub_8207ECD8);
+REX_EXTERN(__imp__sub_820A1A98);
+REX_EXTERN(__imp__sub_8208B648);
 
 namespace bbr {
 namespace {
@@ -162,29 +171,164 @@ void BbrUiOffsetXHook(PPCRegister& f0) {
   f0.f64 = double(float(-(4.0 / 3.0) / UiAspect()));
 }
 
-// UI quad about to be drawn: r26 = element, which starts with 4 vertices of 0x20 bytes,
-// each beginning with x, y in 640x480 design units (the 16:9 screen is x = -106.67..746.67).
-// A quad that reaches both side edges of the 16:9 screen is a full-screen cover, so move
-// those edges to the real screen edges (320 -/+ 240 * aspect). Setting (not adding) the
-// value keeps this safe to repeat on elements that live for more than one frame.
-void BbrUiQuadHook(PPCRegister& r26) {
+// ---------------------------------------------------------------------------------------
+// 2D layout anchoring.
+//
+// UI renderer object at 0x822E7188: +0 = quad count, +8 = quad array (0x98 bytes each).
+// A quad starts with 4 vertices of 0x20 bytes (x, y first, in 640x480 design units; the
+// 16:9 screen is x = -106.67..746.67). Byte 0x80 & 3: 0 = quad, 1 = scissor rectangle
+// (x/y at 0x00 and 0x20), 2 = scissor off.
+// sub_820A1A98 resets the count and has every visible widget append its quads
+// (sub_8208B648 walks a widget list and calls each widget's render function).
+namespace {
+constexpr uint32_t kUiRenderer = 0x822E7188;
+constexpr uint32_t kElemSize = 0x98;
+constexpr float kLeft16x9 = -100.0f, kRight16x9 = 740.0f;  // just inside the 16:9 edges
+
+std::vector<uint32_t> g_marks;  // quad count at the start of each widget (and at list ends)
+
+uint32_t LoadU32(uint8_t* base, uint32_t addr) {
+  uint32_t v;
+  std::memcpy(&v, base + addr, 4);
+  return __builtin_bswap32(v);
+}
+uint32_t UiCount(uint8_t* base) { return std::min<uint32_t>(LoadU32(base, kUiRenderer), 0x200); }
+
+struct UiItem {
+  uint32_t first, last;  // quad index range [first, last)
+  float x0, x1, y0, y1;
+  int parent;
+};
+
+int Find(std::vector<UiItem>& items, int i) {
+  while (items[i].parent != i) i = items[i].parent = items[items[i].parent].parent;
+  return i;
+}
+
+void AnchorUi(uint8_t* base) {
   if (!bbr::WidescreenRequested()) return;
-  uint8_t* base = bbr::g_base.load(std::memory_order_relaxed);
-  if (!base || r26.u32 == 0) return;
-  constexpr float kLeft = -100.0f, kRight = 740.0f;  // just inside the 16:9 edges
-  float x[4];
-  bool left = false, right = false;
-  for (int i = 0; i < 4; ++i) {
-    x[i] = bbr::LoadF(base, r26.u32 + i * 0x20);
-    left |= x[i] <= kLeft;
-    right |= x[i] >= kRight;
-  }
-  if (!left || !right) return;
+  const uint32_t count = UiCount(base);
+  const uint32_t list = LoadU32(base, kUiRenderer + 8);
+  if (count == 0 || list == 0) return;
   const double aspect = UiAspect();
-  if (aspect <= 16.0 / 9.0 + 0.01) return;
   const float new_left = float(320.0 - 240.0 * aspect), new_right = float(320.0 + 240.0 * aspect);
-  for (int i = 0; i < 4; ++i) {
-    if (x[i] <= kLeft) bbr::StoreF(base, r26.u32 + i * 0x20, new_left);
-    else if (x[i] >= kRight) bbr::StoreF(base, r26.u32 + i * 0x20, new_right);
+  const float shift = float(240.0 * aspect - 1280.0 / 3.0);  // 16:9 edge -> real edge
+  if (std::fabs(shift) < 0.5f) return;
+  const bool anchor = REXCVAR_GET(ui_anchor) != "center";
+
+  auto elem = [&](uint32_t i) { return list + i * kElemSize; };
+  auto type = [&](uint32_t i) { return base[elem(i) + 0x80] & 3; };
+  auto vertices = [&](uint32_t i) { return type(i) == 0 ? 4 : type(i) == 1 ? 2 : 0; };
+
+  // Split the quad list into widgets; quads outside any widget stand alone.
+  std::vector<uint32_t> cuts;
+  for (uint32_t m : g_marks) if (m <= count) cuts.push_back(m);
+  const uint32_t first_mark = cuts.empty() ? count : cuts.front();
+  const uint32_t last_mark = cuts.empty() ? count : cuts.back();
+  std::vector<UiItem> items;
+  auto add = [&](uint32_t first, uint32_t last) {
+    UiItem it{first, last, 1e9f, -1e9f, 1e9f, -1e9f, int(items.size())};
+    for (uint32_t i = first; i < last; ++i) {
+      for (int v = 0; v < vertices(i); ++v) {
+        const float x = LoadF(base, elem(i) + v * 0x20), y = LoadF(base, elem(i) + v * 0x20 + 4);
+        it.x0 = std::min(it.x0, x); it.x1 = std::max(it.x1, x);
+        it.y0 = std::min(it.y0, y); it.y1 = std::max(it.y1, y);
+      }
+    }
+    if (it.x1 >= it.x0) items.push_back(it);
+  };
+  for (uint32_t i = 0; i < first_mark; ++i) add(i, i + 1);
+  for (size_t k = 0; k + 1 < cuts.size(); ++k) if (cuts[k + 1] > cuts[k]) add(cuts[k], cuts[k + 1]);
+  for (uint32_t i = last_mark; i < count; ++i) add(i, i + 1);
+
+  // Full-screen covers: stretch to the real edges and keep them out of the grouping.
+  // Other very wide items stay centred and do not take part either.
+  std::vector<char> grouped(items.size(), 1);
+  for (size_t k = 0; k < items.size(); ++k) {
+    UiItem& it = items[k];
+    if (it.x0 <= kLeft16x9 && it.x1 >= kRight16x9) {
+      grouped[k] = 0;
+      if (shift <= 0) continue;
+      for (uint32_t i = it.first; i < it.last; ++i) {
+        for (int v = 0; v < vertices(i); ++v) {
+          const uint32_t a = elem(i) + v * 0x20;
+          const float x = LoadF(base, a);
+          if (x <= kLeft16x9) StoreF(base, a, new_left);
+          else if (x >= kRight16x9) StoreF(base, a, new_right);
+        }
+      }
+    } else if (it.x1 - it.x0 > 560.0f) {
+      grouped[k] = 0;
+    }
   }
+  if (!anchor) return;
+
+  // Group items that touch or sit close together (a panel and its labels, menu rows).
+  constexpr float kGapX = 16.0f, kGapY = 10.0f;
+  for (size_t a = 0; a < items.size(); ++a) {
+    if (!grouped[a]) continue;
+    for (size_t b = a + 1; b < items.size(); ++b) {
+      if (!grouped[b]) continue;
+      const UiItem &p = items[a], &q = items[b];
+      if (p.x0 - kGapX <= q.x1 && q.x0 - kGapX <= p.x1 && p.y0 - kGapY <= q.y1 && q.y0 - kGapY <= p.y1)
+        items[Find(items, int(a))].parent = Find(items, int(b));
+    }
+  }
+  struct Box { float x0 = 1e9f, x1 = -1e9f; };
+  std::vector<Box> boxes(items.size());
+  for (size_t k = 0; k < items.size(); ++k) {
+    if (!grouped[k]) continue;
+    Box& b = boxes[Find(items, int(k))];
+    b.x0 = std::min(b.x0, items[k].x0);
+    b.x1 = std::max(b.x1, items[k].x1);
+  }
+  // A group lying wholly in one half, with its middle in the outer part of the 16:9
+  // layout, follows that side of the window. Anything else stays centred.
+  constexpr float kCentre = 320.0f, kOuterLeft = 213.3f, kOuterRight = 426.7f;
+  static uint32_t debug_frame = 0;
+  const bool debug = REXCVAR_GET(ui_anchor_debug) && (debug_frame++ % 300 == 0);
+  for (size_t k = 0; k < items.size(); ++k) {
+    if (!grouped[k]) continue;
+    const int root = Find(items, int(k));
+    const Box& b = boxes[root];
+    const float mid = (b.x0 + b.x1) * 0.5f;
+    float dx = 0.0f;
+    if (b.x1 <= kCentre && mid <= kOuterLeft) dx = -shift;
+    else if (b.x0 >= kCentre && mid >= kOuterRight) dx = shift;
+    if (debug) {
+      REXLOG_INFO("[ui] group {:3} quads {:3}-{:3} x {:7.1f}..{:7.1f} y {:6.1f}..{:6.1f} -> {}", root,
+                  items[k].first, items[k].last, items[k].x0, items[k].x1, items[k].y0, items[k].y1,
+                  dx < 0 ? "left" : dx > 0 ? "right" : "centre");
+    }
+    if (dx == 0.0f) continue;
+    for (uint32_t i = items[k].first; i < items[k].last; ++i) {
+      for (int v = 0; v < vertices(i); ++v) {
+        const uint32_t a = elem(i) + v * 0x20;
+        StoreF(base, a, LoadF(base, a) + dx);
+      }
+    }
+  }
+}
+}  // namespace
+
+// Before each widget's render call in sub_8208B648 (r3 = widget): note where its quads start.
+void BbrUiWidgetHook(PPCRegister& r3) {
+  (void)r3;
+  if (uint8_t* base = bbr::g_base.load(std::memory_order_relaxed)) g_marks.push_back(UiCount(base));
+}
+
+// Widget list walk: close the last widget's range.
+REX_HOOK_RAW(sub_8208B648) {
+  bbr::g_base.store(base, std::memory_order_relaxed);
+  __imp__sub_8208B648(ctx, base);
+  g_marks.push_back(UiCount(base));
+}
+
+// UI update: rebuilds the quad list, then we lay it out for the real aspect ratio.
+REX_HOOK_RAW(sub_820A1A98) {
+  bbr::g_base.store(base, std::memory_order_relaxed);
+  g_marks.clear();
+  __imp__sub_820A1A98(ctx, base);
+  AnchorUi(base);
+  g_marks.clear();
 }

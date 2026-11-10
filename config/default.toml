@@ -59,6 +59,6 @@ registers = ["f0"]
 after_instruction = true
 
 [[midasm_hook]]
-address = 0x820A32E4
-name = "BbrUiQuadHook"
-registers = ["r26"]
+address = 0x8208B6B4
+name = "BbrUiWidgetHook"
+registers = ["r3"]
