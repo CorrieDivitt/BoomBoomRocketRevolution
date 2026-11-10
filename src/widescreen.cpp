@@ -7,9 +7,13 @@
 // ("anamorphic"), so the 3D scene gains extra view at the sides instead of black bars.
 // Use --draw_resolution_scale_x/_y to restore horizontal sharpness.
 //
-// Known limitation of this step: 2D elements (menus, HUD) are stretched horizontally.
+// Step 2: the 2D UI renderer is authored at 640x480 and, for 16:9, scales x by 0.75
+// and offsets it by 106.67 to centre it. BbrUiTransformHook (a mid-function hook, see
+// config/default.toml) recomputes that scale and offset for the real aspect ratio,
+// which cancels the stretch and keeps the 2D layer centred at its native shape.
 
 #include "widescreen.h"
+#include "midasm_hooks.h"
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -117,4 +121,16 @@ void ApplyAspect(uint8_t* base) {
 REX_HOOK_RAW(sub_8207ECD8) {
   __imp__sub_8207ECD8(ctx, base);
   bbr::ApplyAspect(base);
+}
+
+// Mid-asm hook in the UI renderer, see src/midasm_hooks.h.
+void BbrUiTransformHook(PPCRegister& f31, PPCRegister& f30, PPCRegister& r9) {
+  if (r9.u32 == 0 || !bbr::WidescreenRequested()) return;  // 4:3 path or original 16:9
+  double aspect;
+  {
+    std::lock_guard<std::mutex> lock(bbr::g_mutex);
+    aspect = bbr::TargetAspect();
+  }
+  f31.f64 = (f31.f64 / 0.75) * (4.0 / 3.0) / aspect;  // 640-wide design -> 480*aspect wide
+  f30.f64 = (480.0 * aspect - 640.0) / 2.0;            // centre it
 }

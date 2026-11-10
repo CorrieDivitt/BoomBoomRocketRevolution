@@ -36,3 +36,11 @@ longjmp_address = 0x821675A0
 0x8214AB58 = { size = 0x08 }
 0x8214AB78 = { size = 0x08 }
 0x8214AB88 = { size = 0x08 }
+
+# 2D UI renderer (sub_820A2D10). The UI is authored at 640x480; for 16:9 the game
+# multiplies x by 0.75 and adds 106.67 to centre it. The hook recomputes both for
+# the real aspect ratio so menus, HUD and arrows keep their shape on ultrawide.
+[[midasm_hook]]
+address = 0x820A3054
+name = "BbrUiTransformHook"
+registers = ["f31", "f30", "r9"]
