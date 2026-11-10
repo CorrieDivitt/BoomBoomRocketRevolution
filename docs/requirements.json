@@ -58,7 +58,7 @@
   "category": "Setup",
   "title": "Install Windows toolchain",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "VS 2022 + Clang 20 (clang-cl), CMake 3.25+, Ninja on PATH; scripts/bootstrap.ps1 passes checks",
   "depends_on": "",
@@ -71,11 +71,11 @@
   "category": "Setup",
   "title": "Build & install ReXGlue SDK",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "cmake --preset win-amd64 builds; rexglue.exe runs",
   "depends_on": "R-005",
-  "notes": "Pin SDK to v0.10.1 tag; bump deliberately"
+  "notes": "Built on VS 2026 + LLVM 22; SDK v0.10.1 Release install"
  },
  {
   "id": "R-007",
@@ -123,7 +123,7 @@
   "category": "Recomp",
   "title": "rexglue init project + codegen config",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "boom_boom_rocket_config.toml points at assets/default.xex; codegen target exists",
   "depends_on": "R-006",
@@ -136,11 +136,11 @@
   "category": "Recomp",
   "title": "Clean codegen of all functions",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "L",
   "acceptance": "Codegen with no validation errors (no --force); ~3,002 pdata functions + discovered extras",
   "depends_on": "R-101",
-  "notes": "292 mtctr/bctr sites (jump tables); 8,709 VMX/VMX128 words"
+  "notes": "Clean after 3 [functions] overrides in config/default.toml; 51 files generated"
  },
  {
   "id": "R-103",

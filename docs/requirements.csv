@@ -3,13 +3,13 @@ R-001,0,Foundation & analysis,Analysis,Verify game dump (default.xex + content),
 R-002,0,Foundation & analysis,Analysis,Decrypt/decompress XEX to PE image,P0,done,S,"tools/xex/unxex.py produces 3,276,800-byte PE starting with MZ",R-001,Retail AES + LZX (window 2^15)
 R-003,0,Foundation & analysis,Analysis,Kernel/XAM import inventory vs ReXGlue,P0,done,S,166 imports listed with implementation status,R-002,162/166 implemented in ReXGlue v0.10.1; 4 XAM gaps
 R-004,0,Foundation & analysis,Setup,Repo scaffolding + ReXGlue SDK submodule,P0,done,S,"git repo with docs, tools, .gitignore excluding game data; SDK at thirdparty/rexglue-sdk",,Remote: github.com/CorrieDivitt/BoomBoomRocketRevolution (push pending)
-R-005,0,Foundation & analysis,Setup,Install Windows toolchain,P0,todo,S,"VS 2022 + Clang 20 (clang-cl), CMake 3.25+, Ninja on PATH; scripts/bootstrap.ps1 passes checks",,
-R-006,0,Foundation & analysis,Setup,Build & install ReXGlue SDK,P0,todo,M,cmake --preset win-amd64 builds; rexglue.exe runs,R-005,Pin SDK to v0.10.1 tag; bump deliberately
+R-005,0,Foundation & analysis,Setup,Install Windows toolchain,P0,done,S,"VS 2022 + Clang 20 (clang-cl), CMake 3.25+, Ninja on PATH; scripts/bootstrap.ps1 passes checks",,
+R-006,0,Foundation & analysis,Setup,Build & install ReXGlue SDK,P0,done,M,cmake --preset win-amd64 builds; rexglue.exe runs,R-005,Built on VS 2026 + LLVM 22; SDK v0.10.1 Release install
 R-007,0,Foundation & analysis,Analysis,Document asset formats,P1,in_progress,M,Spec for .lvl/.spl/.mdl/.config/.bbr/.xpr/XMA in docs/ANALYSIS.md,R-001,.lvl/.spl/.config are text; .bbr/.xpr binary; audio XMA1 48kHz stereo
 R-008,0,Foundation & analysis,Legal,No copyrighted game data in repo,P0,done,S,".gitignore blocks Game Files/, assets/, *.xex, *.xma, *.xpr; CI never needs assets",,Users supply their own legally-owned dump
 R-009,0,Foundation & analysis,Analysis,Static analysis setup (Ghidra/IDA + XEX loader),P1,todo,S,Image loads with symbols for imports; pdata functions applied,R-002,Used for game-loop/timing reverse engineering
-R-101,1,Recompile & boot,Recomp,rexglue init project + codegen config,P0,todo,S,boom_boom_rocket_config.toml points at assets/default.xex; codegen target exists,R-006,
-R-102,1,Recompile & boot,Recomp,Clean codegen of all functions,P0,todo,L,"Codegen with no validation errors (no --force); ~3,002 pdata functions + discovered extras",R-101,"292 mtctr/bctr sites (jump tables); 8,709 VMX/VMX128 words"
+R-101,1,Recompile & boot,Recomp,rexglue init project + codegen config,P0,done,S,boom_boom_rocket_config.toml points at assets/default.xex; codegen target exists,R-006,
+R-102,1,Recompile & boot,Recomp,Clean codegen of all functions,P0,done,L,"Codegen with no validation errors (no --force); ~3,002 pdata functions + discovered extras",R-101,Clean after 3 [functions] overrides in config/default.toml; 51 files generated
 R-103,1,Recompile & boot,Recomp,Locate setjmp/longjmp (if used),P1,todo,S,Addresses set in TOML or confirmed unused,R-009,
 R-104,1,Recompile & boot,Runtime,Boot to title screen (D3D12),P0,todo,L,"Splash, legal screens and main menu render correctly",R-102,
 R-105,1,Recompile & boot,Runtime,"VFS mounts: GAME:, game:, DLC%d:",P0,todo,S,All Failed-to-load paths resolve; case-insensitive lookups,R-104,Strings show GAME:\ and game:\ mixed case
