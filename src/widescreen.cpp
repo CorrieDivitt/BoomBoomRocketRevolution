@@ -128,6 +128,10 @@ void ApplyAspect(uint8_t* base) {
   g_written = target;
   if (std::fabs(target - g_logged) > 0.001) {
     g_logged = target;
+    // Point sprites (arrows, firework particles) are sized in pixels of the 1280x720
+    // image, which we present stretched: narrow them by the same factor. Needs the SDK
+    // patch in patches/rexglue-sdk (scripts/patch-sdk.ps1); without it nothing happens.
+    rex::cvar::SetFlagByName("point_sprite_scale_x", std::to_string(kOriginalAspect / target));
     REXLOG_INFO("[widescreen] 3D aspect ratio set to {:.3f} ({} locations)", target, g_patched.size());
   }
 }

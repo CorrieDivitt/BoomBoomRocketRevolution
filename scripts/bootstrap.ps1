@@ -62,6 +62,13 @@ $Sdk = Join-Path $Root "thirdparty\rexglue-sdk"
 $Prefix = Join-Path $Sdk "out\install\win-amd64"
 if (-not $SkipSdkBuild) {
   Step "Building and installing ReXGlue SDK (this takes a while)"
+  # Our own SDK patches (see patches\rexglue-sdk); skipped when already applied.
+  Get-ChildItem (Join-Path $Root "patches\rexglue-sdk") -Filter *.patch -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object {
+    $patch = $_.FullName
+    git -C $Sdk apply --ignore-whitespace --reverse --check $patch 2>$null
+    if ($LASTEXITCODE -ne 0) { Run "Applying $($_.Name)" { git -C $Sdk apply --ignore-whitespace $patch } }
+  }
+  $global:LASTEXITCODE = 0
   Push-Location $Sdk
   Run "Configuring the SDK" { cmake --preset win-amd64 --fresh }
   Run "Building the SDK" { cmake --build --preset win-amd64-release --target install }
