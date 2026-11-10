@@ -13,12 +13,12 @@ R-102,1,Recompile & boot,Recomp,Clean codegen of all functions,P0,done,L,"Codege
 R-103,1,Recompile & boot,Recomp,Locate setjmp/longjmp (if used),P1,done,S,Addresses set in TOML or confirmed unused,R-009,"setjmp 0x82167220, longjmp 0x821675A0 (used by libjpeg error handling)"
 R-104,1,Recompile & boot,Runtime,Boot to title screen (D3D12),P0,done,L,"Splash, legal screens and main menu render correctly",R-102,Boots past EA logo to menus on D3D12 (Xenos plugin); fixes in config/default.toml
 R-105,1,Recompile & boot,Runtime,"VFS mounts: GAME:, game:, DLC%d:",P0,done,S,All Failed-to-load paths resolve; case-insensitive lookups,R-104,Game files load via auto-detected game_data_root
-R-106,1,Recompile & boot,Runtime,Full-license / trial flag,P0,in_progress,S,XamContentGetLicenseMask reports full game; IsTrialVersion false,R-104,Game ran in trial mode; app now sets license_mask=1 (needs verification)
+R-106,1,Recompile & boot,Runtime,Full-license / trial flag,P0,done,S,XamContentGetLicenseMask reports full game; IsTrialVersion false,R-104,App sets license_mask=1; verified unlocked 2026-11-10 (use --license_mask=2 to test trial)
 R-107,1,Recompile & boot,Runtime,Save data & profile settings persistence,P0,todo,M,"Unlocks/scores survive restart (XamContentCreateEx, XamUser*ProfileSettings)",R-104,
 R-108,1,Recompile & boot,Runtime,Stub missing XAM UI calls,P1,todo,S,XamShowAchievementsUI / MarketplaceUI / GamerCardUIForXUID return gracefully (or open native overlay),R-104,Not implemented in ReXGlue v0.10.1
 R-109,1,Recompile & boot,Gameplay,All modes playable,P0,in_progress,L,"Standard, Endurance, Practice, Freestyle, Visualizer, 2P Battle, 2P Endurance complete without crash",R-104,First full song played with no obvious issues (2026-11-10)
 R-110,1,Recompile & boot,Gameplay,All 10 tracks x 3 difficulties complete,P0,todo,M,30 charts finish with correct results screen and grade,R-109,
-R-111,1,Recompile & boot,Content,DLC track pack support,P2,todo,M,Owned DLC package mounted at DLC%d:\ and extra tracks listed,R-105,Update brought total to 15 tracks
+R-111,1,Recompile & boot,Content,DLC support (owned track packs),P0,todo,L,"Users who own the Boom Boom Rocket DLC can point the app at their own extracted DLC package: it mounts at DLC%d:\, the extra tracks appear and unlock, licences report as owned; no DLC content shipped",R-105,Required before release. Needs DLC package format (STFS/LIVE) extraction + XamContentCreateEnumerator/CreateEx and licence bits
 R-201,2,Audio & music sync,Audio,XMA1 music & SFX playback,P0,done,M,All 10 songs and 86 SFX/ambience files decode and play (runtime XMA decoder via FFmpeg),R-104,Music + SFX play via runtime XMA decoder (SDL audio)
 R-202,2,Audio & music sync,Sync,Identify the game's song clock,P0,todo,M,Documented function(s) that compute current song time/beat and their time source,R-009,"Clues: SongBPM/SongOffset strings, 11 mftb sites, KeQueryPerformanceFrequency"
 R-203,2,Audio & music sync,Audio,Native low-latency music path,P0,todo,L,Songs pre-decoded to PCM and played via WASAPI (SDL3); reported output latency < 20 ms,R-201,
@@ -69,7 +69,7 @@ R-703,7,"QA, CI & release",QA,Sync accuracy test,P0,todo,M,Automated measurement
 R-704,7,"QA, CI & release",Perf,Performance target,P1,todo,M,>= 240 fps at 1440p on a GTX 1660-class GPU; 60 fps on Steam Deck,R-302,
 R-705,7,"QA, CI & release",Docs,Build & user guides,P1,todo,S,README build steps verified on a clean machine,R-006,
 R-706,7,"QA, CI & release",Release,Licensing decision for project code,P0,todo,S,LICENSE file chosen and compatible with ReXGlue (BSD-3) and FFmpeg terms,,Open decision
-R-707,7,"QA, CI & release",Release,Public release v1.0,P0,todo,M,Tagged GitHub release with build artifacts (no game data),"R-110,R-204,R-302,R-401,R-502",
+R-707,7,"QA, CI & release",Release,Public release v1.0,P0,todo,M,Tagged GitHub release with build artifacts (no game data),"R-110,R-111,R-204,R-302,R-401,R-502",
 R-801,8,Modern rhythm features,Research,Research modern rhythm-game features,P1,todo,M,"docs/RHYTHM_FEATURES.md: survey (speed mods, timing feedback, measure/beat lines, etc.), feasibility vs .lvl beat data + engine hooks, prioritised list",R-109,Requested 2026-11-10
 R-802,8,Modern rhythm features,Feature,Note speed / scroll-speed modifier,P2,todo,M,Adjustable approach speed independent of song tempo; judging unchanged,R-801,
 R-803,8,Modern rhythm features,Feature,"Timing feedback (early/late, ms offset)",P2,todo,M,Per-hit early/late indicator and end-of-song timing histogram / mean offset,"R-801,R-306",

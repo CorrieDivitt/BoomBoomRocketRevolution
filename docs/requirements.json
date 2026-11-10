@@ -188,11 +188,11 @@
   "category": "Runtime",
   "title": "Full-license / trial flag",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "S",
   "acceptance": "XamContentGetLicenseMask reports full game; IsTrialVersion false",
   "depends_on": "R-104",
-  "notes": "Game ran in trial mode; app now sets license_mask=1 (needs verification)"
+  "notes": "App sets license_mask=1; verified unlocked 2026-11-10 (use --license_mask=2 to test trial)"
  },
  {
   "id": "R-107",
@@ -251,13 +251,13 @@
   "phase": 1,
   "phase_name": "Recompile & boot",
   "category": "Content",
-  "title": "DLC track pack support",
-  "priority": "P2",
+  "title": "DLC support (owned track packs)",
+  "priority": "P0",
   "status": "todo",
-  "effort": "M",
-  "acceptance": "Owned DLC package mounted at DLC%d:\\ and extra tracks listed",
+  "effort": "L",
+  "acceptance": "Users who own the Boom Boom Rocket DLC can point the app at their own extracted DLC package: it mounts at DLC%d:\\, the extra tracks appear and unlock, licences report as owned; no DLC content shipped",
   "depends_on": "R-105",
-  "notes": "Update brought total to 15 tracks"
+  "notes": "Required before release. Needs DLC package format (STFS/LIVE) extraction + XamContentCreateEnumerator/CreateEx and licence bits"
  },
  {
   "id": "R-201",
@@ -919,7 +919,7 @@
   "status": "todo",
   "effort": "M",
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
-  "depends_on": "R-110,R-204,R-302,R-401,R-502",
+  "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502",
   "notes": ""
  },
  {
