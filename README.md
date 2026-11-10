@@ -1,0 +1,34 @@
+# Boom Boom Rocket Recompiled
+
+An unofficial native Windows port of the Xbox 360 Xbox Live Arcade game **Boom Boom Rocket** (Bizarre Creations / Electronic Arts, 2007), made by **static recompilation** of the original executable with the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk).
+
+> **Status:** planning / early setup. See [`docs/PLAN.md`](docs/PLAN.md) and the requirements list in [`docs/requirements.csv`](docs/requirements.csv).
+
+## Goals
+- Smooth, high-frame-rate play (144/240 Hz+) with gameplay identical to the original
+- Any resolution and aspect ratio, plus graphics options (render scale, AA, filtering, bloom/lighting upgrades)
+- Timing that stays locked to the music: audio-clock-driven beats, audio and input offsets, calibration
+- Local and online leaderboards; achievements
+
+## You need your own copy
+This repository contains **no game files**. You must dump your own legally owned copy of Boom Boom Rocket from an Xbox 360 and place its extracted contents (including `default.xex`) in `Game Files/`. That folder is git-ignored.
+
+## Building (Windows)
+Prerequisites: Visual Studio 2022 (Desktop C++, *C++ Clang Compiler for Windows* 20+, *MSBuild support for LLVM*), CMake 3.25+, Ninja, Git, Python 3.
+```powershell
+git clone --recursive https://github.com/CorrieDivitt/BoomBoomRocket
+cd BoomBoomRocket
+# put your dump in "Game Files\"
+powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
+```
+
+## Layout
+| Path | Contents |
+|---|---|
+| `docs/` | Plan, analysis, requirements tracker data |
+| `tools/xex`, `tools/shaders` | XEX analysis and shader-source recovery helpers |
+| `scripts/` | Setup scripts |
+| `thirdparty/rexglue-sdk` | ReXGlue SDK (submodule) |
+
+## Credits
+ReXGlue SDK, Xenia, XenonRecomp/XenosRecomp, and the Xbox 360 preservation community. Boom Boom Rocket is © Electronic Arts; this project is not affiliated with or endorsed by EA, Bizarre Creations or Microsoft.

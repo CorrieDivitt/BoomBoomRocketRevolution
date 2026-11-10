@@ -1,0 +1,29 @@
+# --- Game data: never commit (users supply their own dump) ---
+/Game Files/
+/assets/
+/extracted/
+*.xex
+*.xexp
+*.xma
+*.xpr
+*.xvu
+*.xpu
+*.updb
+*.fxobj
+*.bbr
+*.lvl
+*.spl
+*.mdl
+*.stfs
+# Generated recompiled code derives from the game binary
+/generated/*
+!/generated/rexglue.cmake
+# Build output
+/out/
+/build/
+*.pe
+*.bin
+__pycache__/
+.vs/
+.vscode/
+*.user
