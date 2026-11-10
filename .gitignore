@@ -1,6 +1,6 @@
 # --- Game data: never commit (users supply their own dump) ---
 /Game Files/
-/assets/
+/assets
 /extracted/
 *.xex
 *.xexp

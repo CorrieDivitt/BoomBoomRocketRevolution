@@ -67,10 +67,10 @@ $env:REXSDK = $Prefix
 Write-Host "  rexglue: $($Rex.FullName)"
 
 Step "Creating the recomp project (rexglue init)"
-# v0.10 init writes CMakeLists.txt, CMakePresets.json, boom_boom_rocket_manifest.toml,
+# v0.10 init writes CMakeLists.txt, CMakePresets.json, boomboomrocket_manifest.toml,
 # generated/rexglue.cmake and src/ stubs into the repo root. It refuses to overwrite
 # existing project files, so skip it once the project exists.
-if (Test-Path (Join-Path $Root "boom_boom_rocket_manifest.toml")) {
+if (Test-Path (Join-Path $Root "boomboomrocket_manifest.toml")) {
   Write-Host "  Project already initialised - skipping."
 } else {
   Run "rexglue init" { & $Rex.FullName init --project-name "boom_boom_rocket" --xex-path "assets\default.xex" --project-root "$Root" }

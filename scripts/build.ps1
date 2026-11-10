@@ -3,7 +3,7 @@
   Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Config debug|release|relwithdebinfo] [-Target <name>]
   Examples:
     scripts\build.ps1                                  # full debug build
-    scripts\build.ps1 -Target boom_boom_rocket_codegen # codegen only
+    scripts\build.ps1 -Target boomboomrocket_codegen # codegen only
     scripts\build.ps1 -Config release
 #>
 param([ValidateSet("debug", "release", "relwithdebinfo")][string]$Config = "debug", [string]$Target = "")

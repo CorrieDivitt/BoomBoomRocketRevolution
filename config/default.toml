@@ -1,0 +1,9 @@
+# Codegen overrides for default.xex (included from boomboomrocket_manifest.toml).
+# Addresses verified against the decrypted image; see docs/ANALYSIS.md.
+
+[functions]
+# Small functions missing from .pdata that are only reached by branches from
+# C++ this-adjustor thunks ("addi r3,r3,+-N ; b target"), so analysis can't size them.
+0x8213E798 = { size = 0x14 }  # addi r11,r3,4 / lwz / addi / stw / blr  (refcount increment)
+0x8213F0D0 = { size = 0x28 }  # stores three vtable pointers into r3 then blr
+0x8214A788 = { size = 0x08 }  # thunk: addi r3,r3,4 ; b 0x8213F718
