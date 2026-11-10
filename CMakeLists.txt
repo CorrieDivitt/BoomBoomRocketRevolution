@@ -13,6 +13,7 @@ include(generated/rexglue.cmake)
 # Sources
 set(BOOMBOOMROCKET_SOURCES
     src/main.cpp
+    src/frame_stats.cpp
 )
 
 if(WIN32)

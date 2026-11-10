@@ -5,6 +5,8 @@
 #pragma once
 
 #include <rex/rex_app.h>
+
+#include "frame_stats.h"
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 
@@ -35,7 +37,8 @@ class BoomBoomRocketApp : public rex::ReXApp {
   }
   // void OnLoadXexImage(std::string& xex_image) override {}
   // void OnPostLoadXexImage() override {}
-  // void OnPostSetup() override {}
+  // Feed the F3 debug overlay ("Guest: N FPS") from our per-frame hook.
+  void OnPostSetup() override { SetGuestFrameStats(bbr::GetFrameStats); }
   // void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {}
   // std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay() override;
   // std::unique_ptr<rex::ui::AchievementNotificationDialog>
