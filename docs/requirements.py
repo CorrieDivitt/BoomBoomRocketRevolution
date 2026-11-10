@@ -11,7 +11,7 @@ REQS = [
  ("R-001",0,"Analysis","Verify game dump (default.xex + content)","P0","done","S","default.xex parses; TitleID 5841086A; all 10 tracks present","", "XEX2, XDK 2.0.5426, image base 0x82000000, entry 0x820E83D8"),
  ("R-002",0,"Analysis","Decrypt/decompress XEX to PE image","P0","done","S","tools/xex/unxex.py produces 3,276,800-byte PE starting with MZ","R-001","Retail AES + LZX (window 2^15)"),
  ("R-003",0,"Analysis","Kernel/XAM import inventory vs ReXGlue","P0","done","S","166 imports listed with implementation status","R-002","162/166 implemented in ReXGlue v0.10.1; 4 XAM gaps"),
- ("R-004",0,"Setup","Repo scaffolding + ReXGlue SDK submodule","P0","done","S","git repo with docs, tools, .gitignore excluding game data; SDK at thirdparty/rexglue-sdk","", "Remote: github.com/CorrieDivitt/BoomBoomRocket (not pushed yet)"),
+ ("R-004",0,"Setup","Repo scaffolding + ReXGlue SDK submodule","P0","done","S","git repo with docs, tools, .gitignore excluding game data; SDK at thirdparty/rexglue-sdk","", "Remote: github.com/CorrieDivitt/BoomBoomRocketRevolution (push pending)"),
  ("R-005",0,"Setup","Install Windows toolchain","P0","todo","S","VS 2022 + Clang 20 (clang-cl), CMake 3.25+, Ninja on PATH; scripts/bootstrap.ps1 passes checks","", ""),
  ("R-006",0,"Setup","Build & install ReXGlue SDK","P0","todo","M","cmake --preset win-amd64 builds; rexglue.exe runs","R-005","Pin SDK to v0.10.1 tag; bump deliberately"),
  ("R-007",0,"Analysis","Document asset formats","P1","in_progress","M","Spec for .lvl/.spl/.mdl/.config/.bbr/.xpr/XMA in docs/ANALYSIS.md","R-001",".lvl/.spl/.config are text; .bbr/.xpr binary; audio XMA1 48kHz stereo"),

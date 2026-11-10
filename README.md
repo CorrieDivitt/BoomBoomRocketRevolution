@@ -16,8 +16,8 @@ This repository contains **no game files**. You must dump your own legally owned
 ## Building (Windows)
 Prerequisites: Visual Studio 2022 (Desktop C++, *C++ Clang Compiler for Windows* 20+, *MSBuild support for LLVM*), CMake 3.25+, Ninja, Git, Python 3.
 ```powershell
-git clone --recursive https://github.com/CorrieDivitt/BoomBoomRocket
-cd BoomBoomRocket
+git clone --recursive https://github.com/CorrieDivitt/BoomBoomRocketRevolution
+cd BoomBoomRocketRevolution
 # put your dump in "Game Files\"
 powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
 ```

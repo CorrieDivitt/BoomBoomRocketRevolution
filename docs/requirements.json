@@ -49,7 +49,7 @@
   "effort": "S",
   "acceptance": "git repo with docs, tools, .gitignore excluding game data; SDK at thirdparty/rexglue-sdk",
   "depends_on": "",
-  "notes": "Remote: github.com/CorrieDivitt/BoomBoomRocket (not pushed yet)"
+  "notes": "Remote: github.com/CorrieDivitt/BoomBoomRocketRevolution (push pending)"
  },
  {
   "id": "R-005",

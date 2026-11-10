@@ -2,7 +2,7 @@
 
 **Goal:** a native Windows build of the Xbox 360 XBLA game *Boom Boom Rocket* (Bizarre Creations / EA, 2007), produced by static recompilation, with smooth high-frame-rate play, arbitrary resolutions, a range of graphics options, working leaderboards, and timing controls that keep the game locked to the music.
 
-Repository: `github.com/CorrieDivitt/BoomBoomRocket` · Requirements: [`requirements.csv`](requirements.csv) (source: `requirements.py`) · Findings: [`ANALYSIS.md`](ANALYSIS.md)
+Repository: `github.com/CorrieDivitt/BoomBoomRocketRevolution` · Requirements: [`requirements.csv`](requirements.csv) (source: `requirements.py`) · Findings: [`ANALYSIS.md`](ANALYSIS.md)
 
 ---
 
