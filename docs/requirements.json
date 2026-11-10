@@ -695,11 +695,11 @@
   "category": "Leaderboards",
   "title": "Local leaderboards",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty",
   "depends_on": "R-107",
-  "notes": "src/leaderboards.cpp: local score table for all 250 views, saved to %LOCALAPPDATA%/boomboomrocket/leaderboards.txt (untested)"
+  "notes": "Verified 2026-11-10: scores show in song select and persist across restarts (src/leaderboards.cpp)"
  },
  {
   "id": "R-503",
@@ -712,7 +712,7 @@
   "effort": "L",
   "acceptance": "Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented",
   "depends_on": "R-502",
-  "notes": "Hooks XSessionWriteStats/XUserReadStats/enumerators ByRank+ByXuid/XEnumerate in game code (no SDK fork); untested"
+  "notes": "ReadStats path verified via song select; full leaderboard screens (ByRank/ByXuid enumerators) still to verify"
  },
  {
   "id": "R-504",

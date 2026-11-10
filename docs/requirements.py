@@ -67,8 +67,8 @@ REQS = [
  ("R-414",4,"UI","Graphics settings menu","P0","todo","M","In-app (ImGui) menu for all graphics options; saved to config","R-401",""),
 
  ("R-501",5,"Achievements","Local achievements from SPA","P1","todo","M","12 achievements (200G) tracked and toasted; persisted","R-107","ReXGlue has an achievements XEX-to-TOML extractor"),
- ("R-502",5,"Leaderboards","Local leaderboards","P0","in_progress","M","66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty","R-107","src/leaderboards.cpp: local score table for all 250 views, saved to %LOCALAPPDATA%/boomboomrocket/leaderboards.txt (untested)"),
- ("R-503",5,"Leaderboards","Implement XUserReadStats / XSessionWriteStats / stats enumerator","P0","in_progress","L","Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented","R-502","Hooks XSessionWriteStats/XUserReadStats/enumerators ByRank+ByXuid/XEnumerate in game code (no SDK fork); untested"),
+ ("R-502",5,"Leaderboards","Local leaderboards","P0","done","M","66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty","R-107","Verified 2026-11-10: scores show in song select and persist across restarts (src/leaderboards.cpp)"),
+ ("R-503",5,"Leaderboards","Implement XUserReadStats / XSessionWriteStats / stats enumerator","P0","in_progress","L","Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented","R-502","ReadStats path verified via song select; full leaderboard screens (ByRank/ByXuid enumerators) still to verify"),
  ("R-504",5,"Online","Online leaderboard service","P1","todo","XL","Self-hosted REST service; scores submitted & fetched; basic validation","R-503",""),
  ("R-505",5,"Online","Score integrity checks","P2","todo","M","Server rejects impossible scores (max per chart from note counts)","R-504",""),
  ("R-506",5,"Online","Player identity / profile","P1","todo","S","Local gamertag; optional online account token","R-504",""),
