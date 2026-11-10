@@ -1,6 +1,12 @@
 # Codegen overrides for default.xex (included from boomboomrocket_manifest.toml).
 # Addresses verified against the decrypted image; see docs/ANALYSIS.md.
 
+# CRT setjmp/longjmp, used by libjpeg/libpng error handling. Without these the
+# recompiled longjmp just returns into the failing code with garbage registers
+# (crash reading 0x1A4 in the JPEG marker reader right after the EA logo).
+setjmp_address  = 0x82167220
+longjmp_address = 0x821675A0
+
 [functions]
 # Small functions missing from .pdata that are only reached by branches from
 # C++ this-adjustor thunks ("addi r3,r3,+-N ; b target"), so analysis can't size them.

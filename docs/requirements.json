@@ -149,11 +149,11 @@
   "category": "Recomp",
   "title": "Locate setjmp/longjmp (if used)",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "Addresses set in TOML or confirmed unused",
   "depends_on": "R-009",
-  "notes": ""
+  "notes": "setjmp 0x82167220, longjmp 0x821675A0 (used by libjpeg error handling)"
  },
  {
   "id": "R-104",

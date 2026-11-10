@@ -20,7 +20,7 @@ REQS = [
 
  ("R-101",1,"Recomp","rexglue init project + codegen config","P0","done","S","boom_boom_rocket_config.toml points at assets/default.xex; codegen target exists","R-006",""),
  ("R-102",1,"Recomp","Clean codegen of all functions","P0","done","L","Codegen with no validation errors (no --force); ~3,002 pdata functions + discovered extras","R-101","Clean after 3 [functions] overrides in config/default.toml; 51 files generated"),
- ("R-103",1,"Recomp","Locate setjmp/longjmp (if used)","P1","todo","S","Addresses set in TOML or confirmed unused","R-009",""),
+ ("R-103",1,"Recomp","Locate setjmp/longjmp (if used)","P1","done","S","Addresses set in TOML or confirmed unused","R-009","setjmp 0x82167220, longjmp 0x821675A0 (used by libjpeg error handling)"),
  ("R-104",1,"Runtime","Boot to title screen (D3D12)","P0","todo","L","Splash, legal screens and main menu render correctly","R-102",""),
  ("R-105",1,"Runtime","VFS mounts: GAME:, game:, DLC%d:","P0","todo","S","All Failed-to-load paths resolve; case-insensitive lookups","R-104","Strings show GAME:\\ and game:\\ mixed case"),
  ("R-106",1,"Runtime","Full-license / trial flag","P0","todo","S","XamContentGetLicenseMask reports full game; IsTrialVersion false","R-104",""),

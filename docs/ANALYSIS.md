@@ -41,6 +41,8 @@ Code statistics: 8,709 VMX/VMX128 instruction words (opcodes 4/5/6), 313 `bctr` 
 | `__restfpr_14` | 0x8216212C |
 | `__savevmx_14` | 0x821648D0 |
 | `__restvmx_14` | 0x82164B68 |
+| `setjmp` | 0x82167220 (confirmed) |
+| `longjmp` | 0x821675A0 (confirmed) |
 
 ### Imports — 166 total (43 xam.xex, 123 xboxkrnl.exe)
 Checked against ReXGlue SDK v0.10.1 (`thirdparty/rexglue-sdk/src/kernel`): **162 implemented**, 4 missing:
