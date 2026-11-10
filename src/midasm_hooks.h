@@ -11,3 +11,6 @@ void BbrUiTransformHook(PPCRegister& f31, PPCRegister& f30, PPCRegister& r9);
 // Same renderer: f0 = vertex-shader vScale.x at 0x820A2DF4 and vOffset.x after 0x820A2E44.
 void BbrUiScaleXHook(PPCRegister& f0);
 void BbrUiOffsetXHook(PPCRegister& f0);
+
+// Same renderer at 0x820A32E4: r26 = UI quad element about to be copied to the vertex buffer.
+void BbrUiQuadHook(PPCRegister& r26);

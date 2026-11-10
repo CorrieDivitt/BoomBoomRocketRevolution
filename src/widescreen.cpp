@@ -11,6 +11,10 @@
 // and offsets it by 106.67 to centre it. BbrUiTransformHook (a mid-function hook, see
 // config/default.toml) recomputes that scale and offset for the real aspect ratio,
 // which cancels the stretch and keeps the 2D layer centred at its native shape.
+//
+// Step 3: quads that covered the whole 16:9 screen (menu dimmers, fades) would now end
+// at the old 16:9 border, so BbrUiQuadHook pushes their side edges out to the real
+// screen edges just before the quad is copied to the vertex buffer.
 
 #include "widescreen.h"
 #include "midasm_hooks.h"
@@ -20,6 +24,7 @@
 #include <rex/logging.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -45,6 +50,7 @@ std::vector<uint32_t> g_patched;  // guest addresses where we replaced a 16:9 as
 float g_written = 0.0f;
 uint32_t g_frame = 0;
 double g_logged = 0.0;
+std::atomic<uint8_t*> g_base{nullptr};  // guest memory base, for the mid-asm hooks
 
 float LoadF(uint8_t* base, uint32_t addr) {
   uint32_t v;
@@ -85,6 +91,7 @@ bool WidescreenRequested() {
 }
 
 void ApplyAspect(uint8_t* base) {
+  g_base.store(base, std::memory_order_relaxed);
   if (!WidescreenRequested()) return;
   std::lock_guard<std::mutex> lock(g_mutex);
   const float target = float(TargetAspect());
@@ -153,4 +160,31 @@ void BbrUiScaleXHook(PPCRegister& f0) {
 void BbrUiOffsetXHook(PPCRegister& f0) {
   if (!bbr::WidescreenRequested() || !Near(f0.f64, -0.75)) return;
   f0.f64 = double(float(-(4.0 / 3.0) / UiAspect()));
+}
+
+// UI quad about to be drawn: r26 = element, which starts with 4 vertices of 0x20 bytes,
+// each beginning with x, y in 640x480 design units (the 16:9 screen is x = -106.67..746.67).
+// A quad that reaches both side edges of the 16:9 screen is a full-screen cover, so move
+// those edges to the real screen edges (320 -/+ 240 * aspect). Setting (not adding) the
+// value keeps this safe to repeat on elements that live for more than one frame.
+void BbrUiQuadHook(PPCRegister& r26) {
+  if (!bbr::WidescreenRequested()) return;
+  uint8_t* base = bbr::g_base.load(std::memory_order_relaxed);
+  if (!base || r26.u32 == 0) return;
+  constexpr float kLeft = -100.0f, kRight = 740.0f;  // just inside the 16:9 edges
+  float x[4];
+  bool left = false, right = false;
+  for (int i = 0; i < 4; ++i) {
+    x[i] = bbr::LoadF(base, r26.u32 + i * 0x20);
+    left |= x[i] <= kLeft;
+    right |= x[i] >= kRight;
+  }
+  if (!left || !right) return;
+  const double aspect = UiAspect();
+  if (aspect <= 16.0 / 9.0 + 0.01) return;
+  const float new_left = float(320.0 - 240.0 * aspect), new_right = float(320.0 + 240.0 * aspect);
+  for (int i = 0; i < 4; ++i) {
+    if (x[i] <= kLeft) bbr::StoreF(base, r26.u32 + i * 0x20, new_left);
+    else if (x[i] >= kRight) bbr::StoreF(base, r26.u32 + i * 0x20, new_right);
+  }
 }
