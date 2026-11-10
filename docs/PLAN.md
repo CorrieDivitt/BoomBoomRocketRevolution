@@ -91,9 +91,10 @@ All options live in one ImGui settings menu saved to the user config (R-414, R-6
 | **M4 High frame rate** | 144/240 fps with identical gameplay, low-latency present | R-301…R-305 |
 | **M5 Visual options** | Resolutions/aspect, AA, settings menu, native shaders, bloom | R-401…R-414 |
 | **M6 Leaderboards** | Local leaderboards + achievements, then online | R-501…R-506 |
+| **M8 Modern rhythm features** | Research report, then speed mods, timing feedback, measure lines, practice tools | R-801…R-805 |
 | **M7 Release** | Input/UX polish, CI, tests, docs, licence, v1.0 tag | R-601…R-606, R-701…R-707 |
 
-M3 and M4 can run in parallel once M2 is reached; M5 Stage A can start as soon as M1 boots.
+M3 and M4 can run in parallel once M2 is reached; M8 (optional extras) can start after M2 and land before or after M7; M5 Stage A can start as soon as M1 boots.
 
 ## 6. Day-to-day workflow
 1. `scripts/bootstrap.ps1` (once): checks tools, links `assets/` → `Game Files/`, builds/installs the SDK, scaffolds the app with `rexglue init`.

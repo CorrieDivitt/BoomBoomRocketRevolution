@@ -162,11 +162,11 @@
   "category": "Runtime",
   "title": "Boot to title screen (D3D12)",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "L",
   "acceptance": "Splash, legal screens and main menu render correctly",
   "depends_on": "R-102",
-  "notes": ""
+  "notes": "Boots past EA logo to menus on D3D12 (Xenos plugin); fixes in config/default.toml"
  },
  {
   "id": "R-105",
@@ -175,11 +175,11 @@
   "category": "Runtime",
   "title": "VFS mounts: GAME:, game:, DLC%d:",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "All Failed-to-load paths resolve; case-insensitive lookups",
   "depends_on": "R-104",
-  "notes": "Strings show GAME:\\ and game:\\ mixed case"
+  "notes": "Game files load via auto-detected game_data_root"
  },
  {
   "id": "R-106",
@@ -188,11 +188,11 @@
   "category": "Runtime",
   "title": "Full-license / trial flag",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "S",
   "acceptance": "XamContentGetLicenseMask reports full game; IsTrialVersion false",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": "Game ran in trial mode; app now sets license_mask=1 (needs verification)"
  },
  {
   "id": "R-107",
@@ -227,11 +227,11 @@
   "category": "Gameplay",
   "title": "All modes playable",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "L",
   "acceptance": "Standard, Endurance, Practice, Freestyle, Visualizer, 2P Battle, 2P Endurance complete without crash",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": "First full song played with no obvious issues (2026-11-10)"
  },
  {
   "id": "R-110",
@@ -266,11 +266,11 @@
   "category": "Audio",
   "title": "XMA1 music & SFX playback",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "All 10 songs and 86 SFX/ambience files decode and play (runtime XMA decoder via FFmpeg)",
   "depends_on": "R-104",
-  "notes": "Files are WAVE_FORMAT_XMA (0x165), 48 kHz"
+  "notes": "Music + SFX play via runtime XMA decoder (SDL audio)"
  },
  {
   "id": "R-202",
@@ -305,11 +305,11 @@
   "category": "Sync",
   "title": "Audio-clock-driven beat timeline",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "L",
   "acceptance": "Song time comes from audio device playback position; drift < 2 ms over a full song",
   "depends_on": "R-202,R-203",
-  "notes": ""
+  "notes": "Stock timing felt near-perfect on USB headset PC; audio-clock rework still planned"
  },
  {
   "id": "R-205",
@@ -401,6 +401,19 @@
   "acceptance": "Visualizer mode plays local mp3/flac/ogg via XMP replacement",
   "depends_on": "R-203",
   "notes": "Original used XMP + console music"
+ },
+ {
+  "id": "R-212",
+  "phase": 2,
+  "phase_name": "Audio & music sync",
+  "category": "Sync",
+  "title": "Timing validation across audio/PC setups",
+  "priority": "P0",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged",
+  "depends_on": "R-204",
+  "notes": "User plans to test multiple devices"
  },
  {
   "id": "R-301",
@@ -907,6 +920,71 @@
   "effort": "M",
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
   "depends_on": "R-110,R-204,R-302,R-401,R-502",
+  "notes": ""
+ },
+ {
+  "id": "R-801",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Research",
+  "title": "Research modern rhythm-game features",
+  "priority": "P1",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "docs/RHYTHM_FEATURES.md: survey (speed mods, timing feedback, measure/beat lines, etc.), feasibility vs .lvl beat data + engine hooks, prioritised list",
+  "depends_on": "R-109",
+  "notes": "Requested 2026-11-10"
+ },
+ {
+  "id": "R-802",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Note speed / scroll-speed modifier",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Adjustable approach speed independent of song tempo; judging unchanged",
+  "depends_on": "R-801",
+  "notes": ""
+ },
+ {
+  "id": "R-803",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Timing feedback (early/late, ms offset)",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Per-hit early/late indicator and end-of-song timing histogram / mean offset",
+  "depends_on": "R-801,R-306",
+  "notes": ""
+ },
+ {
+  "id": "R-804",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Measure and beat lines",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Optional beat/measure guide lines derived from SongBPM/SongOffset",
+  "depends_on": "R-801",
+  "notes": ""
+ },
+ {
+  "id": "R-805",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Practice tools (section loop, slow-down)",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "L",
+  "acceptance": "Loop a section and play at 50-100% speed with pitch-corrected audio",
+  "depends_on": "R-801,R-203",
   "notes": ""
  }
 ]

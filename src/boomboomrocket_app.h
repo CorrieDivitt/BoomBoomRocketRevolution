@@ -5,6 +5,7 @@
 #pragma once
 
 #include <rex/rex_app.h>
+#include <rex/cvar.h>
 #include <rex/filesystem.h>
 
 #include <filesystem>
@@ -26,6 +27,11 @@ class BoomBoomRocketApp : public rex::ReXApp {
   // the game crashes during D3D setup.
   void OnPreSetup(rex::RuntimeConfig& config) override {
     if (config.gpu_plugin.empty()) config.gpu_plugin = "xenos";
+    // Full game, not the XBLA trial: the game checks bit 0 of XamContentGetLicenseMask.
+    // Only applied when license_mask is still at its default 0, so --license_mask=0
+    // on the command line can't be told apart - use --license_mask=2 to test trial mode.
+    if (rex::cvar::GetFlagByName("license_mask") == "0")
+      rex::cvar::SetFlagByName("license_mask", "1");
   }
   // void OnLoadXexImage(std::string& xex_image) override {}
   // void OnPostLoadXexImage() override {}

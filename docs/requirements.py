@@ -5,7 +5,7 @@ import csv, json, os
 PHASES = {
  0: "Foundation & analysis", 1: "Recompile & boot", 2: "Audio & music sync",
  3: "Frame rate & timing", 4: "Graphics & resolution", 5: "Leaderboards & achievements",
- 6: "Input, UX & settings", 7: "QA, CI & release"}
+ 6: "Input, UX & settings", 7: "QA, CI & release", 8: "Modern rhythm features"}
 # id, phase, category, title, priority, status, effort, acceptance, depends_on, notes
 REQS = [
  ("R-001",0,"Analysis","Verify game dump (default.xex + content)","P0","done","S","default.xex parses; TitleID 5841086A; all 10 tracks present","", "XEX2, XDK 2.0.5426, image base 0x82000000, entry 0x820E83D8"),
@@ -21,19 +21,19 @@ REQS = [
  ("R-101",1,"Recomp","rexglue init project + codegen config","P0","done","S","boom_boom_rocket_config.toml points at assets/default.xex; codegen target exists","R-006",""),
  ("R-102",1,"Recomp","Clean codegen of all functions","P0","done","L","Codegen with no validation errors (no --force); ~3,002 pdata functions + discovered extras","R-101","Clean after 3 [functions] overrides in config/default.toml; 51 files generated"),
  ("R-103",1,"Recomp","Locate setjmp/longjmp (if used)","P1","done","S","Addresses set in TOML or confirmed unused","R-009","setjmp 0x82167220, longjmp 0x821675A0 (used by libjpeg error handling)"),
- ("R-104",1,"Runtime","Boot to title screen (D3D12)","P0","todo","L","Splash, legal screens and main menu render correctly","R-102",""),
- ("R-105",1,"Runtime","VFS mounts: GAME:, game:, DLC%d:","P0","todo","S","All Failed-to-load paths resolve; case-insensitive lookups","R-104","Strings show GAME:\\ and game:\\ mixed case"),
- ("R-106",1,"Runtime","Full-license / trial flag","P0","todo","S","XamContentGetLicenseMask reports full game; IsTrialVersion false","R-104",""),
+ ("R-104",1,"Runtime","Boot to title screen (D3D12)","P0","done","L","Splash, legal screens and main menu render correctly","R-102","Boots past EA logo to menus on D3D12 (Xenos plugin); fixes in config/default.toml"),
+ ("R-105",1,"Runtime","VFS mounts: GAME:, game:, DLC%d:","P0","done","S","All Failed-to-load paths resolve; case-insensitive lookups","R-104","Game files load via auto-detected game_data_root"),
+ ("R-106",1,"Runtime","Full-license / trial flag","P0","in_progress","S","XamContentGetLicenseMask reports full game; IsTrialVersion false","R-104","Game ran in trial mode; app now sets license_mask=1 (needs verification)"),
  ("R-107",1,"Runtime","Save data & profile settings persistence","P0","todo","M","Unlocks/scores survive restart (XamContentCreateEx, XamUser*ProfileSettings)","R-104",""),
  ("R-108",1,"Runtime","Stub missing XAM UI calls","P1","todo","S","XamShowAchievementsUI / MarketplaceUI / GamerCardUIForXUID return gracefully (or open native overlay)","R-104","Not implemented in ReXGlue v0.10.1"),
- ("R-109",1,"Gameplay","All modes playable","P0","todo","L","Standard, Endurance, Practice, Freestyle, Visualizer, 2P Battle, 2P Endurance complete without crash","R-104",""),
+ ("R-109",1,"Gameplay","All modes playable","P0","in_progress","L","Standard, Endurance, Practice, Freestyle, Visualizer, 2P Battle, 2P Endurance complete without crash","R-104","First full song played with no obvious issues (2026-11-10)"),
  ("R-110",1,"Gameplay","All 10 tracks x 3 difficulties complete","P0","todo","M","30 charts finish with correct results screen and grade","R-109",""),
  ("R-111",1,"Content","DLC track pack support","P2","todo","M","Owned DLC package mounted at DLC%d:\\ and extra tracks listed","R-105","Update brought total to 15 tracks"),
 
- ("R-201",2,"Audio","XMA1 music & SFX playback","P0","todo","M","All 10 songs and 86 SFX/ambience files decode and play (runtime XMA decoder via FFmpeg)","R-104","Files are WAVE_FORMAT_XMA (0x165), 48 kHz"),
+ ("R-201",2,"Audio","XMA1 music & SFX playback","P0","done","M","All 10 songs and 86 SFX/ambience files decode and play (runtime XMA decoder via FFmpeg)","R-104","Music + SFX play via runtime XMA decoder (SDL audio)"),
  ("R-202",2,"Sync","Identify the game's song clock","P0","todo","M","Documented function(s) that compute current song time/beat and their time source","R-009","Clues: SongBPM/SongOffset strings, 11 mftb sites, KeQueryPerformanceFrequency"),
  ("R-203",2,"Audio","Native low-latency music path","P0","todo","L","Songs pre-decoded to PCM and played via WASAPI (SDL3); reported output latency < 20 ms","R-201",""),
- ("R-204",2,"Sync","Audio-clock-driven beat timeline","P0","todo","L","Song time comes from audio device playback position; drift < 2 ms over a full song","R-202,R-203",""),
+ ("R-204",2,"Sync","Audio-clock-driven beat timeline","P0","in_progress","L","Song time comes from audio device playback position; drift < 2 ms over a full song","R-202,R-203","Stock timing felt near-perfect on USB headset PC; audio-clock rework still planned"),
  ("R-205",2,"Sync","Global audio offset setting (ms)","P0","todo","S","-200..+200 ms offset applied to judging and visuals","R-204",""),
  ("R-206",2,"Sync","Input latency offset setting (ms)","P0","todo","S","Separate input offset shifts judgement windows only","R-204",""),
  ("R-207",2,"Sync","Calibration screen (tap to the beat)","P1","todo","M","Guided tap test suggests audio + input offsets","R-205,R-206",""),
@@ -41,6 +41,8 @@ REQS = [
  ("R-209",2,"Sync","Sync debug overlay","P1","todo","S","Overlay shows audio time, game beat, delta, frame time","R-204",""),
  ("R-210",2,"Audio","Audio device & buffer options","P1","todo","S","Choose device, buffer size, exclusive/shared mode, volume sliders","R-203",""),
  ("R-211",2,"Feature","Visualizer with user music files","P2","todo","L","Visualizer mode plays local mp3/flac/ogg via XMP replacement","R-203","Original used XMP + console music"),
+
+ ("R-212",2,"Sync","Timing validation across audio/PC setups","P0","todo","M","Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged","R-204","User plans to test multiple devices"),
 
  ("R-301",3,"Timing","Determine game loop timing model","P0","todo","M","Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed","R-009","Strings report timings in frames"),
  ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","todo","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301",""),
@@ -85,6 +87,11 @@ REQS = [
  ("R-705",7,"Docs","Build & user guides","P1","todo","S","README build steps verified on a clean machine","R-006",""),
  ("R-706",7,"Release","Licensing decision for project code","P0","todo","S","LICENSE file chosen and compatible with ReXGlue (BSD-3) and FFmpeg terms","", "Open decision"),
  ("R-707",7,"Release","Public release v1.0","P0","todo","M","Tagged GitHub release with build artifacts (no game data)","R-110,R-204,R-302,R-401,R-502",""),
+ ("R-801",8,"Research","Research modern rhythm-game features","P1","todo","M","docs/RHYTHM_FEATURES.md: survey (speed mods, timing feedback, measure/beat lines, etc.), feasibility vs .lvl beat data + engine hooks, prioritised list","R-109","Requested 2026-11-10"),
+ ("R-802",8,"Feature","Note speed / scroll-speed modifier","P2","todo","M","Adjustable approach speed independent of song tempo; judging unchanged","R-801",""),
+ ("R-803",8,"Feature","Timing feedback (early/late, ms offset)","P2","todo","M","Per-hit early/late indicator and end-of-song timing histogram / mean offset","R-801,R-306",""),
+ ("R-804",8,"Feature","Measure and beat lines","P2","todo","M","Optional beat/measure guide lines derived from SongBPM/SongOffset","R-801",""),
+ ("R-805",8,"Feature","Practice tools (section loop, slow-down)","P2","todo","L","Loop a section and play at 50-100% speed with pitch-corrected audio","R-801,R-203",""),
 ]
 FIELDS=["id","phase","phase_name","category","title","priority","status","effort","acceptance","depends_on","notes"]
 rows=[dict(zip(FIELDS,[r[0],r[1],PHASES[r[1]]]+list(r[2:]))) for r in REQS]
