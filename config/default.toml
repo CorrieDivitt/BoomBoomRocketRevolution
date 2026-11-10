@@ -7,3 +7,25 @@
 0x8213E798 = { size = 0x14 }  # addi r11,r3,4 / lwz / addi / stw / blr  (refcount increment)
 0x8213F0D0 = { size = 0x28 }  # stores three vtable pointers into r3 then blr
 0x8214A788 = { size = 0x08 }  # thunk: addi r3,r3,4 ; b 0x8213F718
+
+# Functions only reached through function pointers (not via direct calls), so
+# analysis never emitted them. Found by scanning lis/addi address pairs and data
+# words that point into .text, then checking each for a real function start.
+0x8216A430 = { size = 0x04 }  # b KeTlsAlloc (CRT TLS init, called via pointer) - first boot crash
+0x821955D8 = { size = 0x0C }  # static initializer: lis/addi r3 ; b 0x820C4F18
+0x82120AC0 = { size = 0x18 }  # small setter, ends in blr
+0x8214CFD8 = { end = 0x8214D020 }  # three adjacent vtable methods, each ends in mtctr/bctr
+0x8214D020 = { end = 0x8214D068 }
+0x8214D068 = { end = 0x8214D0D8 }
+# C++ this-adjustor thunks (addi r3,r3,-N ; b method) referenced from vtables
+0x8213DE80 = { size = 0x08 }
+0x821488A0 = { size = 0x08 }
+0x821488A8 = { size = 0x08 }
+0x821498D0 = { size = 0x08 }
+0x8214AB28 = { size = 0x08 }
+0x8214AB30 = { size = 0x08 }
+0x8214AB40 = { size = 0x08 }
+0x8214AB48 = { size = 0x08 }
+0x8214AB58 = { size = 0x08 }
+0x8214AB78 = { size = 0x08 }
+0x8214AB88 = { size = 0x08 }
