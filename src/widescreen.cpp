@@ -126,12 +126,25 @@ void ApplyAspect(uint8_t* base) {
     if (current == kOriginalAspect || current == g_written) StoreF(base, addr, target);
   }
   g_written = target;
+
+  // Point sprites (arrows, firework particles) are sized in pixels of the 1280x720
+  // image, which we present stretched: narrow them by the same factor. Needs the SDK
+  // patch in patches/rexglue-sdk (scripts/patch-sdk.ps1). The GPU plugin registers the
+  // setting when it loads, which can be after the first frames, so retry until it sticks.
+  static float sprite_scale_set = 0.0f;
+  static uint32_t sprite_attempts = 0;
+  const float sprite_scale = kOriginalAspect / target;
+  if (sprite_scale != sprite_scale_set && (sprite_attempts++ % 30 == 0)) {
+    if (rex::cvar::SetFlagByName("point_sprite_scale_x", std::to_string(sprite_scale))) {
+      sprite_scale_set = sprite_scale;
+      sprite_attempts = 0;
+      REXLOG_INFO("[widescreen] point sprite width scale set to {:.3f}", sprite_scale);
+    } else if (sprite_attempts == 1) {
+      REXLOG_WARN("[widescreen] point_sprite_scale_x not accepted yet (SDK patch missing or GPU not ready); retrying");
+    }
+  }
   if (std::fabs(target - g_logged) > 0.001) {
     g_logged = target;
-    // Point sprites (arrows, firework particles) are sized in pixels of the 1280x720
-    // image, which we present stretched: narrow them by the same factor. Needs the SDK
-    // patch in patches/rexglue-sdk (scripts/patch-sdk.ps1); without it nothing happens.
-    rex::cvar::SetFlagByName("point_sprite_scale_x", std::to_string(kOriginalAspect / target));
     REXLOG_INFO("[widescreen] 3D aspect ratio set to {:.3f} ({} locations)", target, g_patched.size());
   }
 }
