@@ -416,6 +416,19 @@
   "notes": "User plans to test multiple devices"
  },
  {
+  "id": "R-213",
+  "phase": 2,
+  "phase_name": "Audio & music sync",
+  "category": "Sync",
+  "title": "Smooth arrow motion (interpolated song clock)",
+  "priority": "P0",
+  "status": "in_progress",
+  "effort": "M",
+  "acceptance": "Arrow scrolling is visibly smooth at 60/120/144 fps; hit timing unchanged; A/B via --smooth_song_clock",
+  "depends_on": "R-202",
+  "notes": "src/song_clock.cpp: audio position advances in chunks, causing judder at any frame rate (reported 2026-11-10); untested"
+ },
+ {
   "id": "R-301",
   "phase": 3,
   "phase_name": "Frame rate & timing",

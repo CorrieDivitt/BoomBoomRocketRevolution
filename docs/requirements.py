@@ -44,6 +44,8 @@ REQS = [
 
  ("R-212",2,"Sync","Timing validation across audio/PC setups","P0","todo","M","Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged","R-204","User plans to test multiple devices"),
 
+ ("R-213",2,"Sync","Smooth arrow motion (interpolated song clock)","P0","in_progress","M","Arrow scrolling is visibly smooth at 60/120/144 fps; hit timing unchanged; A/B via --smooth_song_clock","R-202","src/song_clock.cpp: audio position advances in chunks, causing judder at any frame rate (reported 2026-11-10); untested"),
+
  ("R-301",3,"Timing","Determine game loop timing model","P0","done","M","Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed","R-009","Variable dt (audio-driven in songs, mftb in menus); only frame-locked item found: fade step 1/60 per frame"),
  ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","in_progress","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301","120 and 144 fps tested OK (2026-11-10); fade timer now uses real frame time (src/frame_stats.cpp); needs 240/uncapped + replay check"),
  ("R-303",3,"Timing","Fixed-step sim with render interpolation","P1","todo","L","Simulation at 60 Hz, camera/particles interpolated per frame","R-301","Fallback if delta-time patching is impractical"),

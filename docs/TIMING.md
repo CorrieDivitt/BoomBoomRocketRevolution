@@ -50,3 +50,12 @@ Reverse-engineered from the retail `default.xex` on 2026-11-10. Addresses are gu
   time there before each call. Tested OK at 120 and 144 fps. Particle/camera code still needs a visual check.
 - **R-805 (practice slow-down):** the executable embeds the **SoundTouch** time-stretch library
   (string "SoundTouch : Sample rate not defined"), which may already support tempo changes.
+
+## Judder and the smoothed song clock (R-213)
+The XAudio voice position only advances when an audio buffer is processed, so the song time read once
+per video frame moves in uneven steps and arrows judder at any frame rate. `0x82080A40` (frame delta)
+reads player `+0xC4`; `0x82080B00` (song time) reads player `+0xCC`. `src/song_clock.cpp` hooks the
+refresh `0x82080928` and replaces both counters with an estimate that advances with the host clock and
+is steered toward the real audio position (0.5 s time constant, snaps on seek/loop, holds when audio
+stalls or pauses). The raw values are restored before the game's next refresh.
+`--smooth_song_clock=false` disables it; the log prints `[songclock]` step statistics every 10 s.
