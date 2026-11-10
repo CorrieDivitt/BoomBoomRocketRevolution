@@ -67,8 +67,8 @@ REQS = [
  ("R-414",4,"UI","Graphics settings menu","P0","todo","M","In-app (ImGui) menu for all graphics options; saved to config","R-401",""),
 
  ("R-501",5,"Achievements","Local achievements from SPA","P1","todo","M","12 achievements (200G) tracked and toasted; persisted","R-107","ReXGlue has an achievements XEX-to-TOML extractor"),
- ("R-502",5,"Leaderboards","Local leaderboards","P0","todo","M","66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty","R-107",""),
- ("R-503",5,"Leaderboards","Implement XUserReadStats / XSessionWriteStats / stats enumerator","P0","todo","L","Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented","R-502","Enumerator missing in ReXGlue v0.10.1"),
+ ("R-502",5,"Leaderboards","Local leaderboards","P0","in_progress","M","66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty","R-107","src/leaderboards.cpp: local score table for all 250 views, saved to %LOCALAPPDATA%/boomboomrocket/leaderboards.txt (untested)"),
+ ("R-503",5,"Leaderboards","Implement XUserReadStats / XSessionWriteStats / stats enumerator","P0","in_progress","L","Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented","R-502","Hooks XSessionWriteStats/XUserReadStats/enumerators ByRank+ByXuid/XEnumerate in game code (no SDK fork); untested"),
  ("R-504",5,"Online","Online leaderboard service","P1","todo","XL","Self-hosted REST service; scores submitted & fetched; basic validation","R-503",""),
  ("R-505",5,"Online","Score integrity checks","P2","todo","M","Server rejects impossible scores (max per chart from note counts)","R-504",""),
  ("R-506",5,"Online","Player identity / profile","P1","todo","S","Local gamertag; optional online account token","R-504",""),
@@ -87,6 +87,7 @@ REQS = [
  ("R-705",7,"Docs","Build & user guides","P1","todo","S","README build steps verified on a clean machine","R-006",""),
  ("R-706",7,"Release","Licensing decision for project code","P0","todo","S","LICENSE file chosen and compatible with ReXGlue (BSD-3) and FFmpeg terms","", "Open decision"),
  ("R-707",7,"Release","Public release v1.0","P0","todo","M","Tagged GitHub release with build artifacts (no game data)","R-110,R-111,R-204,R-302,R-401,R-502",""),
+ ("R-806",8,"Feature","Average timing on the results screen","P2","todo","M","Results screen shows mean hit offset (ms, early/late) and spread for the song just played; optional per-difficulty history","R-801,R-803","Requested 2026-11-10"),
  ("R-901",9,"Accessibility","Reduce background/camera motion option","P2","todo","M","Setting (Off/Reduced/Static) that damps or freezes the city camera movement from the *_SplCamera splines without affecting gameplay or note timing","R-104","Stretch goal: background movement can be disorienting (user feedback 2026-11-10)"),
  ("R-902",9,"Research","Accessibility review","P2","todo","S","docs/ACCESSIBILITY.md: motion, flashing/brightness of fireworks, colour-blind-safe note colours, UI/text scaling, one-handed/remappable controls; prioritised list","R-104","Stretch goal"),
  ("R-801",8,"Research","Research modern rhythm-game features","P1","todo","M","docs/RHYTHM_FEATURES.md: survey (speed mods, timing feedback, measure/beat lines, etc.), feasibility vs .lvl beat data + engine hooks, prioritised list","R-109","Requested 2026-11-10"),

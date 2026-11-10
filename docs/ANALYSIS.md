@@ -100,6 +100,11 @@ Regenerate the full list with `python tools/xex/analyze.py "Game Files/default.x
 - Leaderboards: 66 scoreboard IDs in `contents.txt` — 60 per-track boards (10 tracks × {Quick, Endurance} × {Easy, Medium, Hard}, IDs 4–63) plus 6 combined boards (IDs 1–3 Standard, 64–66 Endurance). Fields include BPM, Laps, Time Lasted, Accuracy, Hit ratio, Grade.
 - Rich presence strings for Standard / Endurance / Practice / Freestyle / Visualizer / 2P Battle / 2P Endurance.
 
+### Leaderboard schema (from the XLAST embedded in the `XSRC` section)
+- 250 stats views (`LB_001`…), all `viewType="Leaderboard"`, ranked by **LB_SCORE** (`0x20000001`, int64), arcade sort **Descending**.
+- Column attribute id → property: 65535 Rank (`0x10008001`), 65533 Gamer name (`0x40008002`), 65534 Score/rating (`0x20000001`), 1 Avg accuracy (`0x30000006`, double), 3 Hit ratio (`0x30000007`, double), 2 Grade (`0x10000008`, int32), 5 Lap (`0x10000004`, int32), 6 Time lasted (`0x30000005`, double), 4 BPM (`0x30000003`, double). Some views only have Rank/Name/Score.
+- Game wrappers (hooked by `src/leaderboards.cpp`): `XSessionWriteStats` 0x8215FA28, `XUserReadStats` 0x820E76E0, `XUserCreateStatsEnumeratorByRank` 0x820E77C8, `...ByXuid` 0x820E7828, `XEnumerate` 0x820E7368. The game's leaderboard manager lives around 0x820C1C40–0x820C5700.
+
 ## 4. Other observations
 - UI is Bizarre's **BZUI** system driven by Lua 5.1 scripts (`UISetup.lua`, `UIEnums.lua` inside `UIScript`) — a natural place to re-anchor UI for wide aspect ratios.
 - Debug strings report load times in *frames* ("InitLevel() took %f secs. %.1f frames"), suggesting a 60 Hz frame-locked loop — to be confirmed (R-301).

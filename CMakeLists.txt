@@ -14,6 +14,7 @@ include(generated/rexglue.cmake)
 set(BOOMBOOMROCKET_SOURCES
     src/main.cpp
     src/frame_stats.cpp
+    src/leaderboards.cpp
 )
 
 if(WIN32)

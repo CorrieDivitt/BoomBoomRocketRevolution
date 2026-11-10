@@ -695,11 +695,11 @@
   "category": "Leaderboards",
   "title": "Local leaderboards",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty",
   "depends_on": "R-107",
-  "notes": ""
+  "notes": "src/leaderboards.cpp: local score table for all 250 views, saved to %LOCALAPPDATA%/boomboomrocket/leaderboards.txt (untested)"
  },
  {
   "id": "R-503",
@@ -708,11 +708,11 @@
   "category": "Leaderboards",
   "title": "Implement XUserReadStats / XSessionWriteStats / stats enumerator",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "L",
   "acceptance": "Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented",
   "depends_on": "R-502",
-  "notes": "Enumerator missing in ReXGlue v0.10.1"
+  "notes": "Hooks XSessionWriteStats/XUserReadStats/enumerators ByRank+ByXuid/XEnumerate in game code (no SDK fork); untested"
  },
  {
   "id": "R-504",
@@ -921,6 +921,19 @@
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
   "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502",
   "notes": ""
+ },
+ {
+  "id": "R-806",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Average timing on the results screen",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Results screen shows mean hit offset (ms, early/late) and spread for the song just played; optional per-difficulty history",
+  "depends_on": "R-801,R-803",
+  "notes": "Requested 2026-11-10"
  },
  {
   "id": "R-901",
