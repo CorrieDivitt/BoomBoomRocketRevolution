@@ -14,14 +14,19 @@ Step "Checking tools"
 Need git    "Install Git for Windows."
 Need python "Install Python 3 (used by tools/ and docs/requirements.py)."
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-if (-not (Test-Path $vswhere)) { throw "Visual Studio 2022 not found. Install it with 'Desktop development with C++' + 'C++ Clang Compiler for Windows' + 'MSBuild support for LLVM (clang-cl)'." }
-$vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Llvm.Clang -property installationPath
-if (-not $vs) { throw "Visual Studio found but the Clang (clang-cl) component is missing. Add 'C++ Clang Compiler for Windows' in the VS Installer." }
+if (-not (Test-Path $vswhere)) { throw "Visual Studio 2022 not found. Install it with the 'Desktop development with C++' workload." }
+$vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if (-not $vs) { throw "Visual Studio found but the C++ build tools are missing. Add the 'Desktop development with C++' workload in the VS Installer." }
 Import-Module (Join-Path $vs "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
 Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" | Out-Null
+# ReXGlue needs Clang 20+. VS 2022 bundles an older Clang, so put standalone LLVM first on PATH.
+$llvm = Join-Path $env:ProgramFiles "LLVM\bin"
+if (Test-Path $llvm) { $env:PATH = "$llvm;$env:PATH" }
 Need cmake "CMake 3.25+ (VS ships one, or install from cmake.org)."
 Need ninja "Ninja (VS ships one, or 'winget install Ninja-build.Ninja')."
-Need clang "clang 20+ from the VS Clang component (or LLVM for Windows on PATH)."
+Need clang "Install LLVM 20+ (winget install --id LLVM.LLVM -e)."
+$clangMajor = [int](((clang --version | Select-Object -First 1) -replace '.*version (\d+).*', '$1'))
+if ($clangMajor -lt 20) { throw "clang $clangMajor found first on PATH; ReXGlue needs 20+. Install LLVM (winget install --id LLVM.LLVM -e)." }
 $cv = [version]((cmake --version | Select-Object -First 1) -replace '[^0-9.]', '')
 if ($cv -lt [version]"3.25") { throw "CMake $cv is too old; need 3.25+." }
 Write-Host "  VS: $vs"; Write-Host "  CMake $cv"; clang --version | Select-Object -First 1

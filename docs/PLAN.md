@@ -28,7 +28,7 @@ Repository: `github.com/CorrieDivitt/BoomBoomRocketRevolution` · Requirements: 
 **Pinning:** ReXGlue warns of breaking API changes, so the submodule is pinned to a release tag and upgraded deliberately (`rexglue migrate`) on a branch.
 
 ### Windows prerequisites
-Visual Studio 2022 with *Desktop development with C++*, **C++ Clang compiler for Windows (20.x+)** and *MSBuild support for LLVM (clang-cl)*; CMake 3.25+; Ninja; Git; Python 3. A CPU with AVX.
+Visual Studio 2022 with *Desktop development with C++* (provides the MSVC libraries, Windows SDK, CMake and Ninja); **standalone LLVM/Clang 20+** (VS 2022 17.14 bundles Clang 19.1.5, too old for ReXGlue); Git; Python 3. A CPU with AVX.
 
 ## 3. Architecture
 

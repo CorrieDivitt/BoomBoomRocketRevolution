@@ -14,7 +14,7 @@ An unofficial native Windows port of the Xbox 360 Xbox Live Arcade game **Boom B
 This repository contains **no game files**. You must dump your own legally owned copy of Boom Boom Rocket from an Xbox 360 and place its extracted contents (including `default.xex`) in `Game Files/`. That folder is git-ignored.
 
 ## Building (Windows)
-Prerequisites: Visual Studio 2022 (Desktop C++, *C++ Clang Compiler for Windows* 20+, *MSBuild support for LLVM*), CMake 3.25+, Ninja, Git, Python 3.
+Prerequisites: Visual Studio 2022 (*Desktop development with C++*, which includes CMake and Ninja), LLVM/Clang 20+ installed separately (VS 2022 bundles Clang 19), Git, Python 3.
 ```powershell
 git clone --recursive https://github.com/CorrieDivitt/BoomBoomRocketRevolution
 cd BoomBoomRocketRevolution
