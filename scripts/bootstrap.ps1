@@ -34,11 +34,16 @@ if ($cv -lt [version]"3.25") { throw "CMake $cv is too old; need 3.25+." }
 Write-Host "  VS: $vs"; Write-Host "  CMake $cv"; clang --version | Select-Object -First 1
 
 Step "Fetching submodules (ReXGlue SDK and its dependencies)"
-# SDK itself with history + tags (its CMake derives the version from git tags);
-# its dependencies shallow, because some (FFmpeg) are very large.
+# The SDK's CMake derives its version from a reachable v* git tag. Fetch more
+# history only if that tag isn't reachable yet; dependencies stay shallow (FFmpeg is huge).
 Run "Fetching the ReXGlue SDK" { git submodule update --init thirdparty/rexglue-sdk }
-if ((git -C thirdparty/rexglue-sdk rev-parse --is-shallow-repository) -eq "true") {
-  Run "Fetching SDK history and tags" { git -C thirdparty/rexglue-sdk fetch --quiet --unshallow --tags }
+$ErrorActionPreference = "Continue"   # Windows PowerShell 5.1 turns redirected git stderr into errors
+git -C thirdparty/rexglue-sdk describe --tags --match "v*" 2>$null | Out-Null
+$haveTag = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = "Stop"
+if (-not $haveTag) {
+  git -C thirdparty/rexglue-sdk fetch --quiet --tags --depth 200 origin
+  if ($LASTEXITCODE -ne 0) { Write-Warning "Couldn't fetch SDK tags; the SDK will build with a 0.0-dev version number." }
 }
 Run "Fetching SDK dependencies" { git -C thirdparty/rexglue-sdk submodule update --init --recursive --depth 1 }
 
