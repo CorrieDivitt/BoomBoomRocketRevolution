@@ -129,20 +129,25 @@ void ApplyAspect(uint8_t* base) {
 
   // Point sprites (arrows, firework particles) are sized in pixels of the 1280x720
   // image, which we present stretched: narrow them by the same factor. Needs the SDK
-  // patch in patches/rexglue-sdk (scripts/patch-sdk.ps1). The GPU plugin registers the
-  // setting when it loads, which can be after the first frames, so retry until it sticks.
-  static float sprite_scale_set = 0.0f;
-  static uint32_t sprite_attempts = 0;
-  const float sprite_scale = kOriginalAspect / target;
-  if (sprite_scale != sprite_scale_set && (sprite_attempts++ % 30 == 0)) {
-    if (rex::cvar::SetFlagByName("point_sprite_scale_x", std::to_string(sprite_scale))) {
-      sprite_scale_set = sprite_scale;
-      sprite_attempts = 0;
-      REXLOG_INFO("[widescreen] point sprite width scale set to {:.3f}", sprite_scale);
-    } else if (sprite_attempts == 1) {
-      REXLOG_WARN("[widescreen] point_sprite_scale_x not accepted yet (SDK patch missing or GPU not ready); retrying");
+  // patch in patches/rexglue-sdk (scripts/patch-sdk.ps1). The setting lives in the GPU
+  // plugin and can be re-created with its default after we set it, so read it back
+  // every half second and set it again whenever it differs.
+  static uint32_t sprite_frame = 0;
+  static int sprite_logs = 0;
+  if (sprite_frame++ % 30 == 0) {
+    const double sprite_scale = double(kOriginalAspect) / target;
+    const std::string current = rex::cvar::GetFlagByName("point_sprite_scale_x");
+    if (current.empty()) {
+      if (sprite_logs++ < 3) REXLOG_WARN("[widescreen] point_sprite_scale_x not available (SDK patch missing or GPU not ready)");
+    } else if (std::fabs(std::atof(current.c_str()) - sprite_scale) > 1e-4) {
+      const bool ok = rex::cvar::SetFlagByName("point_sprite_scale_x", std::to_string(sprite_scale));
+      if (sprite_logs++ < 20) {
+        REXLOG_INFO("[widescreen] point sprite width scale {} -> {:.4f} ({}), reads back {}", current, sprite_scale,
+                    ok ? "ok" : "REJECTED", rex::cvar::GetFlagByName("point_sprite_scale_x"));
+      }
     }
   }
+
   if (std::fabs(target - g_logged) > 0.001) {
     g_logged = target;
     REXLOG_INFO("[widescreen] 3D aspect ratio set to {:.3f} ({} locations)", target, g_patched.size());
