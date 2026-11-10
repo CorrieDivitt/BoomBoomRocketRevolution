@@ -1,12 +1,12 @@
 <#
   Configure + build the Boom Boom Rocket recomp (codegen runs automatically as part of the build).
-  Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Config debug|release|relwithdebinfo] [-Target <name>]
+  Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Config relwithdebinfo|release|debug]  (debug needs a Debug SDK build) [-Target <name>]
   Examples:
-    scripts\build.ps1                                  # full debug build
+    scripts\build.ps1                                  # RelWithDebInfo build (default; matches the Release SDK runtime)
     scripts\build.ps1 -Target boomboomrocket_codegen # codegen only
     scripts\build.ps1 -Config release
 #>
-param([ValidateSet("debug", "release", "relwithdebinfo")][string]$Config = "debug", [string]$Target = "")
+param([ValidateSet("debug", "release", "relwithdebinfo")][string]$Config = "relwithdebinfo", [string]$Target = "")
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
