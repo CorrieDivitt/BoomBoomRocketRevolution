@@ -181,6 +181,8 @@ void BbrUiOffsetXHook(PPCRegister& f0) {
 // sub_820A1A98 resets the count and has every visible widget append its quads
 // (sub_8208B648 walks a widget list and calls each widget's render function).
 namespace {
+using bbr::LoadF;
+using bbr::StoreF;
 constexpr uint32_t kUiRenderer = 0x822E7188;
 constexpr uint32_t kElemSize = 0x98;
 constexpr float kLeft16x9 = -100.0f, kRight16x9 = 740.0f;  // just inside the 16:9 edges
