@@ -104,3 +104,6 @@ Regenerate the full list with `python tools/xex/analyze.py "Game Files/default.x
 - UI is Bizarre's **BZUI** system driven by Lua 5.1 scripts (`UISetup.lua`, `UIEnums.lua` inside `UIScript`) — a natural place to re-anchor UI for wide aspect ratios.
 - Debug strings report load times in *frames* ("InitLevel() took %f secs. %.1f frames"), suggesting a 60 Hz frame-locked loop — to be confirmed (R-301).
 - Path strings mix `GAME:\` and `game:\`; also `DLC%d:\` for track packs.
+- **Dump gotcha:** `Ride_Of_The_Valkyries_SplCamera_Out.spl` and `..._SplTarget_Out.spl` are 39 characters; some
+  extraction tools truncate names to 38 (`*.sp`), which makes that song fail with a dirty-disc error.
+  `scripts/bootstrap.ps1` now restores the `.spl` copies.

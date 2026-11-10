@@ -51,6 +51,12 @@ Step "Linking assets\ -> '$GameDir'"
 if (-not (Test-Path (Join-Path $GameDir "default.xex"))) { throw "'$GameDir\default.xex' not found. Copy your own dumped game files there first." }
 if (-not (Test-Path "assets")) { cmd /c mklink /J assets "$GameDir" | Out-Null }
 Write-Host "  assets\default.xex OK"
+# Some extraction tools cut file names at 38 characters. Ride of the Valkyries has two
+# 39-character spline files (*_Out.spl) that end up as *_Out.sp, and the game can't find them.
+Get-ChildItem (Join-Path $GameDir "Content") -File | Where-Object { $_.Extension -eq ".sp" } | ForEach-Object {
+  $fixed = $_.FullName + "l"
+  if (-not (Test-Path $fixed)) { Copy-Item $_.FullName $fixed; Write-Host "  repaired truncated name: $($_.Name) -> $($_.Name)l" }
+}
 
 $Sdk = Join-Path $Root "thirdparty\rexglue-sdk"
 $Prefix = Join-Path $Sdk "out\install\win-amd64"
