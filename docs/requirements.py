@@ -31,10 +31,10 @@ REQS = [
  ("R-111",1,"Content","DLC support (owned track packs)","P0","todo","L","Users who own the Boom Boom Rocket DLC can point the app at their own extracted DLC package: it mounts at DLC%d:\\, the extra tracks appear and unlock, licences report as owned; no DLC content shipped","R-105","Required before release. Needs DLC package format (STFS/LIVE) extraction + XamContentCreateEnumerator/CreateEx and licence bits"),
 
  ("R-201",2,"Audio","XMA1 music & SFX playback","P0","done","M","All 10 songs and 86 SFX/ambience files decode and play (runtime XMA decoder via FFmpeg)","R-104","Music + SFX play via runtime XMA decoder (SDL audio)"),
- ("R-202",2,"Sync","Identify the game's song clock","P0","todo","M","Documented function(s) that compute current song time/beat and their time source","R-009","Clues: SongBPM/SongOffset strings, 11 mftb sites, KeQueryPerformanceFrequency"),
+ ("R-202",2,"Sync","Identify the game's song clock","P0","done","M","Documented function(s) that compute current song time/beat and their time source","R-009","Song time = XAudio voice samples played / rate + 0.045 s (0x82077100, 0x82080B00); see docs/TIMING.md"),
  ("R-203",2,"Audio","Native low-latency music path","P0","todo","L","Songs pre-decoded to PCM and played via WASAPI (SDL3); reported output latency < 20 ms","R-201",""),
  ("R-204",2,"Sync","Audio-clock-driven beat timeline","P0","in_progress","L","Song time comes from audio device playback position; drift < 2 ms over a full song","R-202,R-203","Stock timing felt near-perfect on USB headset PC; audio-clock rework still planned"),
- ("R-205",2,"Sync","Global audio offset setting (ms)","P0","todo","S","-200..+200 ms offset applied to judging and visuals","R-204",""),
+ ("R-205",2,"Sync","Global audio offset setting (ms)","P0","todo","S","-200..+200 ms offset applied to judging and visuals","R-204","Hook point: 0x821A0508 latency constant (0.045 s) or wrap 0x82080B00"),
  ("R-206",2,"Sync","Input latency offset setting (ms)","P0","todo","S","Separate input offset shifts judgement windows only","R-204",""),
  ("R-207",2,"Sync","Calibration screen (tap to the beat)","P1","todo","M","Guided tap test suggests audio + input offsets","R-205,R-206",""),
  ("R-208",2,"Sync","Per-song offset overrides","P2","todo","S","Optional per-track offset table in user config","R-205","Ride of the Valkyries Easy already ships SongOffset 0.03"),
@@ -44,8 +44,8 @@ REQS = [
 
  ("R-212",2,"Sync","Timing validation across audio/PC setups","P0","todo","M","Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged","R-204","User plans to test multiple devices"),
 
- ("R-301",3,"Timing","Determine game loop timing model","P0","todo","M","Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed","R-009","Strings report timings in frames"),
- ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","todo","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301",""),
+ ("R-301",3,"Timing","Determine game loop timing model","P0","done","M","Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed","R-009","Variable dt (audio-driven in songs, mftb in menus); only frame-locked item found: fade step 1/60 per frame"),
+ ("R-302",3,"Timing","Unlocked frame rate (120/144/240+)","P0","in_progress","XL","Gameplay identical at 60/144/240 fps (replay test); no speed-up","R-301","Test with --video_mode_refresh_rate=120/144/240 or --vsync=false; fix fade timer in 0x82077100"),
  ("R-303",3,"Timing","Fixed-step sim with render interpolation","P1","todo","L","Simulation at 60 Hz, camera/particles interpolated per frame","R-301","Fallback if delta-time patching is impractical"),
  ("R-304",3,"Timing","Frame limiter, VSync, VRR","P0","todo","S","Cap options (30..360/unlimited), VSync toggle, G-Sync/FreeSync friendly","R-302",""),
  ("R-305",3,"Timing","Low-latency presentation","P1","todo","M","Flip-model swapchain, waitable object, max 1 frame queued","R-304",""),
@@ -91,7 +91,7 @@ REQS = [
  ("R-802",8,"Feature","Note speed / scroll-speed modifier","P2","todo","M","Adjustable approach speed independent of song tempo; judging unchanged","R-801",""),
  ("R-803",8,"Feature","Timing feedback (early/late, ms offset)","P2","todo","M","Per-hit early/late indicator and end-of-song timing histogram / mean offset","R-801,R-306",""),
  ("R-804",8,"Feature","Measure and beat lines","P2","todo","M","Optional beat/measure guide lines derived from SongBPM/SongOffset","R-801",""),
- ("R-805",8,"Feature","Practice tools (section loop, slow-down)","P2","todo","L","Loop a section and play at 50-100% speed with pitch-corrected audio","R-801,R-203",""),
+ ("R-805",8,"Feature","Practice tools (section loop, slow-down)","P2","todo","L","Loop a section and play at 50-100% speed with pitch-corrected audio","R-801,R-203","Game embeds SoundTouch time-stretch library - may support tempo change already"),
 ]
 FIELDS=["id","phase","phase_name","category","title","priority","status","effort","acceptance","depends_on","notes"]
 rows=[dict(zip(FIELDS,[r[0],r[1],PHASES[r[1]]]+list(r[2:]))) for r in REQS]

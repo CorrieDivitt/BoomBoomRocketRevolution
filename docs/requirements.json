@@ -279,11 +279,11 @@
   "category": "Sync",
   "title": "Identify the game's song clock",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Documented function(s) that compute current song time/beat and their time source",
   "depends_on": "R-009",
-  "notes": "Clues: SongBPM/SongOffset strings, 11 mftb sites, KeQueryPerformanceFrequency"
+  "notes": "Song time = XAudio voice samples played / rate + 0.045 s (0x82077100, 0x82080B00); see docs/TIMING.md"
  },
  {
   "id": "R-203",
@@ -322,7 +322,7 @@
   "effort": "S",
   "acceptance": "-200..+200 ms offset applied to judging and visuals",
   "depends_on": "R-204",
-  "notes": ""
+  "notes": "Hook point: 0x821A0508 latency constant (0.045 s) or wrap 0x82080B00"
  },
  {
   "id": "R-206",
@@ -422,11 +422,11 @@
   "category": "Timing",
   "title": "Determine game loop timing model",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Documented: fixed 60 Hz step vs delta time; frame-count dependencies listed",
   "depends_on": "R-009",
-  "notes": "Strings report timings in frames"
+  "notes": "Variable dt (audio-driven in songs, mftb in menus); only frame-locked item found: fade step 1/60 per frame"
  },
  {
   "id": "R-302",
@@ -435,11 +435,11 @@
   "category": "Timing",
   "title": "Unlocked frame rate (120/144/240+)",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": ""
+  "notes": "Test with --video_mode_refresh_rate=120/144/240 or --vsync=false; fix fade timer in 0x82077100"
  },
  {
   "id": "R-303",
@@ -985,6 +985,6 @@
   "effort": "L",
   "acceptance": "Loop a section and play at 50-100% speed with pitch-corrected audio",
   "depends_on": "R-801,R-203",
-  "notes": ""
+  "notes": "Game embeds SoundTouch time-stretch library - may support tempo change already"
  }
 ]
