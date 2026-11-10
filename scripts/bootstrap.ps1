@@ -66,16 +66,14 @@ if (-not $Rex) { throw "rexglue.exe not found under $Prefix - check the SDK buil
 $env:REXSDK = $Prefix
 Write-Host "  rexglue: $($Rex.FullName)"
 
-Step "Scaffolding the recomp app (only files that don't exist yet)"
-$Tmp = Join-Path $Root "build\_init"
-if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
-Run "rexglue init" { & $Rex.FullName init --app_name "boom_boom_rocket" --app_root $Tmp --app_desc "Boom Boom Rocket static recompilation" --app_author "CorrieDivitt" }
-Get-ChildItem $Tmp -Recurse -File | ForEach-Object {
-  $rel = $_.FullName.Substring($Tmp.Length + 1)
-  $dst = Join-Path $Root $rel
-  if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null; Copy-Item $_.FullName $dst; Write-Host "  + $rel" }
-  else { Write-Host "  = $rel (kept existing)" }
+Step "Creating the recomp project (rexglue init)"
+# v0.10 init writes CMakeLists.txt, CMakePresets.json, boom_boom_rocket_manifest.toml,
+# generated/rexglue.cmake and src/ stubs into the repo root. It refuses to overwrite
+# existing project files, so skip it once the project exists.
+if (Test-Path (Join-Path $Root "boom_boom_rocket_manifest.toml")) {
+  Write-Host "  Project already initialised - skipping."
+} else {
+  Run "rexglue init" { & $Rex.FullName init --project-name "boom_boom_rocket" --xex-path "assets\default.xex" --project-root "$Root" }
 }
 Step "Done"
-Write-Host "Next:  cmake --preset win-amd64  then  cmake --build --preset win-amd64-debug --target boom_boom_rocket_codegen"
-Write-Host "Then:  cmake --build --preset win-amd64-debug   (see docs/PLAN.md section 6)"
+Write-Host "Next: build (runs codegen first):   powershell -ExecutionPolicy Bypass -File scripts\build.ps1"

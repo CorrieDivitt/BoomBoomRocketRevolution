@@ -20,6 +20,8 @@ git clone --recursive https://github.com/CorrieDivitt/BoomBoomRocketRevolution
 cd BoomBoomRocketRevolution
 # put your dump in "Game Files\"
 powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
+# then build (codegen runs automatically as part of the build)
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 ```
 
 ## Layout

@@ -97,7 +97,7 @@ M3 and M4 can run in parallel once M2 is reached; M5 Stage A can start as soon a
 
 ## 6. Day-to-day workflow
 1. `scripts/bootstrap.ps1` (once): checks tools, links `assets/` → `Game Files/`, builds/installs the SDK, scaffolds the app with `rexglue init`.
-2. Loop: run the `boom_boom_rocket_codegen` target → build → run → read the log for unresolved calls, missing imports, bad jump tables → add `[functions]`, `[[switch_tables]]` or hooks in the TOML / `src/hooks` → repeat. Use `--force` only to get past known issues while working through them.
+2. Loop: `scripts/build.ps1` (runs the `boom_boom_rocket_codegen` target, then builds) → run → read the log for unresolved calls, missing imports, bad jump tables → add `[functions]`, `[[switch_tables]]` or hooks in the TOML / `src/hooks` → repeat. Use `--force` only to get past known issues while working through them.
 3. When behaviour differs, run the same dump in Xenia Canary and compare logs and frames.
 4. Update `docs/requirements.py` statuses and run it; the dashboard reads `requirements.csv`.
 
