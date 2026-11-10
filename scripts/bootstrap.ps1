@@ -8,6 +8,8 @@ $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
 function Step($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
+# Run a native command and stop the script if it fails (PowerShell doesn't do this by itself).
+function Run([string]$what, [scriptblock]$cmd) { & $cmd; if ($LASTEXITCODE -ne 0) { throw "$what failed (exit code $LASTEXITCODE). See the output above." } }
 function Need($cmd, $hint) { if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { throw "$cmd not found. $hint" } }
 
 Step "Checking tools"
@@ -32,7 +34,13 @@ if ($cv -lt [version]"3.25") { throw "CMake $cv is too old; need 3.25+." }
 Write-Host "  VS: $vs"; Write-Host "  CMake $cv"; clang --version | Select-Object -First 1
 
 Step "Fetching submodules (ReXGlue SDK and its dependencies)"
-git submodule update --init --recursive --depth 1
+# SDK itself with history + tags (its CMake derives the version from git tags);
+# its dependencies shallow, because some (FFmpeg) are very large.
+Run "Fetching the ReXGlue SDK" { git submodule update --init thirdparty/rexglue-sdk }
+if ((git -C thirdparty/rexglue-sdk rev-parse --is-shallow-repository) -eq "true") {
+  Run "Fetching SDK history and tags" { git -C thirdparty/rexglue-sdk fetch --quiet --unshallow --tags }
+}
+Run "Fetching SDK dependencies" { git -C thirdparty/rexglue-sdk submodule update --init --recursive --depth 1 }
 
 Step "Linking assets\ -> '$GameDir'"
 if (-not (Test-Path (Join-Path $GameDir "default.xex"))) { throw "'$GameDir\default.xex' not found. Copy your own dumped game files there first." }
@@ -44,8 +52,8 @@ $Prefix = Join-Path $Sdk "out\install\win-amd64"
 if (-not $SkipSdkBuild) {
   Step "Building and installing ReXGlue SDK (this takes a while)"
   Push-Location $Sdk
-  cmake --preset win-amd64
-  cmake --build --preset win-amd64-release --target install
+  Run "Configuring the SDK" { cmake --preset win-amd64 --fresh }
+  Run "Building the SDK" { cmake --build --preset win-amd64-release --target install }
   Pop-Location
 }
 $Rex = Get-ChildItem -Path $Prefix -Recurse -Filter rexglue.exe -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -56,7 +64,7 @@ Write-Host "  rexglue: $($Rex.FullName)"
 Step "Scaffolding the recomp app (only files that don't exist yet)"
 $Tmp = Join-Path $Root "build\_init"
 if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
-& $Rex.FullName init --app_name "boom_boom_rocket" --app_root $Tmp --app_desc "Boom Boom Rocket static recompilation" --app_author "CorrieDivitt"
+Run "rexglue init" { & $Rex.FullName init --app_name "boom_boom_rocket" --app_root $Tmp --app_desc "Boom Boom Rocket static recompilation" --app_author "CorrieDivitt" }
 Get-ChildItem $Tmp -Recurse -File | ForEach-Object {
   $rel = $_.FullName.Substring($Tmp.Length + 1)
   $dst = Join-Path $Root $rel
