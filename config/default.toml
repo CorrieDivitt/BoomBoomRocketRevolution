@@ -20,9 +20,10 @@ longjmp_address = 0x821675A0
 0x8216A430 = { size = 0x04 }  # b KeTlsAlloc (CRT TLS init, called via pointer) - first boot crash
 0x821955D8 = { size = 0x0C }  # static initializer: lis/addi r3 ; b 0x820C4F18
 0x82120AC0 = { size = 0x18 }  # small setter, ends in blr
-0x8214CFD8 = { end = 0x8214D020 }  # three adjacent vtable methods, each ends in mtctr/bctr
+0x8214CFD8 = { end = 0x8214D020 }  # four adjacent vtable methods, each ends in mtctr/bctr
 0x8214D020 = { end = 0x8214D068 }
-0x8214D068 = { end = 0x8214D0D8 }
+0x8214D068 = { end = 0x8214D0A0 }
+0x8214D0A0 = { end = 0x8214D0D4 }  # 4th method; must stay separate (called via vtable)
 # C++ this-adjustor thunks (addi r3,r3,-N ; b method) referenced from vtables
 0x8213DE80 = { size = 0x08 }
 0x821488A0 = { size = 0x08 }
