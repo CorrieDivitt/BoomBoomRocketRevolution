@@ -79,7 +79,6 @@ REXCVAR_DEFINE_BOOL(assist_tick, false, "BBR",
 REXCVAR_DEFINE_DOUBLE(assist_tick_volume, 2.5, "BBR", "Loudness of the assist tick (1 = as recorded). Range 0.1..8");
 
 REX_EXTERN(__imp__sub_82066700);
-REX_EXTERN(__imp__sub_8208D7E0);
 REX_EXTERN(__imp__sub_82064978);
 
 namespace {
@@ -249,7 +248,7 @@ struct Shown {
 std::mutex g_hit_mutex;
 std::deque<Shown> g_hits;
 uint32_t g_next_slot = 0;
-std::atomic<uint32_t> g_text_manager{0};
+constexpr uint32_t kTextManager = 0x821D48C8;  // the game's text manager (stored strings at its start)
 
 struct HitStats {
   int count = 0;
@@ -280,8 +279,8 @@ void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds, float accur
                 mean, spread);
     g_hit_stats = HitStats{};
   }
-  const uint32_t manager = g_text_manager.load(std::memory_order_relaxed);
-  if (!REXCVAR_GET(hit_timing) || !manager) return;
+  const uint32_t manager = kTextManager;
+  if (!REXCVAR_GET(hit_timing)) return;
   float x = 0.0f;
   bool found = false;
   for (const ArrowPlace& a : g_arrows) {
@@ -373,13 +372,6 @@ REX_HOOK_RAW(sub_82066700) {
   if (accuracy > 0.0f && RocketTime(base, rocket, &rocket_time)) {
     ReportHit(base, rocket, rocket_time - centre, accuracy);
   }
-}
-
-// The game looks up a named text (sub_8208D7E0, r3 = text manager): note the manager so
-// the readout can be written into its stored strings.
-REX_HOOK_RAW(sub_8208D7E0) {
-  g_text_manager.store(ctx.r3.u32, std::memory_order_relaxed);
-  __imp__sub_8208D7E0(ctx, base);
 }
 
 // Mid-asm hook at 0x8206A874 (see config/default.toml): an arrow icon is being drawn.
