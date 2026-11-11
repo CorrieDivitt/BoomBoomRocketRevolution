@@ -253,11 +253,24 @@
   "category": "Content",
   "title": "DLC support (owned track packs)",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "L",
-  "acceptance": "Users who own the Boom Boom Rocket DLC can point the app at their own extracted DLC package: it mounts at DLC%d:\\, the extra tracks appear and unlock, licences report as owned; no DLC content shipped",
+  "acceptance": "Users who own the Boom Boom Rocket DLC can point the app at their own DLC package file: it is installed, licensed and mounted, the extra tracks appear and play; no DLC content shipped",
   "depends_on": "R-105",
-  "notes": "Required before release. Needs DLC package format (STFS/LIVE) extraction + XamContentCreateEnumerator/CreateEx and licence bits"
+  "notes": "Done: original LIVE package files in a DLC folder (or --dlc_path) are unpacked on startup via the SDK content manager; folder contents decide what is active (src/dlc.cpp). Rock Pack verified by user 2026-11-10"
+ },
+ {
+  "id": "R-112",
+  "phase": 1,
+  "phase_name": "Recompile & boot",
+  "category": "Content",
+  "title": "Clean up prototype DLC packs",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "Unreleased prototype packs (Boom Rocket Test 2, early Rock Pack build) load with proper song/pack names, their own unlock icons or sensible placeholders, correct leaderboards, and every listed track, chart and model verified in play",
+  "depends_on": "R-111",
+  "notes": "Stretch goal. Test 2 already loads after automatic repair of its contents.txt (missing UnlockFirework keys, William_Tell_2 -> Beethovens_Fifth_2, borrowed icon sheet). Still to do: placeholder names, icon art, play-test all 5 tracks, try early Rock Pack (different XMA header), scrambled A8A6 copy is unreadable"
  },
  {
   "id": "R-201",
@@ -530,7 +543,7 @@
   "effort": "M",
   "acceptance": "Hor+ 3D view; UI anchored and not stretched",
   "depends_on": "R-401",
-  "notes": "--aspect_ratio=auto: 3D view, menu shape, full-screen covers and edge anchoring work on 3440x1440 (src/widescreen.cpp). Arrows (point sprites) need --video_mode_height=536 for now; SDK point-size fix pending. Per-screen layout polish tracked in R-415"
+  "notes": "--aspect_ratio=auto: 3D view, menu shape, full-screen covers and edge anchoring work on 3440x1440 (src/widescreen.cpp). Arrow icons fixed (clip-space quad used a fixed 9/16 factor, hooked in sub_8206A600); follows window resize. Per-screen layout polish tracked in R-415"
  },
  {
   "id": "R-415",
