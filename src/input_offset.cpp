@@ -384,7 +384,17 @@ REX_HOOK_RAW(sub_82066700) {
   double rocket_time;
   const float accuracy = LoadFloat(base, slot);
   if (accuracy > 0.0f && RocketTime(base, rocket, &rocket_time)) {
-    ReportHit(base, rocket, rocket_time - centre, accuracy);
+    const double early = rocket_time - centre;
+    // Hits that are far off are worth a line each: was it the press or the way it was timed?
+    if (std::fabs(early) > 0.030) {
+      const double frame_centre = 0.5 * (double(start) + double(end)) - shift;
+      REXLOG_INFO("[input] hit {:+.1f} ms: timed by {}, button down {:.1f} ms before it was judged; "
+                  "the game's own frame timing would say {:+.1f} ms",
+                  early * 1000.0, precise ? "controller press" : "frame (no fresh controller press)",
+                  (Now() - g_last_press.load(std::memory_order_relaxed)) * 1000.0,
+                  (rocket_time - frame_centre) * 1000.0);
+    }
+    ReportHit(base, rocket, early, accuracy);
   }
 }
 
