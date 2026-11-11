@@ -46,6 +46,7 @@ Reverse-engineered from the retail `default.xex` on 2026-11-10. Addresses are gu
   constant at `0x821A0508`.
 - **R-205/206 (offsets):** a user audio offset can be applied by patching/overriding `0x821A0508`
   (or wrapping `0x82080B00`); the input offset (`--input_offset_ms`, `src/input_offset.cpp`) shifts the press span `W` while `0x82066700` runs, so only judging moves.
+- **R-306 (precise input):** `--precise_input` (default on, same file) reads the controller every millisecond on its own thread and, when a press is judged, replaces `W` with the single song time at which the button went down (`latest song time - time since the press - input_frame_credit_ms`). Falls back to the game's span when there is no fresh XInput press. The log prints `[input]` statistics every 40 presses.
 - **R-302 (high frame rate):** set `video_mode_refresh_rate` (24–240 Hz guest vblank) or
   `--vsync=false`. Known frame-locked code: the fade timer in `0x82077100` reads its per-frame step from
   `0x821D4330` (initialised once to 1/60). **Fixed:** `src/frame_stats.cpp` writes the real frame

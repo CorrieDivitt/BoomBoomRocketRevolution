@@ -526,11 +526,11 @@
   "category": "Input",
   "title": "High-rate timestamped input",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Input polled >= 1 kHz on its own thread; presses timestamped against audio clock",
   "depends_on": "R-204",
-  "notes": ""
+  "notes": "--precise_input (default on): controller read every 1 ms on its own thread; a press is judged at the song time the button went down instead of by whole frames. XInput pads only; keyboard and other pads use the game's frame span. Needs play-testing and tuning of input_frame_credit_ms from the [input] log."
  },
  {
   "id": "R-401",
