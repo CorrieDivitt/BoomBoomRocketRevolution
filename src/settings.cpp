@@ -327,6 +327,9 @@ std::string SettingsStrings() {
                     "BBRR_CAL_BEGIN = Press ~~{A}~~ to begin\n"
                     "BBRR_CAL_RESULT = Suggested audio offset. Press ~~{A}~~ to save\n"
                     "BBRR_CAL_FAILED = Those taps were too uneven. Let us try again\n"
+                    "BBRR_CAL_CLICK_HINT = ~~{X}~~ Try a different click sound\n"
+                    "BBRR_CAL_TAP_M2 = -2 / 12\n"
+                    "BBRR_CAL_TAP_M1 = -1 / 12\n"
                     "BBRR_CAL_RING = O\n"
                     "BBRR_X_RESTART = ~~{X}~~ Restart\n"
                     "BBRR_B_LATER = Not now ~~{B}~~\n";

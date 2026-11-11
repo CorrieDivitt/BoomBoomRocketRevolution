@@ -24,11 +24,14 @@ local function Now()
 end
 
 local BEAT_MS = 800       -- time between clicks / ring passes
-local WARM_UP = 3         -- first taps are ignored while the player finds the rhythm
+local WARM_UP = 2         -- first taps are ignored while the player finds the rhythm (shown as -2, -1)
 local TAPS = 12           -- taps that count
 local MAX_SPREAD_MS = 70  -- taps more uneven than this are not trusted
 local TARGET_X = 320
 local TRAVEL = 220        -- how far left of the target the ring starts
+
+-- Click sounds to choose from (X on the sound-test intro steps through them).
+local CLICKS = { "Select", "Countdown", "Back", "Error", "Move" }
 
 local STATE_SOUND_INTRO, STATE_SOUND, STATE_PICTURE_INTRO, STATE_PICTURE, STATE_RESULT, STATE_FAILED = 1, 2, 3, 4, 5, 6
 
@@ -41,8 +44,25 @@ GUI = {
   tap_count = 0,
   sound_delay = 0,
   picture_delay = 0,
-  option = nil
+  option = nil,
+  click = 1
 }
+
+local function PlayClick()
+  local sound = UIEnums.SoundEffect[CLICKS[GUI.click]]
+  if sound == nil then
+    sound = UIEnums.SoundEffect.Select
+  end
+  Game.PlaySound(sound)
+end
+
+-- Counter text: -2, -1 while warming up, then 0 .. 12.
+local function CounterText(counted)
+  if counted < 0 then
+    return UIText["BBRR_CAL_TAP_M" .. -counted] or UIText.IDS_NOWT
+  end
+  return UIText["BBRR_CAL_TAP_" .. counted] or UIText.IDS_NOWT
+end
 
 local function AddText(y, height, text, render_state)
   return Buttons.AddButton({
@@ -78,8 +98,10 @@ local function SetState(state)
   if state == STATE_SOUND_INTRO then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_SOUND_INTRO)
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_BEGIN)
+    Buttons.ChangeText(GUI.line3_ID, UIText.BBRR_CAL_CLICK_HINT)
     ShowRings(false)
   elseif state == STATE_PICTURE_INTRO then
+    Buttons.ChangeText(GUI.line3_ID, UIText.IDS_NOWT)
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_PICTURE_INTRO)
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_BEGIN)
     ShowRings(true)
@@ -90,7 +112,8 @@ local function SetState(state)
     else
       Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_PICTURE_RUN)
     end
-    Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_TAP_0)
+    Buttons.ChangeText(GUI.line2_ID, CounterText(-WARM_UP))
+    Buttons.ChangeText(GUI.line3_ID, UIText.IDS_NOWT)
     ShowRings(state == STATE_PICTURE)
     GUI.taps = {}
     GUI.tap_count = 0
@@ -99,10 +122,12 @@ local function SetState(state)
   elseif state == STATE_RESULT then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_RESULT)
     Buttons.ChangeText(GUI.line2_ID, UIText["BBRR_C_audio_offset_" .. GUI.option] or UIText.IDS_NOWT)
+    Buttons.ChangeText(GUI.line3_ID, UIText.IDS_NOWT)
     ShowRings(false)
   elseif state == STATE_FAILED then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_FAILED)
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_BEGIN)
+    Buttons.ChangeText(GUI.line3_ID, UIText.BBRR_CAL_CLICK_HINT)
     ShowRings(false)
   end
 end
@@ -115,9 +140,18 @@ function Init()
   GUI.ring_y = 270
   GUI.line1_ID = AddText(150, UIGlobals.font_size.small, UIText.BBRR_CAL_SOUND_INTRO, UIGlobals.font_render_state.new_filled_orange)
   GUI.line2_ID = AddText(190, UIGlobals.font_size.small, UIText.BBRR_CAL_BEGIN, UIGlobals.font_render_state.new_filled_blue)
+  GUI.line3_ID = AddText(225, UIGlobals.font_size.very_small, UIText.BBRR_CAL_CLICK_HINT, UIGlobals.font_render_state.new_filled_blue)
   GUI.target_ID = AddText(GUI.ring_y, UIGlobals.font_size.large, UIText.BBRR_CAL_RING, UIGlobals.font_render_state.new_filled_blue)
   GUI.ring_ID = AddText(GUI.ring_y, UIGlobals.font_size.large, UIText.BBRR_CAL_RING, UIGlobals.font_render_state.new_filled_orange)
+  -- The menu music would drown out the clicks; it comes back when the screen is left.
+  Game.StopTitleMusic()
   SetState(STATE_SOUND_INTRO)
+end
+
+local function Leave()
+  Game.StartTitleMusic(1)
+  GUI.finished = true
+  Screen.SetNextScreen("Options\\BBRR.lua")
 end
 
 -- Middle value and spread of the counted taps.
@@ -165,7 +199,7 @@ function Update()
   local now = Now()
   if now >= GUI.next_beat then
     if GUI.state == STATE_SOUND then
-      Game.PlaySound(UIEnums.SoundEffect.Move)
+      PlayClick()
       -- The click is asked for now, not exactly on the beat: measure from this moment.
       GUI.last_beat = Now()
     else
@@ -195,10 +229,7 @@ local function Tap()
   GUI.tap_count = GUI.tap_count + 1
   GUI.taps[GUI.tap_count] = offset
   local counted = GUI.tap_count - WARM_UP
-  if counted < 0 then
-    counted = 0
-  end
-  Buttons.ChangeText(GUI.line2_ID, UIText["BBRR_CAL_TAP_" .. counted] or UIText.IDS_NOWT)
+  Buttons.ChangeText(GUI.line2_ID, CounterText(counted))
   if counted >= TAPS then
     FinishTest()
   end
@@ -222,13 +253,20 @@ function Message(message, pad, data)
       BBRR("bbrr.set", "audio_offset", GUI.option)
       BBRR("bbrr.save")
       PlayNextSound()
-      GUI.finished = true
-      Screen.SetNextScreen("Options\\BBRR.lua")
+      Leave()
+    end
+  elseif message == "BUTTON_X" then
+    -- Try the next click sound (only before the sound test starts).
+    if GUI.state == STATE_SOUND_INTRO or GUI.state == STATE_FAILED then
+      GUI.click = GUI.click + 1
+      if GUI.click > table.getn(CLICKS) then
+        GUI.click = 1
+      end
+      PlayClick()
     end
   elseif message == "BUTTON_BACK" then
     PlayBackSound()
-    GUI.finished = true
-    Screen.SetNextScreen("Options\\BBRR.lua")
+    Leave()
   end
 end
 
