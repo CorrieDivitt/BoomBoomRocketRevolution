@@ -157,7 +157,7 @@ REX_HOOK_RAW(sub_820A6898) {
   AddStringsIfNeeded(ctx, base);
   if (REXCVAR_GET(ui_mods)) {
     const std::string name = GuestString(base, name_ptr);
-    const std::string source = OverrideSource(name);
+    const std::string source = name.rfind("orig:", 0) == 0 ? std::string() : OverrideSource(name);
     if (!source.empty()) {
       const std::string chunk = "@" + name;
       const uint32_t size = uint32_t(source.size());
@@ -178,8 +178,11 @@ REX_HOOK_RAW(sub_820A6898) {
       }
     }
   }
+  // "orig:<name>" always means the script packed in the game (for overrides that wrap it).
+  uint32_t original_name = name_ptr;
+  if (name_ptr && std::strncmp(reinterpret_cast<const char*>(Host(base, name_ptr)), "orig:", 5) == 0) original_name += 5;
   ctx.r3.u64 = L;
-  ctx.r4.u64 = name_ptr;
+  ctx.r4.u64 = original_name;
   __imp__sub_820A6898(ctx, base);
 }
 

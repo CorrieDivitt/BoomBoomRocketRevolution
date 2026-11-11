@@ -237,13 +237,13 @@ std::string MetronomeCommand(const std::string& command, const std::string& key,
     std::lock_guard<std::mutex> lock(g_mutex);
     const double beat_ms = std::clamp(std::strtod(key.c_str(), nullptr), 200.0, 2000.0);
     g_beat_samples = beat_ms * kRate / 1000.0;
-    int audible = 1, count_in = 4, bar = 4;
-    std::sscanf(value.c_str(), "%d,%d,%d", &audible, &count_in, &bar);
+    int audible = 1, count_in = 4, bar = 4, lead = 1;
+    std::sscanf(value.c_str(), "%d,%d,%d,%d", &audible, &count_in, &bar, &lead);
     g_audible = audible != 0;
     g_count_in = std::clamp(count_in, 0, 64);
     g_bar = std::clamp(bar, 1, 16);
-    // Beat 0 comes one beat from now; nothing is scheduled before it.
-    g_start_sample = SamplesAt(Clock::now()) + g_beat_samples;
+    // Beat 0 comes `lead` beats from now; nothing is scheduled before it.
+    g_start_sample = SamplesAt(Clock::now()) + g_beat_samples * std::clamp(lead, 1, 16);
     g_next_event = 0;
     g_voices.clear();
     g_running = true;

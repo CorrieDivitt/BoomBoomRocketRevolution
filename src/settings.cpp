@@ -16,6 +16,7 @@
 
 #include <cctype>
 #include <chrono>
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+REXCVAR_DEFINE_STRING(frame_rate, "display", "BBR",
+                      "Frames per second: display (match the main display's refresh rate) or a number. "
+                      "--video_mode_refresh_rate on the command line overrides it");
 
 namespace bbr {
 namespace {
@@ -61,10 +66,14 @@ const std::vector<Setting>& Settings() {
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
                  {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0, "video"});
-    s.push_back({"vsync", "vsync", "VSync", {{"true", "On"}, {"false", "Off"}}, 0, "video"});
+    // "vsync" in the runtime is not display sync: on = the game runs at the Frame Rate
+    // setting, off = as fast as it can.
+    s.push_back({"vsync", "vsync", "Frame Rate Limit", {{"true", "On"}, {"false", "Off"}}, 0, "video"});
     s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video", true});
-    s.push_back({"fps", "video_mode_refresh_rate", "Frame Rate",
-                 {{"60", "60"}, {"90", "90"}, {"120", "120"}, {"144", "144"}, {"165", "165"}, {"240", "240"}},
+    // frame_rate is our own cvar; LoadSettings turns it into video_mode_refresh_rate.
+    s.push_back({"fps", "frame_rate", "Frame Rate",
+                 {{"display", "Match Display"}, {"60", "60"}, {"90", "90"}, {"120", "120"}, {"144", "144"},
+                  {"165", "165"}, {"240", "240"}},
                  0, "video", true});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
@@ -179,6 +188,35 @@ void RestartGame() {
 }
 }  // namespace
 
+// Turns our frame_rate setting into the runtime's guest refresh rate. A running game
+// that does not match the display's refresh rate judders, so the default follows the display.
+void ApplyFrameRate();
+
+// Refresh rate of the main display in Hz (0 if unknown).
+double DisplayRefreshRate() {
+#if defined(_WIN32)
+  DEVMODEW mode{};
+  mode.dmSize = sizeof(mode);
+  if (EnumDisplaySettingsW(nullptr, ENUM_CURRENT_SETTINGS, &mode) && mode.dmDisplayFrequency > 1) {
+    return double(mode.dmDisplayFrequency);
+  }
+#endif
+  return 0.0;
+}
+
+void ApplyFrameRate() {
+  if (rex::cvar::GetFlagSource("video_mode_refresh_rate") == rex::cvar::Source::kCommandLine) return;
+  const std::string wanted = rex::cvar::GetFlagByName("frame_rate");
+  double hz = std::strtod(wanted.c_str(), nullptr);
+  if (wanted == "display" || hz < 24.0) {
+    hz = DisplayRefreshRate();
+    if (hz < 24.0) hz = 60.0;
+  }
+  hz = std::min(hz, 240.0);  // the runtime's upper limit
+  rex::cvar::SetFlagByName("video_mode_refresh_rate", std::to_string(hz));
+  REXLOG_INFO("[settings] frame rate {} -> {:.0f} fps", wanted, hz);
+}
+
 void LoadSettings() {
   // Settings the port wants by default when there is no file and no command-line value.
   auto from_command_line = [](const std::string& cvar) {
@@ -209,6 +247,7 @@ void LoadSettings() {
   std::ifstream in(FilePath());
   if (!in) {
     snapshot();
+    ApplyFrameRate();
     return;
   }
   std::string line;
@@ -227,6 +266,7 @@ void LoadSettings() {
   }
   snapshot();
   REXLOG_INFO("[settings] loaded {} setting(s) from {}", applied, FilePath().string());
+  ApplyFrameRate();
 }
 
 std::string SettingsCommand(const std::string& command, const std::string& key, const std::string& value) {
@@ -334,6 +374,8 @@ std::string SettingsStrings() {
                     "BBRR_CAL_TAP_M2 = -2 / 16\n"
                     "BBRR_CAL_TAP_M1 = -1 / 16\n"
                     "BBRR_CAL_RING = O\n"
+                    "BBRR_EXIT_GAME = Exit Game\n"
+                    "BBRR_EXIT_GAME_INFO = Close Boom Boom Rocket and return to Windows.\n"
                     "BBRR_X_RESTART = ~~{X}~~ Restart\n"
                     "BBRR_B_LATER = Not now ~~{B}~~\n";
   for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";

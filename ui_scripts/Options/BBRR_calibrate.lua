@@ -13,8 +13,9 @@
 --
 -- The metronome runs on the PC side, mixed into the game's own sound output, so its
 -- clicks take exactly the same path to the speakers as the music does:
---   BBRR("bbrr.metro.start", beat_ms, "audible,count_in,beats_per_bar")
---                                               audible = 1 (sound test) or 0 (silent)
+--   BBRR("bbrr.metro.start", beat_ms, "audible,count_in,beats_per_bar,lead")
+--                                               audible = 1 (sound test) or 0 (silent);
+--                                               lead = beats of silence before the count-in
 --   BBRR("bbrr.metro.pos")                      -> position in beats (0 = first count-in beat)
 --   BBRR("bbrr.metro.stop")
 --   BBRR("bbrr.calibrate", sound, picture)      -> Audio Offset option number for those delays
@@ -35,8 +36,9 @@ local TAPS = 16           -- beats that count (shown as 1 .. 16): four bars
 local MIN_TAPS = 10       -- fewer taps than this is not enough to go on
 local MAX_SPREAD_MS = 70  -- taps more uneven than this are not trusted
 local LINE_Y = 170        -- the line the bars rise to (like the game's target line)
-local TRAVEL = 260        -- how far below the line a bar starts
+local TRAVEL = 340        -- how far below the line a bar starts (below the bottom of the screen)
 local LEAD_BEATS = 2      -- a bar is on its way for this many beats, so two are in view
+local HIDDEN_Y = 900      -- where a bar waits when it has no beat to show
 local BAR_WIDTH, BAR_HEIGHT = 56, 10
 
 local STATE_SOUND_INTRO, STATE_SOUND, STATE_PICTURE_INTRO, STATE_PICTURE, STATE_RESULT, STATE_FAILED = 1, 2, 3, 4, 5, 6
@@ -125,11 +127,13 @@ local function PlaceBars(position)
     if beat - math.floor(beat / 2) * 2 ~= m - 1 then
       beat = beat + 1
     end
-    local to_go = (beat - position) / LEAD_BEATS
-    if position < -1 then
-      to_go = 1 + (m - 1) * 0.5
+    local y = HIDDEN_Y
+    -- Only real beats get a bar: the first one is the first count-in beat, rising from
+    -- below the screen; nothing comes after the last counted beat.
+    if beat >= 0 and beat < COUNT_IN + TAPS then
+      y = LINE_Y - BAR_HEIGHT / 2 + TRAVEL * (beat - position) / LEAD_BEATS
     end
-    Buttons.ChangePosition(GUI.bar_ID[m], 320 - BAR_WIDTH / 2, LINE_Y - BAR_HEIGHT / 2 + TRAVEL * to_go)
+    Buttons.ChangePosition(GUI.bar_ID[m], 320 - BAR_WIDTH / 2, y)
   end
 end
 
@@ -153,10 +157,10 @@ local function SetState(state)
   elseif state == STATE_SOUND or state == STATE_PICTURE then
     if state == STATE_SOUND then
       Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_SOUND_RUN)
-      BBRR("bbrr.metro.start", BEAT_MS, "1," .. COUNT_IN .. "," .. BAR)
+      BBRR("bbrr.metro.start", BEAT_MS, "1," .. COUNT_IN .. "," .. BAR .. "," .. LEAD_BEATS)
     else
       Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_PICTURE_RUN)
-      BBRR("bbrr.metro.start", BEAT_MS, "0," .. COUNT_IN .. "," .. BAR)
+      BBRR("bbrr.metro.start", BEAT_MS, "0," .. COUNT_IN .. "," .. BAR .. "," .. LEAD_BEATS)
     end
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_READY)
     ShowBars(state == STATE_PICTURE)
@@ -182,8 +186,8 @@ function Init()
   GUI.line2_ID = AddText(132, UIGlobals.font_size.small, UIText.BBRR_CAL_BEGIN, UIGlobals.font_render_state.new_filled_blue)
   GUI.line_ID = AddBox(170, LINE_Y - 2, 300, 4, "255 255 255 255")
   GUI.bar_ID = {
-    AddBox(320 - BAR_WIDTH / 2, LINE_Y + TRAVEL, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255"),
-    AddBox(320 - BAR_WIDTH / 2, LINE_Y + TRAVEL, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255")
+    AddBox(320 - BAR_WIDTH / 2, HIDDEN_Y, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255"),
+    AddBox(320 - BAR_WIDTH / 2, HIDDEN_Y, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255")
   }
   -- The menu music would drown out the clicks; it comes back when the screen is left.
   Game.StopTitleMusic()
