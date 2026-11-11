@@ -83,8 +83,7 @@ GUI = {
   rows = nil,
   old_values = {},
   spinner_menu_ID = {},
-  note_ID = nil,
-  restart_prompt = false
+  note_ID = nil
 }
 
 function Init()
@@ -188,7 +187,7 @@ function Init()
   end
 
   -- Footnote under the rows: pages with settings that only take effect on the next start
-  -- say so here; after saving such a change it becomes the "restart now?" prompt.
+  -- say so here.
   if BBRR("bbrr.note", PAGE) == "1" and UIText.BBRR_RESTART_NOTE ~= nil then
     local ok, id = pcall(Buttons.AddButton, {
       type = UIEnums.ButtonTypes.TEXT,
@@ -276,35 +275,47 @@ function Message(message, pad, data)
     local row = GUI.rows[GUI.current_selection]
     if row ~= nil and row.link ~= nil then
       Leave(PageScript(row.link))
-    elseif GUI.restart_prompt == false and GUI.note_ID ~= nil and BBRR("bbrr.restart_needed") == "1" then
-      -- Stay on the page and offer the restart: X restarts, A or B carries on.
-      GUI.restart_prompt = true
-      Buttons.ChangeText(GUI.note_ID, UIText.BBRR_RESTART_PROMPT)
+    elseif BBRR("bbrr.restart_needed") == "1" and UIText.BBRR_RESTART_TITLE ~= nil then
+      -- Ask with the game's own pop-up box: X restarts now, B carries on without restarting.
+      -- Either way this page is done; the pop-up moves on to the parent page when B is pressed.
+      GUI.finished = true
+      CustomPopup.Data.BBRR_RESTART = {
+        darken = true,
+        no_next = true,
+        message_text_ID = UIText.BBRR_RESTART_TITLE,
+        info_text_ID = UIText.BBRR_RESTART_INFO,
+        left_text_ID = UIText.BBRR_B_LATER,
+        right_text_ID = UIText.BBRR_X_RESTART,
+        prev_screen = ParentScript(),
+        message_CB = function(popup_message, popup_pad, popup_data)
+          if popup_message == "BUTTON_X" then
+            PlayNextSound()
+            BBRR("bbrr.restart")
+            return true
+          end
+          return false
+        end
+      }
+      SetupCustomPopup("BBRR_RESTART")
     else
       Leave(ParentScript())
     end
   elseif message == "BUTTON_BACK" then
-    if GUI.restart_prompt == false then
-      for i = 1, GUI.num_items do
-        if GUI.rows[i].key ~= nil then
-          BBRR("bbrr.set", GUI.rows[i].key, GUI.old_values[i])
-        end
+    for i = 1, GUI.num_items do
+      if GUI.rows[i].key ~= nil then
+        BBRR("bbrr.set", GUI.rows[i].key, GUI.old_values[i])
       end
     end
     PlayBackSound()
     Leave(ParentScript())
   elseif message == "BUTTON_X" then
-    if GUI.restart_prompt == true then
-      BBRR("bbrr.restart")
-    else
-      for i = 1, GUI.num_items do
-        local row = GUI.rows[i]
-        if row.key ~= nil then
-          Buttons.SetSelection(GUI.spinner_menu_ID[i], OptionNumber("bbrr.default", row.key, table.getn(row.items)))
-        end
+    for i = 1, GUI.num_items do
+      local row = GUI.rows[i]
+      if row.key ~= nil then
+        Buttons.SetSelection(GUI.spinner_menu_ID[i], OptionNumber("bbrr.default", row.key, table.getn(row.items)))
       end
-      ApplyAll()
     end
+    ApplyAll()
   end
 end
 

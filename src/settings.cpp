@@ -13,10 +13,12 @@
 #include <windows.h>
 #endif
 
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -86,6 +88,21 @@ const Page* FindPage(const std::string& name) {
 
 // Values the restart-only settings had when the game started (= what is really in use).
 std::vector<std::pair<std::string, std::string>> g_boot_values;
+
+// Sets a cvar during start-up. Some cvars belong to the GPU plugin, which is not loaded
+// yet at that point, so SetFlagByName has nothing to set. For those we set the matching
+// REX_<NAME> environment variable: the cvar picks it up when the plugin registers it
+// (a command-line value still wins). Returns the value now in force as far as we know.
+void SetAtBoot(const std::string& cvar, const std::string& value) {
+  if (rex::cvar::SetFlagByName(cvar, value)) return;
+  std::string env = "REX_";
+  for (char c : cvar) env.push_back(char(std::toupper(static_cast<unsigned char>(c))));
+#if defined(_WIN32)
+  SetEnvironmentVariableA(env.c_str(), value.c_str());
+#else
+  setenv(env.c_str(), value.c_str(), 1);
+#endif
+}
 
 const Setting* Find(const std::string& key) {
   for (const Setting& s : Settings()) if (s.key == key) return &s;
@@ -167,13 +184,21 @@ void LoadSettings() {
   auto locked = [&](const std::string& cvar) {
     return from_command_line(cvar) || (cvar == "resolution_scale" && custom_resolution);
   };
+  std::map<std::string, std::string> intended;  // what we asked for, per cvar
   for (const Setting& s : Settings()) {
-    if (!locked(s.cvar)) rex::cvar::SetFlagByName(s.cvar, s.choices[s.default_choice].value);
+    if (!locked(s.cvar)) {
+      SetAtBoot(s.cvar, s.choices[s.default_choice].value);
+      intended[s.cvar] = s.choices[s.default_choice].value;
+    }
   }
-  auto snapshot = [] {
+  // Remember what the restart-only settings start with. A cvar that is not registered
+  // yet reads back empty, so prefer what we asked for.
+  auto snapshot = [&] {
     g_boot_values.clear();
     for (const Setting& s : Settings()) {
-      if (s.restart) g_boot_values.push_back({s.cvar, rex::cvar::GetFlagByName(s.cvar)});
+      if (!s.restart) continue;
+      const auto it = intended.find(s.cvar);
+      g_boot_values.push_back({s.cvar, it != intended.end() ? it->second : rex::cvar::GetFlagByName(s.cvar)});
     }
   };
   std::ifstream in(FilePath());
@@ -191,7 +216,9 @@ void LoadSettings() {
     bool known = false;
     for (const Setting& s : Settings()) known |= (s.cvar == cvar);
     if (!known || locked(cvar)) continue;
-    if (rex::cvar::SetFlagByName(cvar, value)) ++applied;
+    SetAtBoot(cvar, value);
+    intended[cvar] = value;
+    ++applied;
   }
   snapshot();
   REXLOG_INFO("[settings] loaded {} setting(s) from {}", applied, FilePath().string());
@@ -223,7 +250,13 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
   }
   if (command == "bbrr.restart_needed") {
     for (const auto& [cvar, value_at_boot] : g_boot_values) {
-      if (rex::cvar::GetFlagByName(cvar) != value_at_boot) return "1";
+      const std::string now = rex::cvar::GetFlagByName(cvar);
+      if (value_at_boot.empty() || now.empty() || now == value_at_boot) continue;
+      // "120" and "120.000000" are the same setting.
+      char *e1 = nullptr, *e2 = nullptr;
+      const double a = std::strtod(now.c_str(), &e1), b = std::strtod(value_at_boot.c_str(), &e2);
+      if (e1 != now.c_str() && e2 != value_at_boot.c_str() && *e1 == 0 && *e2 == 0 && std::fabs(a - b) < 1e-6) continue;
+      return "1";
     }
     return "0";
   }
@@ -248,7 +281,10 @@ std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
                     "BBRR_OPEN = Open\n"
                     "BBRR_RESTART_NOTE = The last four settings apply after a restart\n"
-                    "BBRR_RESTART_PROMPT = Saved. Press X to restart the game now\n";
+                    "BBRR_RESTART_TITLE = Restart needed\n"
+                    "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
+                    "BBRR_B_LATER = ~~{B}~~ Not now\n"
+                    "BBRR_X_RESTART = Restart ~~{X}~~\n";
   for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";
   for (const Setting& s : Settings()) {
     out += "BBRR_T_" + s.key + " = " + s.title + "\n";
