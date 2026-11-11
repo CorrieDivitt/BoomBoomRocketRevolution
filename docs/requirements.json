@@ -1014,6 +1014,19 @@
   "notes": "Stretch goal"
  },
  {
+  "id": "R-903",
+  "phase": 9,
+  "phase_name": "Accessibility (stretch)",
+  "category": "Feature",
+  "title": "VR support",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "XL",
+  "acceptance": "Play in a VR headset (OpenXR): stereo rendering of the city and fireworks with head tracking, menus and HUD on a comfortable panel, timing unaffected",
+  "depends_on": "R-402,R-302",
+  "notes": "Stretch goal (requested 2026-11-10). Needs per-eye camera/projection hooks and a stereo present path in the SDK"
+ },
+ {
   "id": "R-801",
   "phase": 8,
   "phase_name": "Modern rhythm features",

@@ -25,6 +25,7 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -46,6 +47,8 @@ REX_EXTERN(sub_820A5010);
 REX_EXTERN(sub_820A4348);
 REX_EXTERN(sub_8215EC78);
 REX_EXTERN(sub_8215FEA8);
+REX_EXTERN(__imp__RtlEnterCriticalSection);
+REX_EXTERN(__imp__RtlLeaveCriticalSection);
 
 namespace {
 namespace fs = std::filesystem;
@@ -96,6 +99,9 @@ fs::path ScriptsFolder() {
   return cached;
 }
 
+std::atomic<bool> g_strings_pending{false};
+std::atomic<uint32_t> g_strings_loc{0}, g_strings_lua{0};
+
 // Text of the replacement for a game script name such as "Options\Main.lua" (empty = none).
 std::string OverrideSource(const std::string& name) {
   const fs::path folder = ScriptsFolder();
@@ -108,11 +114,47 @@ std::string OverrideSource(const std::string& name) {
   buffer << in.rdbuf();
   return buffer.str();
 }
+// Adds our own strings to the game's text table (and so to the Lua table UIText), if the
+// table was (re)built since the last time. Main thread only; takes the text table's lock
+// (critical section at loc + 0xFA8, the one the game holds while rebuilding it).
+void AddStringsIfNeeded(PPCContext& ctx, uint8_t* base) {
+  if (!REXCVAR_GET(ui_mods) || !g_strings_pending.exchange(false, std::memory_order_acquire)) return;
+  const uint32_t loc = g_strings_loc.load(std::memory_order_relaxed);
+  const uint32_t L = g_strings_lua.load(std::memory_order_relaxed);
+  if (!loc || !L) return;
+
+  // The game's .ini text is UTF-16 little-endian with a byte-order mark and CR LF lines.
+  const std::string text = bbr::SettingsStrings();
+  std::string utf16 = "\xFF\xFE";
+  for (unsigned char c : text) {
+    if (c == '\n') utf16.append("\r\0", 2);
+    utf16.push_back(char(c));
+    utf16.push_back('\0');
+  }
+  constexpr uint32_t kFileStruct = 0x40;
+  const uint32_t block = GuestAlloc(ctx, base, kFileStruct + uint32_t(utf16.size()));
+  if (!block) return;
+  std::memset(Host(base, block), 0, kFileStruct);
+  std::memcpy(Host(base, block + kFileStruct), utf16.data(), utf16.size());
+  *Host(base, block + 1) = 1;                            // contents are in memory
+  Store32(base, block + 0x8, 0);                         // read position
+  Store32(base, block + 0xC, block + kFileStruct);       // buffer
+  Store32(base, block + 0x10, uint32_t(utf16.size()));   // size
+
+  Call(__imp__RtlEnterCriticalSection, ctx, base, loc + 0xFA8);
+  Call(sub_820A5010, ctx, base, L, kLuaGlobalsIndex, kUITextName);  // push UIText
+  Call(sub_8209B8D0, ctx, base, loc, L, block);
+  Call(sub_820A4348, ctx, base, L, -2);                             // pop it again
+  Call(__imp__RtlLeaveCriticalSection, ctx, base, loc + 0xFA8);
+  GuestFree(ctx, base, block);
+  REXLOG_INFO("[ui] added the Revolution strings to the game's text table");
+}
 }  // namespace
 
 // Script loading: serve our own source when ui_scripts has a file with the same name.
 REX_HOOK_RAW(sub_820A6898) {
   const uint32_t L = ctx.r3.u32, name_ptr = ctx.r4.u32;
+  AddStringsIfNeeded(ctx, base);
   if (REXCVAR_GET(ui_mods)) {
     const std::string name = GuestString(base, name_ptr);
     const std::string source = OverrideSource(name);
@@ -141,35 +183,20 @@ REX_HOOK_RAW(sub_820A6898) {
   __imp__sub_820A6898(ctx, base);
 }
 
-// Language load: add our own strings to the game's text table (and so to UIText).
+// Language load: remember that our strings have to be (re)added to the game's text table.
+//
+// This also runs on the game's DLC-scan worker thread (it rebuilds the text table there),
+// while the main thread may be running Lua. Adding our strings right here did more Lua
+// work on that thread and crashed now and then, so the actual adding is left to the main
+// thread: AddStringsIfNeeded(), called from the script-load hook.
 REX_HOOK_RAW(sub_8209BC38) {
   const uint32_t loc = ctx.r3.u32, L = ctx.r4.u32;
   __imp__sub_8209BC38(ctx, base);
-  if (!REXCVAR_GET(ui_mods) || !loc || !L) return;
-
-  // The game's .ini text is UTF-16 little-endian with a byte-order mark and CR LF lines.
-  const std::string text = bbr::SettingsStrings();
-  std::string utf16 = "\xFF\xFE";
-  for (unsigned char c : text) {
-    if (c == '\n') utf16.append("\r\0", 2);
-    utf16.push_back(char(c));
-    utf16.push_back('\0');
+  if (loc && L) {
+    g_strings_loc.store(loc, std::memory_order_relaxed);
+    g_strings_lua.store(L, std::memory_order_relaxed);
+    g_strings_pending.store(true, std::memory_order_release);
   }
-  constexpr uint32_t kFileStruct = 0x40;
-  const uint32_t block = GuestAlloc(ctx, base, kFileStruct + uint32_t(utf16.size()));
-  if (!block) return;
-  std::memset(Host(base, block), 0, kFileStruct);
-  std::memcpy(Host(base, block + kFileStruct), utf16.data(), utf16.size());
-  *Host(base, block + 1) = 1;                            // contents are in memory
-  Store32(base, block + 0x8, 0);                         // read position
-  Store32(base, block + 0xC, block + kFileStruct);       // buffer
-  Store32(base, block + 0x10, uint32_t(utf16.size()));   // size
-
-  Call(sub_820A5010, ctx, base, L, kLuaGlobalsIndex, kUITextName);  // push UIText
-  Call(sub_8209B8D0, ctx, base, loc, L, block);
-  Call(sub_820A4348, ctx, base, L, -2);                             // pop it again
-  GuestFree(ctx, base, block);
-  REXLOG_INFO("[ui] added the Revolution strings to the game's text table");
 }
 
 // gcinfo("bbrr.<command>", key, value): the settings screen's line to the PC side.

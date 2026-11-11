@@ -61,7 +61,7 @@ local function BuildRows()
       local target = string.sub(key, 6)
       local title = UIText["BBRR_T_page_" .. target]
       if title ~= nil then
-        table.insert(rows, { link = target, title = title, items = { { text = UIText.BBRR_OPEN, value = 1 } } })
+        table.insert(rows, { link = target, title = title, items = { { text = UIText.IDS_NOWT or UIText.BBRR_OPEN, value = 1 } } })
       end
     elseif key ~= nil then
       local choices = tonumber(BBRR("bbrr.choices", key)) or 0
