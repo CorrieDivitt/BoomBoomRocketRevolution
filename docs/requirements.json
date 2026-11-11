@@ -569,7 +569,7 @@
   "effort": "M",
   "acceptance": "During the full playtest, every menu and HUD screen is checked at 21:9 and 32:9: side elements follow the window edges, nothing splits from its group or pops during animations; fixes via grouping rules or per-screen overrides (--ui_anchor_debug log)",
   "depends_on": "R-402,R-110",
-  "notes": "2026-11-11: menus were drawn in their 16:9 place for a moment after a transition and then jumped to the edge; the finished layout of each screen is now remembered (cache/ui_layout.txt) and used while a screen arrives - so the first visit to a screen after this change still jumps once; untested. Edge anchoring works on most menus but not all (user test 2026-11-10); do with the full playtest"
+  "notes": "2026-11-11: menus were drawn in their 16:9 place for a moment after a transition and then jumped to the edge; the finished layout of each screen is remembered (cache/ui_layout.txt) and used for the first 1.5 s after a screen loads. First attempt failed (it learned an in-between arrangement the main menu holds for ~0.3 s); second attempt only learns what is still there after 1.5 s; untested. Song-select headings and speed panel are kept with the list instead of following the edges. Edge anchoring works on most menus but not all (user test 2026-11-10); do with the full playtest"
  },
  {
   "id": "R-416",

@@ -5,6 +5,7 @@
 
 #include "settings.h"
 #include "modifiers.h"
+#include "widescreen.h"
 #include <atomic>
 #include <thread>
 #include "metronome.h"
@@ -358,6 +359,12 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
   if (command.rfind("bbrr.metro.", 0) == 0) return MetronomeCommand(command, key, value);
   if (command.rfind("bbrr.hit.", 0) == 0) return HitCommand(command);
   if (command.rfind("bbrr.speed.", 0) == 0) return SpeedCommand(command);
+  if (command == "bbrr.ui.keep") {
+    // key = "x0,y0,x1,y1": a rectangle whose contents must not follow a window edge.
+    float r[4];
+    if (std::sscanf(key.c_str(), "%f,%f,%f,%f", &r[0], &r[1], &r[2], &r[3]) == 4) KeepUiCentred(r[0], r[1], r[2], r[3]);
+    return "";
+  }
   if (command == "bbrr.time") {
     using namespace std::chrono;
     static const steady_clock::time_point start = steady_clock::now();

@@ -23,8 +23,14 @@
 // from the finished screen, so a menu used to be drawn in its 16:9 place for a moment and
 // then jump to the edge. To avoid that the finished layout of every screen is remembered
 // (by script name and number of widgets, also across runs, in cache/ui_layout.txt) and
-// used for the first two seconds after the screen's script is loaded, until the layout
-// has settled.
+// used for the first second and a half after the screen's script is loaded. A screen can
+// sit in an in-between arrangement for a good part of that time (the main menu does, for
+// about a third of a second), so only an arrangement that is still there after that time
+// counts as finished.
+//
+// Things a UI script adds beside a centred part of a screen (the headings and the speed
+// panel around the song list) would otherwise be taken for edge items; the script names
+// the rectangle they are in and they are left alone (bbr::KeepUiCentred).
 
 #include "widescreen.h"
 #include "midasm_hooks.h"
@@ -257,6 +263,8 @@ using SteadyClock = std::chrono::steady_clock;
 std::mutex g_screen_mutex;
 std::string g_screen_name;                    // last UI script loaded
 SteadyClock::time_point g_screen_loaded_at{};
+struct Rect { float x0, y0, x1, y1; };
+std::vector<Rect> g_keep;                     // rectangles whose contents stay put
 std::map<std::string, Sides> g_layouts;       // finished layout by "<script>|<widgets>"
 bool g_layouts_loaded = false;
 std::string g_last_signature;
@@ -369,6 +377,15 @@ void AnchorUi(uint8_t* base) {
     }
   }
   if (!anchor) return;
+  {
+    std::lock_guard<std::mutex> lock(g_screen_mutex);
+    for (size_t k = 0; k < items.size(); ++k) {
+      const UiItem& it = items[k];
+      for (const Rect& r : g_keep) {
+        if (it.x0 >= r.x0 && it.x1 <= r.x1 && it.y0 >= r.y0 && it.y1 <= r.y1) grouped[k] = 0;
+      }
+    }
+  }
 
   // Group items that touch or sit close together (a panel and its labels, menu rows).
   constexpr float kGapX = 16.0f, kGapY = 10.0f;
@@ -424,17 +441,16 @@ void AnchorUi(uint8_t* base) {
     g_last_sides = sides;
   }
   constexpr int kSettledFrames = 30;
-  if (g_same_frames == kSettledFrames) {
+  constexpr double kArrival = 1.5;  // seconds a screen may take to arrive
+  if (g_same_frames >= kSettledFrames && since_load >= kArrival) {
     auto it = g_layouts.find(signature);
     if (it == g_layouts.end() || it->second != sides) {
-      if (it != g_layouts.end() && since_load < 3.0) {
-        REXLOG_INFO("[ui] layout of {} changed while it arrived; remembered for next time", signature);
-      }
+      REXLOG_INFO("[ui] layout of {} {}", signature, it == g_layouts.end() ? "learned" : "has changed; learned again");
       if (g_layouts.size() < 2000) g_layouts[signature] = sides;
       SaveLayouts();
     }
   }
-  if (g_same_frames < kSettledFrames && since_load < 2.0) {
+  if (since_load < kArrival) {
     const auto it = g_layouts.find(signature);
     if (it != g_layouts.end()) {
       for (size_t k = 0; k < items.size(); ++k) {
@@ -474,6 +490,12 @@ void bbr::NoteUiScriptLoaded(const char* name) {
   std::lock_guard<std::mutex> lock(g_screen_mutex);
   g_screen_name = name;
   g_screen_loaded_at = SteadyClock::now();
+  g_keep.clear();
+}
+
+void bbr::KeepUiCentred(float x0, float y0, float x1, float y1) {
+  std::lock_guard<std::mutex> lock(g_screen_mutex);
+  if (g_keep.size() < 16) g_keep.push_back({x0, y0, x1, y1});
 }
 
 #if defined(_WIN32)

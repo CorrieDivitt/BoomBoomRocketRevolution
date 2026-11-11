@@ -15,4 +15,7 @@ uint8_t* GuestBase();
 double UiAspectRatio();
 // Called whenever the game loads a UI script (src/ui_mod.cpp): a new screen is starting.
 void NoteUiScriptLoaded(const char* name);
+// For UI scripts: everything inside this rectangle (menu layout units) stays where it is
+// instead of following a window edge. Forgotten when the next script is loaded.
+void KeepUiCentred(float x0, float y0, float x1, float y1);
 }  // namespace bbr

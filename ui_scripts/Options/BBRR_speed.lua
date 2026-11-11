@@ -48,6 +48,10 @@ end
 
 function Init(...)
   game_Init(...)
+  -- These sit beside the centred song list and belong to it: with Menu Layout set to
+  -- Screen Edges they must not be carried off to the sides of a wide window.
+  BBRR("bbrr.ui.keep", "60,40,580,76")      -- the two headings
+  BBRR("bbrr.ui.keep", "530,140,750,245")   -- the speed panel
   BBRR("bbrr.speed.step")
   local styles = UIGlobals.font_render_state
   -- Headings over the two columns, in the style of the screen's title.
