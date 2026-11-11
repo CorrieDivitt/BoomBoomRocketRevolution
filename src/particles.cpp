@@ -7,11 +7,8 @@
 // and the file's own count, and stores the scaled count instead; when the setting changes
 // later, the noted blocks are rewritten, so it takes effect without a restart.
 //
-// Limits: rockets and bursts live in a pool of 32768 (sub_82081B30, never close to full);
-// sparks come from a second system of 16384 (sub_82082A00). Its allocator sub_820823C0
-// returns null when full and both callers check, so a very high setting thins out the
-// busiest moments rather than breaking anything. The settings screen offers 0.25x to 25x
-// to find out where that happens.
+// Limits: the game stops making sparks at 70000 alive (see TrackPoolUse below). The
+// settings screen offers 0.25x to 25x to find out what happens on the way there.
 
 #include "particles.h"
 #include "midasm_hooks.h"
@@ -81,46 +78,43 @@ void BbrParticleCountHook(PPCRegister& r3, PPCRegister& r25) {
 }
 
 namespace {
-// How full the particle systems get. The game has two:
-//   A = [0x821C0518]: 32768 slots of 0x80 bytes (+0x18 size, +0x1C alive): rockets and bursts
-//   B = [game + 0x74]: 16384 slots of 48 bytes (+0x14 size, +0x0C alive), where
-//       game = [0x821D4438] - 0xA0.
-// Logged every 10 seconds while anything is alive.
+// How full the spark system gets. A firework's Count ends up as a float in its emitter
+// (+0x1A8); sub_820E5D10 / sub_820E5FB8 turn it into sparks in the system at [0x821C051C]:
+//   +0x2814  sparks alive; the game stops making new ones at 70000 (0x11170), which is
+//            also what its three vertex buffers are sized for (70000 x 112 bytes)
+//   +0x2004  blocks of 128 sparks in use, out of 2048 (sub_820E5010 returns null when out)
+// (The pools at [0x821C0518] and [game + 0x74] hold rockets and trail segments, a few
+// hundred at most, and do not grow with Count.)
+// Logged every 10 seconds, and every second once either number passes half its limit, so
+// the last line before a crash shows how full things were.
+constexpr uint32_t kSparkLimit = 70000;
+constexpr uint32_t kBlockLimit = 2048;
+
 void TrackPoolUse(uint8_t* base, double quality) {
   using Clock = std::chrono::steady_clock;
   static Clock::time_point window_start = Clock::now();
-  static uint32_t a_peak = 0, a_cap = 0, a_full = 0;
-  static uint32_t b_peak = 0, b_cap = 0, b_full = 0, b_aux = 0, frames = 0;
-  const uint32_t pool_a = Load32(base, 0x821C0518);
-  if (pool_a >= 0x10000) {
-    a_cap = Load32(base, pool_a + 0x18);
-    const uint32_t alive = Load32(base, pool_a + 0x1C);
-    a_peak = std::max(a_peak, alive);
-    if (a_cap != 0 && alive >= a_cap) ++a_full;
-    ++frames;
-  }
-  const uint32_t game_ref = Load32(base, 0x821D4438);
-  if (game_ref >= 0x10000) {
-    const uint32_t pool_b = Load32(base, game_ref - 0xA0 + 0x74);
-    if (pool_b >= 0x10000) {
-      b_cap = Load32(base, pool_b + 0x14);
-      const uint32_t alive = Load32(base, pool_b + 0x0C);
-      if (alive <= 0x100000) {
-        b_peak = std::max(b_peak, alive);
-        b_aux = std::max(b_aux, Load32(base, pool_b + 0x10));
-        if (b_cap != 0 && alive >= b_cap) ++b_full;
-      }
-    }
-  }
-  if (Clock::now() - window_start < std::chrono::seconds(10)) return;
-  if (a_peak > 0 || b_peak > 0) {
-    REXLOG_INFO("[particles] last 10 s: A peak {} of {} (full {} frames); "
-                "B peak {} of {} ({:.0f}%, aux {}, full {} frames); {} frames; quality {:.2f}x",
-                a_peak, a_cap, a_full, b_peak, b_cap,
-                b_cap ? 100.0 * b_peak / b_cap : 0.0, b_aux, b_full, frames, quality);
+  static uint32_t spark_peak = 0, block_peak = 0, sparks_full = 0, blocks_full = 0, frames = 0;
+  const uint32_t system = Load32(base, 0x821C051C);
+  if (system < 0x10000) return;
+  const uint32_t sparks = Load32(base, system + 0x2814);
+  const uint32_t blocks = Load32(base, system + 0x2004);
+  if (sparks > 0x1000000 || blocks > 0x1000000) return;
+  spark_peak = std::max(spark_peak, sparks);
+  block_peak = std::max(block_peak, blocks);
+  if (sparks >= kSparkLimit) ++sparks_full;
+  if (blocks >= kBlockLimit) ++blocks_full;
+  ++frames;
+  const bool busy = spark_peak >= kSparkLimit / 2 || block_peak >= kBlockLimit / 2;
+  const auto window = busy ? std::chrono::seconds(1) : std::chrono::seconds(10);
+  if (Clock::now() - window_start < window) return;
+  if (spark_peak > 0) {
+    REXLOG_INFO("[particles] last {} s: peak {} of {} sparks ({:.0f}%), at the limit on {} of {} frames; "
+                "peak {} of {} blocks ({:.0f}%), all in use on {} frames; density {:.2f}x",
+                busy ? 1 : 10, spark_peak, kSparkLimit, 100.0 * spark_peak / kSparkLimit, sparks_full,
+                frames, block_peak, kBlockLimit, 100.0 * block_peak / kBlockLimit, blocks_full, quality);
   }
   window_start = Clock::now();
-  a_peak = a_full = b_peak = b_full = b_aux = frames = 0;
+  spark_peak = block_peak = sparks_full = blocks_full = frames = 0;
 }
 }  // namespace
 

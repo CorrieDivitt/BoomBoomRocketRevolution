@@ -42,13 +42,13 @@ Things that follow from this:
 - The game renders 1280x720; the port already scales that up (Resolution setting) and stretches it
   for wide screens.
 
-Particle limits (corrected 2026-11-11 from a running game): there are two systems. One has 32,768
-slots but holds rockets and bursts, one per firework; it peaked at 25. The other has 16,384 slots
-with its own vertex buffers and peaked at about 700 (4%) in a busy song at Extreme (3x), with a
-second list in it reaching about 1,800. Neither is anywhere near full, so the limits are not what
-holds the effect back and there is no reason to raise them. When a system is full, new entries are
-simply not created. A firework's `Count` is handed to an emitter as a number, not used to size any
-table. The log line `[particles] last 10 s` shows both systems.
+Particle limits (traced 2026-11-11): sparks live in a system of their own that stops making new
+ones at 70,000 alive; its vertex buffers are sized for exactly that. They are kept in blocks of 128,
+2,048 blocks at most. A firework's `Count` becomes the emitter's rate, so it scales the number of
+sparks directly. Two smaller pools (32,768 rockets and bursts, 16,384 trail segments) stay in the
+hundreds whatever the setting. At 10x density the game crashed about 20 seconds into a song; whether
+that is the spark limit or something else is not known yet. The log line `[particles] last ... s`
+shows sparks and blocks against their limits.
 
 Not yet known (needs a look in a running game): the colour format of the game's render target and
 whether it uses multisampling.
