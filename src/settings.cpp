@@ -62,6 +62,12 @@ const std::vector<Setting>& Settings() {
       offset.choices.push_back({std::to_string(ms), std::to_string(ms) + " ms"});
     }
     s.push_back(offset);
+    Setting input{"input_offset", "input_offset_ms", "Input Offset", {}, 20};
+    for (int i = 0; i < 41; ++i) {
+      const int ms = -100 + i * 5;
+      input.choices.push_back({std::to_string(ms), std::to_string(ms) + " ms"});
+    }
+    s.push_back(input);
     s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
@@ -79,7 +85,7 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:video", "audio_offset", "page:calibrate", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:video", "audio_offset", "input_offset", "page:calibrate", "skip_intro", "layout"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Calibration", {}},
@@ -322,6 +328,22 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
                 sound, picture, queue_ms, wanted, offset->choices[best].value);
     return std::to_string(best + 1);
   }
+  if (command == "bbrr.calibrate_input") {
+    // key = how late the taps were in the picture test (ms). With the sound lined up to
+    // the picture by Audio Offset, that is the delay between seeing and the press arriving.
+    const Setting* offset = Find("input_offset");
+    if (!offset) return "";
+    const double wanted = std::strtod(key.c_str(), nullptr);
+    size_t best = offset->default_choice;
+    double best_error = 1e18;
+    for (size_t i = 0; i < offset->choices.size(); ++i) {
+      const double error = std::fabs(std::strtod(offset->choices[i].value.c_str(), nullptr) - wanted);
+      if (error < best_error) { best_error = error; best = i; }
+    }
+    REXLOG_INFO("[settings] calibration: picture taps {:.1f} ms late -> input offset {} ms", wanted,
+                offset->choices[best].value);
+    return std::to_string(best + 1);
+  }
   if (command == "bbrr.restart_needed") {
     for (const auto& [cvar, value_at_boot] : g_boot_values) {
       const std::string now = rex::cvar::GetFlagByName(cvar);
@@ -362,7 +384,7 @@ std::string SettingsStrings() {
                     "BBRR_CAL_PICTURE_INTRO = Picture test. No sound this time\n"
                     "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ every time a bar reaches the line\n"
                     "BBRR_CAL_BEGIN = Press ~~{A}~~ to begin\n"
-                    "BBRR_CAL_RESULT = Suggested audio offset. Press ~~{A}~~ to save\n"
+                    "BBRR_CAL_RESULT = Suggested offsets. Press ~~{A}~~ to save\n"
                     "BBRR_CAL_FAILED = Those taps were too uneven. Let us try again\n"
                     "BBRR_CAL_READY = Get ready\n"
                     "BBRR_CAL_TAP_M3 = -3 / 16\n"
@@ -379,6 +401,10 @@ std::string SettingsStrings() {
     out += "BBRR_T_" + s.key + " = " + s.title + "\n";
     for (size_t i = 0; i < s.choices.size(); ++i) {
       out += "BBRR_C_" + s.key + "_" + std::to_string(i + 1) + " = " + s.choices[i].label + "\n";
+      // "Audio Offset  -15 ms": one line of the calibration result.
+      if (s.key == "audio_offset" || s.key == "input_offset") {
+        out += "BBRR_CAL_" + s.key + "_" + std::to_string(i + 1) + " = " + s.title + "  " + s.choices[i].label + "\n";
+      }
     }
   }
   return out;

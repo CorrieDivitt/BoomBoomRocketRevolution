@@ -19,7 +19,8 @@
 --   BBRR("bbrr.metro.pos")                      -> position in beats (0 = first count-in beat)
 --   BBRR("bbrr.metro.stop")
 --   BBRR("bbrr.calibrate", sound, picture)      -> Audio Offset option number for those delays
---   BBRR("bbrr.set", "audio_offset", n), BBRR("bbrr.save")
+--   BBRR("bbrr.calibrate_input", picture)       -> Input Offset option number
+--   BBRR("bbrr.set", "audio_offset", n), BBRR("bbrr.set", "input_offset", n), BBRR("bbrr.save")
 
 local function BBRR(command, key, value)
   local ok, result = pcall(gcinfo, command, key, value)
@@ -168,7 +169,8 @@ local function SetState(state)
     GUI.shown = nil
   elseif state == STATE_RESULT then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_RESULT)
-    Buttons.ChangeText(GUI.line2_ID, UIText["BBRR_C_audio_offset_" .. GUI.option] or UIText.IDS_NOWT)
+    Buttons.ChangeText(GUI.line2_ID, UIText["BBRR_CAL_audio_offset_" .. GUI.option] or UIText.IDS_NOWT)
+    Buttons.ChangeText(GUI.line3_ID, UIText["BBRR_CAL_input_offset_" .. GUI.input_option] or UIText.IDS_NOWT)
     ShowBars(false)
   elseif state == STATE_FAILED then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_FAILED)
@@ -184,6 +186,7 @@ function Init()
   SetupTitleText(UIText.BBRR_T_page_calibrate)
   GUI.line1_ID = AddText(100, UIGlobals.font_size.small, UIText.BBRR_CAL_SOUND_INTRO, UIGlobals.font_render_state.new_filled_orange)
   GUI.line2_ID = AddText(132, UIGlobals.font_size.small, UIText.BBRR_CAL_BEGIN, UIGlobals.font_render_state.new_filled_blue)
+  GUI.line3_ID = AddText(164, UIGlobals.font_size.small, UIText.IDS_NOWT, UIGlobals.font_render_state.new_filled_blue)
   GUI.line_ID = AddBox(170, LINE_Y - 2, 300, 4, "255 255 255 255")
   GUI.bar_ID = {
     AddBox(320 - BAR_WIDTH / 2, HIDDEN_Y, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255"),
@@ -233,7 +236,8 @@ local function FinishTest()
   else
     GUI.picture_delay = median
     GUI.option = tonumber(BBRR("bbrr.calibrate", GUI.sound_delay, GUI.picture_delay))
-    if GUI.option == nil then
+    GUI.input_option = tonumber(BBRR("bbrr.calibrate_input", GUI.picture_delay))
+    if GUI.option == nil or GUI.input_option == nil then
       SetState(STATE_FAILED)
     else
       SetState(STATE_RESULT)
@@ -288,6 +292,7 @@ function Message(message, pad, data)
       Tap()
     elseif GUI.state == STATE_RESULT then
       BBRR("bbrr.set", "audio_offset", GUI.option)
+      BBRR("bbrr.set", "input_offset", GUI.input_option)
       BBRR("bbrr.save")
       PlayNextSound()
       Leave()

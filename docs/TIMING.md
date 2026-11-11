@@ -35,6 +35,8 @@ Reverse-engineered from the retail `default.xex` on 2026-11-10. Addresses are gu
 | `0x82080B00` | Song seconds = `samples(+0xCC) / sampleRate(+0xF0) + 0.045`, minus an optional correction `0.16 * f(...)` when a flag is set. |
 | `0x82077A70` | Beat phase: `t' = (t - SongOffset)`, `beats = t' * BPM/60`, returns the fractional beat in seconds. |
 | `0x82078AD0` | Beat-relative position used by note/launch logic (same maths plus a 0…2 wrap). |
+| `0x82064978` | Per-frame gameplay update `(obj, time)`: shifts the last three song times through `0x821BE9C8` (this frame), `0x821BE9CC` (previous), `0x821BE9D0` (the one before). |
+| `0x82066700` | **Press judging.** For a rocket with target time `T` (`[press+0x7C]+0x48`) and the span `W = [0x821BE9D0, 0x821BE9CC]`: `accuracy = 1 - abs(T - clamp(T, W)) / (TargetWidth * 0.5)`; below 0 is a miss. A press therefore counts as made during the previous frame. Result goes to `0x82065760` (score/grade). |
 | `0x820E7450` | Time-base read (`mftb` with high-word retry) — the game's `QueryPerformanceCounter`. |
 
 ## Implications for the plan
@@ -43,7 +45,7 @@ Reverse-engineered from the retail `default.xex` on 2026-11-10. Addresses are gu
   buffer latency), and exposing offsets. Hook points: `0x82080B00` (add user offset) or the
   constant at `0x821A0508`.
 - **R-205/206 (offsets):** a user audio offset can be applied by patching/overriding `0x821A0508`
-  (or wrapping `0x82080B00`); an input offset must be applied where presses are judged (to find).
+  (or wrapping `0x82080B00`); the input offset (`--input_offset_ms`, `src/input_offset.cpp`) shifts the press span `W` while `0x82066700` runs, so only judging moves.
 - **R-302 (high frame rate):** set `video_mode_refresh_rate` (24–240 Hz guest vblank) or
   `--vsync=false`. Known frame-locked code: the fade timer in `0x82077100` reads its per-frame step from
   `0x821D4330` (initialised once to 1/60). **Fixed:** `src/frame_stats.cpp` writes the real frame
