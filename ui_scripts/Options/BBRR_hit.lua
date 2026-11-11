@@ -3,7 +3,7 @@
 -- Loaded by the HUD scripts (Ingame\Hud.lua, Ingame\Hud_2p.lua) after the game's own
 -- script. After each hit a small number appears just above the target line, in line
 -- with the arrow that was pressed: how far the press was from the rocket's time in
--- milliseconds, + early, - late, in the colour of the judgement it earned.
+-- milliseconds, + early, - late, in the colour of the judgement it earned, on a small dark plate.
 --
 -- The PC side (src/input_offset.cpp) does the measuring and writes the text into one of
 -- the game's stored strings (shown by a text item whose text is "STR<n>"):
@@ -38,6 +38,10 @@ local function GradeStyles()
   }
 end
 
+local BOX_WIDTH = 64     -- dark plate behind the number so it reads over fireworks
+local BOX_PAD = 3
+
+local boxes = {}     -- boxes[slot index]
 local ids = {}       -- ids[grade][slot index]
 local shown = {}     -- shown[slot index] = { id = ..., at = ... }
 local enabled = false
@@ -49,6 +53,20 @@ function Init(...)
   enabled = BBRR("bbrr.hit.enabled") == "1"
   if not enabled then
     return
+  end
+  -- The plates are added first so the numbers are drawn on top of them.
+  for i = 1, SLOTS do
+    boxes[i] = Buttons.AddButton({
+      type = UIEnums.ButtonTypes.GRAPHIC,
+      x = 320,
+      y = HIDDEN_Y,
+      width = BOX_WIDTH,
+      height = HEIGHT + BOX_PAD * 2,
+      colour = "190 0 0 0",
+      textures = {
+        { name = UIEnums.Texture.null, u = 0, v = 0, usize = 1, vsize = 1 }
+      }
+    })
   end
   for grade, style in pairs(GradeStyles()) do
     ids[grade] = {}
@@ -72,6 +90,7 @@ end
 local function Hide(i)
   if shown[i] ~= nil then
     Buttons.ChangePosition(shown[i].id, 320, HIDDEN_Y)
+    Buttons.ChangePosition(boxes[i], 320, HIDDEN_Y)
     shown[i] = nil
   end
 end
@@ -94,6 +113,7 @@ function Update(...)
       Hide(i)
       Buttons.ChangeText(row[i], "STR" .. slot)
       Buttons.ChangePosition(row[i], tonumber(x), SHOWN_Y)
+      Buttons.ChangePosition(boxes[i], tonumber(x) - BOX_WIDTH / 2, SHOWN_Y - BOX_PAD)
       shown[i] = { id = row[i], at = now }
     end
   end

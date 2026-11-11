@@ -4,6 +4,8 @@
 // Each setting is a list of choices for one cvar; the screen works with option numbers.
 
 #include "settings.h"
+#include <atomic>
+#include <thread>
 #include "metronome.h"
 #include "input_offset.h"
 
@@ -272,6 +274,17 @@ void LoadSettings() {
   snapshot();
   REXLOG_INFO("[settings] loaded {} setting(s) from {}", applied, FilePath().string());
   ApplyFrameRate();
+}
+
+void ExitSoon() {
+#if defined(_WIN32)
+  static std::atomic<bool> started{false};
+  if (started.exchange(true)) return;
+  std::thread([] {
+    Sleep(1500);
+    TerminateProcess(GetCurrentProcess(), 0);
+  }).detach();
+#endif
 }
 
 std::string SettingsCommand(const std::string& command, const std::string& key, const std::string& value) {

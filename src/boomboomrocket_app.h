@@ -25,6 +25,12 @@ class BoomBoomRocketApp : public rex::ReXApp {
         PPCImageConfig));
   }
 
+  // Alt+F4 / close button: the SDK's shutdown can hang and leave the process behind.
+  bool OnWindowCloseRequested() override {
+    bbr::ExitSoon();
+    return true;
+  }
+
   // Override virtual hooks for customization:
   // void OnPostInitLogging() override {}
   // Use the Xenos GPU emulation plugin (rexgpu-xenos.dll, staged next to the exe

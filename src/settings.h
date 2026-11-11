@@ -13,4 +13,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 
 // UTF-8 "KEY = text" lines for the settings screen (added to the game's string table).
 std::string SettingsStrings();
+// Call when the window is asked to close: if the normal shutdown has not ended the
+// process a moment later (it can hang while stopping the game's threads), end it.
+void ExitSoon();
 }  // namespace bbr
