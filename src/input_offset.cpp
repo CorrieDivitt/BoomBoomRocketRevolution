@@ -133,6 +133,8 @@ int g_anchor_count = 0;  // total ever stored
 // Moment of the latest button press seen by the controller thread (0 = none yet).
 std::atomic<double> g_last_press{0.0};
 std::atomic<bool> g_thread_started{false};
+std::atomic<int> g_shoulder_steps{0};
+std::atomic<double> g_shoulder_time{0.0};
 
 #if defined(_WIN32)
 struct PadState {  // XINPUT_STATE, declared here so no XInput header/library is needed
@@ -164,6 +166,7 @@ void ControllerThread() {
   constexpr uint16_t kWatched = 0xF000 | 0x000F;
   bool connected[4] = {true, true, true, true};
   uint16_t previous[4] = {0, 0, 0, 0};
+  uint16_t previous_shoulders[4] = {0, 0, 0, 0};
   double recheck = 0.0;
   for (;;) {
     const double now = Now();
@@ -176,12 +179,21 @@ void ControllerThread() {
       if (get_state(pad, &state) != 0) {
         connected[pad] = false;
         previous[pad] = 0;
+        previous_shoulders[pad] = 0;
         continue;
       }
       connected[pad] = true;
       const uint16_t buttons = state.buttons & kWatched;
       if (buttons & ~previous[pad]) g_last_press.store(Now(), std::memory_order_relaxed);
       previous[pad] = buttons;
+      // LB (0x0100) / RB (0x0200): scroll speed down / up (src/modifiers.cpp).
+      const uint16_t shoulders = state.buttons & 0x0300;
+      const uint16_t pressed = shoulders & ~previous_shoulders[pad];
+      previous_shoulders[pad] = shoulders;
+      if (pressed) {
+        g_shoulder_steps.fetch_add(((pressed & 0x0200) ? 1 : 0) - ((pressed & 0x0100) ? 1 : 0));
+        g_shoulder_time.store(Now(), std::memory_order_relaxed);
+      }
     }
     Sleep(1);
   }
@@ -455,6 +467,13 @@ void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1) {
   g_ticked.push_back({rocket, rocket_time});
   while (g_ticked.size() > 64) g_ticked.pop_front();
   if (!together) bbr::ScheduleTick(wait, REXCVAR_GET(assist_tick_volume));
+}
+
+int bbr::TakeShoulderSteps() {
+  StartControllerThread();
+  const int steps = g_shoulder_steps.exchange(0);
+  if (steps == 0) return 0;
+  return Now() - g_shoulder_time.load(std::memory_order_relaxed) < 0.25 ? steps : 0;
 }
 
 std::string bbr::HitCommand(const std::string& command) {

@@ -33,7 +33,7 @@ different folder.
 | | Input Offset | Moves how presses are judged. Positive = presses count as made earlier |
 | | Hit Timing | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
 | | Assist Tick | Plays a click at the exact moment of every rocket |
-| Modifiers | Scroll Speed | 0.5x to 4x (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. Applies from the next song |
+| Modifiers | Scroll Speed | 0.5x to 4x (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step, without pausing; the new speed shows briefly in the middle of the screen and is saved |
 | (main page) | Skip Intro | Skips the start-up logos |
 | | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 
@@ -66,6 +66,7 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--ui_mods=false` | Turn off every menu addition (BBRR Settings, hit timing, renamed texts) |
 | `--game_debug_log=true` | Write the game's own debug messages to the log |
 | `--scroll_speed=<n>` | Scroll speed multiplier, any value from 0.25 to 8 |
+| `--scroll_speed_buttons=false` | LB / RB do not change the scroll speed |
 | `--hdr_paper_white_nits=<n>` / `--hdr_peak_nits=<n>` | HDR: brightness of ordinary white (default 200) and of the brightest highlights (default: what the display reports) |
 
 ## Files

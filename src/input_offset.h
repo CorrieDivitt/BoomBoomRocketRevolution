@@ -10,4 +10,9 @@ namespace bbr {
 //                         in stored string STR<slot>, x is a 640x480 layout coordinate,
 //                         grade is the judgement (6 Perfect, 5 Awesome, 3 Good, 1 OK)
 std::string HitCommand(const std::string& command);
+
+// Shoulder button presses since the last call: +1 for each RB, -1 for each LB (any pad).
+// Presses older than a quarter of a second are dropped, so ones made in a menu do not
+// turn up later in a song. Starts the controller thread if it is not running.
+int TakeShoulderSteps();
 }  // namespace bbr

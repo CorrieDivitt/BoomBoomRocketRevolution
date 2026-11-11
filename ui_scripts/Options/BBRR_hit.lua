@@ -11,6 +11,9 @@
 --   BBRR("bbrr.hit.enabled") -> "1" when the readout is switched on
 --   BBRR("bbrr.hit.poll")    -> "" or "slot,x,grade": show STR<slot> at layout position x
 --   BBRR("bbrr.time")        -> PC clock in milliseconds
+--
+-- It also shows the scroll speed for a moment when LB / RB change it (src/modifiers.cpp):
+--   BBRR("bbrr.speed.poll")  -> "1" when it just changed; the text is in STR127
 
 local function BBRR(command, key, value)
   local ok, result = pcall(gcinfo, command, key, value)
@@ -35,6 +38,13 @@ local function GradeStyles()
   return { [1] = plain, [3] = plain, [5] = plain, [6] = plain }
 end
 
+local SPEED_SLOT = 127   -- STR127: "Speed 1.5x"
+local SPEED_LIFE_MS = 1200
+local SPEED_HEIGHT = 20
+local SPEED_Y = 240 - SPEED_HEIGHT / 2   -- middle of the screen
+local speed_id = nil
+local speed_shown_at = nil
+
 local ids = {}       -- ids[grade][slot index]
 local shown = {}     -- shown[slot index] = { id = ..., at = ... }
 local enabled = false
@@ -43,6 +53,18 @@ local game_Update = Update
 
 function Init(...)
   game_Init(...)
+  speed_shown_at = nil
+  speed_id = Buttons.AddButton({
+    type = UIEnums.ButtonTypes.TEXT,
+    x = 320,
+    y = HIDDEN_Y,
+    width = 300,
+    height = SPEED_HEIGHT,
+    justify = UIEnums.Justify.JUSTIFY_CENTRE,
+    colour = "255 255 255 255",
+    text = "STR" .. SPEED_SLOT,
+    render_state = UIGlobals.font_render_state.new_filled_orange
+  })
   enabled = BBRR("bbrr.hit.enabled") == "1"
   if not enabled then
     return
@@ -75,10 +97,20 @@ end
 
 function Update(...)
   game_Update(...)
+  local now = tonumber(BBRR("bbrr.time")) or 0
+  if speed_id ~= nil then
+    if BBRR("bbrr.speed.poll") == "1" then
+      Buttons.ChangeText(speed_id, "STR" .. SPEED_SLOT)
+      Buttons.ChangePosition(speed_id, 320, SPEED_Y)
+      speed_shown_at = now
+    elseif speed_shown_at ~= nil and now - speed_shown_at > SPEED_LIFE_MS then
+      Buttons.ChangePosition(speed_id, 320, HIDDEN_Y)
+      speed_shown_at = nil
+    end
+  end
   if not enabled then
     return
   end
-  local now = tonumber(BBRR("bbrr.time")) or 0
   for _ = 1, 8 do
     local hit = BBRR("bbrr.hit.poll")
     if hit == nil or hit == "" then
