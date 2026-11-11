@@ -1,7 +1,7 @@
 -- Boom Boom Rocket Revolution: hit timing readout for the in-game HUD.
 --
 -- Loaded by the HUD scripts (Ingame\Hud.lua, Ingame\Hud_2p.lua) after the game's own
--- script. After each hit a small number appears just above the target line, in line
+-- script. After each hit a small number appears a little above the target line, in line
 -- with the arrow that was pressed: how far the press was from the rocket's time in
 -- milliseconds, + early, - late, in the plain orange menu font (the judgement-coloured
 -- fonts got lost in the fireworks, and a dark plate behind them spoiled the picture).
@@ -25,7 +25,8 @@ local SLOTS = 4
 local LIFE_MS = 600      -- how long a number stays
 local HEIGHT = 17        -- text size
 local LINE_Y = 144       -- the target line in the HUD (Ingame\Hud.lua)
-local SHOWN_Y = LINE_Y - 12 - HEIGHT
+local GAP = 40           -- space between the target line and the number
+local SHOWN_Y = LINE_Y - GAP - HEIGHT
 local HIDDEN_Y = -200
 
 -- One style for every judgement. (Kept per judgement so colours can come back later.)

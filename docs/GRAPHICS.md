@@ -42,9 +42,13 @@ Things that follow from this:
 - The game renders 1280x720; the port already scales that up (Resolution setting) and stretches it
   for wide screens.
 
-Particle limits (found 2026-11-11): all particles share one pool of 32,768; when it is full, new
-particles are simply not created, so raising counts cannot overflow anything. A firework's `Count`
-is handed to an emitter as a number, not used to size any table.
+Particle limits (corrected 2026-11-11 from a running game): there are two systems. One has 32,768
+slots but holds rockets and bursts, one per firework; it peaked at 25. The other has 16,384 slots
+with its own vertex buffers and peaked at about 700 (4%) in a busy song at Extreme (3x), with a
+second list in it reaching about 1,800. Neither is anywhere near full, so the limits are not what
+holds the effect back and there is no reason to raise them. When a system is full, new entries are
+simply not created. A firework's `Count` is handed to an emitter as a number, not used to size any
+table. The log line `[particles] last 10 s` shows both systems.
 
 Not yet known (needs a look in a running game): the colour format of the game's render target and
 whether it uses multisampling.

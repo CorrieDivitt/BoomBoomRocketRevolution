@@ -80,21 +80,20 @@ void BbrParticleCountHook(PPCRegister& r3, PPCRegister& r25) {
 
 namespace {
 // How full the particle systems get. The game has two:
-//   A = [0x821C0518]: 32768 slots of 0x80 bytes (+0x18 size, +0x1C alive, +0x2C points drawn)
+//   A = [0x821C0518]: 32768 slots of 0x80 bytes (+0x18 size, +0x1C alive): rockets and bursts
 //   B = [game + 0x74]: 16384 slots of 48 bytes (+0x14 size, +0x0C alive), where
 //       game = [0x821D4438] - 0xA0.
 // Logged every 10 seconds while anything is alive.
 void TrackPoolUse(uint8_t* base, double quality) {
   using Clock = std::chrono::steady_clock;
   static Clock::time_point window_start = Clock::now();
-  static uint32_t a_peak = 0, a_cap = 0, a_drawn = 0, a_full = 0;
+  static uint32_t a_peak = 0, a_cap = 0, a_full = 0;
   static uint32_t b_peak = 0, b_cap = 0, b_full = 0, b_aux = 0, frames = 0;
   const uint32_t pool_a = Load32(base, 0x821C0518);
   if (pool_a >= 0x10000) {
     a_cap = Load32(base, pool_a + 0x18);
     const uint32_t alive = Load32(base, pool_a + 0x1C);
     a_peak = std::max(a_peak, alive);
-    a_drawn = std::max(a_drawn, Load32(base, pool_a + 0x2C));
     if (a_cap != 0 && alive >= a_cap) ++a_full;
     ++frames;
   }
@@ -113,13 +112,13 @@ void TrackPoolUse(uint8_t* base, double quality) {
   }
   if (Clock::now() - window_start < std::chrono::seconds(10)) return;
   if (a_peak > 0 || b_peak > 0) {
-    REXLOG_INFO("[particles] last 10 s: A peak {} of {} (drawn {}, full {} frames); "
+    REXLOG_INFO("[particles] last 10 s: A peak {} of {} (full {} frames); "
                 "B peak {} of {} ({:.0f}%, aux {}, full {} frames); {} frames; quality {:.2f}x",
-                a_peak, a_cap, a_drawn, a_full, b_peak, b_cap,
+                a_peak, a_cap, a_full, b_peak, b_cap,
                 b_cap ? 100.0 * b_peak / b_cap : 0.0, b_aux, b_full, frames, quality);
   }
   window_start = Clock::now();
-  a_peak = a_drawn = a_full = b_peak = b_full = b_aux = frames = 0;
+  a_peak = a_full = b_peak = b_full = b_aux = frames = 0;
 }
 }  // namespace
 
