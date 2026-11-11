@@ -25,7 +25,7 @@ local SLOTS = 4
 local LIFE_MS = 600      -- how long a number stays
 local HEIGHT = 17        -- text size
 local LINE_Y = 144       -- the target line in the HUD (Ingame\Hud.lua)
-local GAP = 40           -- space between the target line and the number
+local GAP = 40           -- space between the target line and the number (approved in play)
 local SHOWN_Y = LINE_Y - GAP - HEIGHT
 local HIDDEN_Y = -200
 

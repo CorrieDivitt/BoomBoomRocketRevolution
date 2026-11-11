@@ -29,7 +29,7 @@
 REXCVAR_DEFINE_DOUBLE(particle_quality, 1.0, "BBR",
                       "Particles per firework, as a multiple of the original (0.25 to 5)");
 
-REXCVAR_DEFINE_DOUBLE(particle_limit, 56000.0, "BBR",
+REXCVAR_DEFINE_DOUBLE(particle_limit, 68000.0, "BBR",
                       "Most sparks alive at once before fireworks stop adding more (1000 to 70000). "
                       "The game's own limit is 70000, and it has crashed after running at that limit");
 
@@ -68,7 +68,8 @@ void Store32(uint8_t* base, uint32_t address, uint32_t v) {
 // sparks alive at +0x2814). The game only stops at 70000, the exact size of its vertex
 // buffers, and at 10x density it ran at that limit for under a minute before the GPU was
 // fed garbage and the game died. So stop adding sparks earlier (--particle_limit). One
-// call can still add a whole burst, which is why the default leaves a wide margin.
+// call can still add a whole burst (the game's own 70000 check still applies to each
+// spark). 68000 was chosen in play: a full song at 5x held there without a crash.
 namespace {
 bool SparkBudgetLeft(PPCContext& ctx, uint8_t* base) {
   const double limit = std::clamp(REXCVAR_GET(particle_limit), 1000.0, 70000.0);

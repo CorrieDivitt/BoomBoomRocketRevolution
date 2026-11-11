@@ -49,8 +49,8 @@ sparks directly. Two smaller pools (32,768 rockets and bursts, 16,384 trail segm
 hundreds whatever the setting. At 5x a busy song stays well under the limit; at 10x it reaches it within seconds. Running at
 the limit crashed the game twice, the second time after about 50 seconds with the GPU being handed
 garbage shaders, which points at memory being overwritten. The Particle Density setting therefore
-tops out at 5x. (The port also stops adding sparks at 56,000, `--particle_limit`, as a backstop;
-untested.) The crash left garbage in the saved shader cache, which then crashed every start-up;
+tops out at 5x. The port also stops adding sparks at 68,000 (`--particle_limit`), just short of the game's own
+limit; a full song at 5x ran at that level without a crash. The crash left garbage in the saved shader cache, which then crashed every start-up;
 the port now clears that cache when the previous start did not finish. The log line `[particles] last ... s`
 shows sparks and blocks against their limits.
 

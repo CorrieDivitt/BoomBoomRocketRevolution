@@ -699,7 +699,7 @@
   "effort": "M",
   "acceptance": "Multiplier on firework Count with stable perf",
   "depends_on": "R-302",
-  "notes": "Particle Density in Video Settings (--particle_quality, 0.25x-5x multiplier, live): scales each firework's Count at config load and rewrites loaded configs when changed. Game stops making sparks at 70000 alive. 3x and 5x confirmed fine; 10x reaches the limit and crashed twice (2026-11-11), so the setting tops out at 5x."
+  "notes": "Particle Density in Video Settings (--particle_quality, 0.25x-5x multiplier, live): scales each firework's Count at config load and rewrites loaded configs when changed. Game stops making sparks at 70000 alive. Running at the game's own 70000 limit crashed twice (2026-11-11), so the port stops adding sparks at 68000 (--particle_limit) and the setting tops out at 5x. Full song at 5x with that limit confirmed without a crash; both values locked in."
  },
  {
   "id": "R-412",
@@ -1001,6 +1001,19 @@
   "notes": "Done 2026-11-11: results screen line with average, spread, early and late counts (see R-803). Per-difficulty history not done."
  },
  {
+  "id": "R-807",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Offset suggestion on the results screen",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "S",
+  "acceptance": "When a song ends with a clearly one-sided result (most presses early, or most late, and an average well away from zero), the results screen suggests which way and roughly how far to move Input Offset; nothing is shown for a balanced result or too few hits",
+  "depends_on": "R-806",
+  "notes": "Requested 2026-11-11 after raising Input Offset by about 40 ms fixed a steady -36 to -44 ms late pattern. Thresholds to settle when building (for example 20+ hits, average beyond 15 ms, 70% on one side). Left out of R-806 at first on purpose."
+ },
+ {
   "id": "R-901",
   "phase": 9,
   "phase_name": "Accessibility (stretch)",
@@ -1115,7 +1128,7 @@
   "effort": "M",
   "acceptance": "Per-hit early/late indicator and end-of-song timing histogram / mean offset",
   "depends_on": "R-801,R-306",
-  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11. Left: two-player results screen; optional histogram."
+  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11; readout raised to 40 px above the target line so fireworks do not bury it, position locked in. Left: two-player results screen; optional histogram."
  },
  {
   "id": "R-804",
