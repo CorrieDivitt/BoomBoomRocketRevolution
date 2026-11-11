@@ -66,11 +66,11 @@ const std::vector<Setting>& Settings() {
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
                  {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0, "video"});
-    s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video", true});
+    s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video"});
+    s.push_back({"antialiasing", "swap_post_effect", "Anti-Aliasing",
+                 {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
-    s.push_back({"antialiasing", "swap_post_effect", "Anti-Aliasing",
-                 {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video", true});
     return s;
   }();
   return settings;
@@ -79,8 +79,8 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"audio_offset", "page:calibrate", "skip_intro", "layout", "page:video"}},
-      {"video", "Video Settings", {"aspect", "window", "resolution", "antialiasing"}},
+      {"main", "BBRR Settings", {"page:video", "audio_offset", "page:calibrate", "skip_intro", "layout"}},
+      {"video", "Video Settings", {"aspect", "window", "antialiasing", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Calibration", {}},
   };
@@ -354,7 +354,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
                     "BBRR_OPEN = Open\n"
-                    "BBRR_RESTART_NOTE = The last three settings apply after a restart\n"
+                    "BBRR_RESTART_NOTE = A new Resolution applies after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
                     "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"

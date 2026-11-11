@@ -1,0 +1,45 @@
+diff --git a/src/graphics/graphics_system.cpp b/src/graphics/graphics_system.cpp
+index a744201..8b42607 100755
+--- a/src/graphics/graphics_system.cpp
++++ b/src/graphics/graphics_system.cpp
+@@ -17,6 +17,7 @@
+ #include <functional>
+ #include <memory>
+ #include <mutex>
++#include <string>
+ #include <utility>
+ 
+ #include <rex/cvar.h>
+@@ -172,6 +173,16 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
+         uint64_t last_frame_time = chrono::Clock::QueryGuestTickCount();
+         bool display_sync_usable = true;
+         uint32_t display_sync_misfires = 0;
++        // Lets the swap post effect (FXAA) be changed while running: once per vblank,
++        // pass a changed cvar value on to the command processor.
++        std::string applied_post_effect = REXCVAR_GET(swap_post_effect);
++        auto follow_post_effect = [this, &applied_post_effect]() {
++          std::string wanted = rex::cvar::GetFlagByName("swap_post_effect");
++          if (wanted != applied_post_effect && command_processor_) {
++            applied_post_effect = wanted;
++            command_processor_->SetDesiredSwapPostEffect(ParseSwapPostEffect(wanted));
++          }
++        };
+         while (vsync_worker_running_) {
+           const bool limited = REXCVAR_GET(vsync);
+ #if REX_PLATFORM_WIN32
+@@ -194,6 +205,7 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
+               continue;
+             }
+             display_sync_misfires = 0;
++            follow_post_effect();
+             MarkVblank();
+             last_frame_time = chrono::Clock::QueryGuestTickCount();
+             continue;
+@@ -204,6 +216,7 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
+           const uint64_t interval_ticks = limited ? vsync_interval_ticks : no_vsync_interval_ticks;
+           const uint64_t current_time = chrono::Clock::QueryGuestTickCount();
+           if (current_time - last_frame_time >= interval_ticks) {
++            follow_post_effect();
+             MarkVblank();
+             last_frame_time += interval_ticks;
+             if (current_time - last_frame_time > 4 * interval_ticks) {
