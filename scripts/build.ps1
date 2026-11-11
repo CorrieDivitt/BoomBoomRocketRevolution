@@ -12,6 +12,15 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
 function Run([string]$what, [scriptblock]$cmd) { & $cmd; if ($LASTEXITCODE -ne 0) { throw "$what failed (exit code $LASTEXITCODE). See the output above." } }
 
+# A game that is still running (or left behind after closing its window) keeps the exe
+# locked and the link step fails, so close it first.
+$running = Get-Process -Name boomboomrocket -ErrorAction SilentlyContinue
+if ($running) {
+  Write-Host "Closing the running game before building..."
+  $running | Stop-Process -Force
+  Start-Sleep -Milliseconds 500
+}
+
 # Developer environment: MSVC libs / Windows SDK from Visual Studio, Clang 20+ from standalone LLVM.
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
