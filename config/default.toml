@@ -69,6 +69,11 @@ name = "BbrArrowAspectHook"
 registers = ["f0"]
 
 [[midasm_hook]]
+address = 0x8206A874
+name = "BbrArrowIconHook"
+registers = ["r31", "r1"]
+
+[[midasm_hook]]
 address = 0x8213E490
 name = "BbrAudioFrameHook"
 registers = ["r4"]

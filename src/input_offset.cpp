@@ -15,9 +15,26 @@
 // clock, so it is the latest song time minus the time since the press). Without a fresh
 // controller press (keyboard, non-XInput pads) the game's own span is used.
 //
+// To keep the game as forgiving as it was at 60 frames a second, the precise press still
+// counts as a span one 60 Hz frame wide (8.3 ms either side of the press).
+//
+// Hit timing (--hit_timing): after each hit a small number next to the arrow shows how
+// far the press was from the rocket's time, in milliseconds (+ early, - late). The HUD
+// script shows it; the text travels through the game's "stored strings" (128 slots of
+// 256 characters at the start of the text manager object, shown by a text item whose
+// text is "STR<n>" - see sub_8208D7E0).
+//
+// Assist tick (--assist_tick): a click placed in the outgoing sound exactly where each
+// rocket's time falls in the music, whether or not anything is pressed.
+//
 // Input offset: moves the judged time. Positive = presses count as made that many
 // milliseconds earlier (input or display delay), negative = later. Only judging is
 // affected; arrows and music are not.
+
+#include "input_offset.h"
+#include "metronome.h"
+#include "midasm_hooks.h"
+#include "widescreen.h"
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -28,8 +45,13 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <initializer_list>
+#include <mutex>
+#include <string>
 #include <thread>
 
 #if defined(_WIN32)
@@ -49,7 +71,13 @@ REXCVAR_DEFINE_DOUBLE(input_frame_credit_ms, 8.0, "BBR",
                       "With precise_input: presses count this much earlier, standing in for the head "
                       "start the game's frame-based judging gives");
 
+REXCVAR_DEFINE_BOOL(hit_timing, true, "BBR",
+                    "Show how early (+) or late (-) each hit was, in milliseconds, next to its arrow");
+REXCVAR_DEFINE_BOOL(assist_tick, false, "BBR",
+                    "Play a click at the exact moment of every rocket, placed in the music stream");
+
 REX_EXTERN(__imp__sub_82066700);
+REX_EXTERN(__imp__sub_8208D7E0);
 REX_EXTERN(__imp__sub_82064978);
 
 namespace {
@@ -58,6 +86,21 @@ using Clock = std::chrono::steady_clock;
 constexpr uint32_t kPressSpanEnd = 0x821BE9CC;    // song time of the previous frame
 constexpr uint32_t kPressSpanStart = 0x821BE9D0;  // song time of the frame before that
 constexpr double kFreshPressSeconds = 0.15;       // a press older than this is not "this" press
+constexpr double kHalfSpanSeconds = 0.5 / 60.0;   // precise presses keep a 60 Hz frame of leeway
+constexpr uint32_t kAccuracySlots = 0x821A0450;   // float per player: accuracy of the last judged press
+constexpr uint32_t kUnjudged = 0x7FC0BB12;        // marker (a NaN) to see whether a press was judged
+constexpr uint32_t kFirstStoredString = 120;      // STR120..STR123 carry the readout texts
+constexpr uint32_t kStoredStrings = 4;
+
+uint32_t LoadU32(uint8_t* base, uint32_t addr) {
+  uint32_t v;
+  std::memcpy(&v, base + addr, 4);
+  return __builtin_bswap32(v);
+}
+void StoreU32(uint8_t* base, uint32_t addr, uint32_t v) {
+  v = __builtin_bswap32(v);
+  std::memcpy(base + addr, &v, 4);
+}
 
 float LoadFloat(uint8_t* base, uint32_t addr) {
   uint32_t v;
@@ -170,6 +213,91 @@ bool SongTimeAt(double when, double* out) {
   return true;
 }
 
+// A rocket's time: [[rocket + 0x7C] + 0x48]. 0 when the rocket has none.
+bool RocketTime(uint8_t* base, uint32_t rocket, double* out) {
+  if (rocket < 0x10000) return false;
+  const uint32_t info = LoadU32(base, rocket + 0x7C);
+  if (info < 0x10000) return false;
+  *out = LoadFloat(base, info + 0x48);
+  return true;
+}
+
+// Where each rocket's arrow was last drawn (screen position, -1..1 both ways).
+struct ArrowPlace {
+  uint32_t rocket = 0;
+  float x = 0, y = 0;
+};
+constexpr int kArrows = 64;
+ArrowPlace g_arrows[kArrows];
+int g_arrow_next = 0;
+
+// Rockets that already have their assist tick.
+struct Ticked {
+  uint32_t rocket;
+  double time;
+};
+std::deque<Ticked> g_ticked;
+
+// Hits waiting to be shown by the HUD script.
+struct Shown {
+  uint32_t slot;
+  float x, y;
+};
+std::mutex g_hit_mutex;
+std::deque<Shown> g_hits;
+uint32_t g_next_slot = 0;
+std::atomic<uint32_t> g_text_manager{0};
+
+struct HitStats {
+  int count = 0;
+  double sum = 0, sum_squares = 0;
+} g_hit_stats;
+
+// How far the music that is heard trails the song clock (same sum as src/song_clock.cpp).
+double AudioLag() {
+  double lag = 0.0;
+  if (rex::cvar::GetFlagByName("audio_sync_compensation") != "false") {
+    int frames = std::atoi(rex::cvar::GetFlagByName("audio_maxqframes").c_str());
+    if (frames <= 0) frames = 8;
+    lag += std::clamp(frames, 4, 64) * 256.0 / 48000.0;
+  }
+  lag += std::clamp(std::strtod(rex::cvar::GetFlagByName("audio_offset_ms").c_str(), nullptr), -500.0, 500.0) / 1000.0;
+  return lag;
+}
+
+void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds) {
+  const double ms = early_seconds * 1000.0;
+  g_hit_stats.count++;
+  g_hit_stats.sum += ms;
+  g_hit_stats.sum_squares += ms * ms;
+  if (g_hit_stats.count >= 40) {
+    const double mean = g_hit_stats.sum / g_hit_stats.count;
+    const double spread = std::sqrt(std::max(0.0, g_hit_stats.sum_squares / g_hit_stats.count - mean * mean));
+    REXLOG_INFO("[input] last {} hits: on average {:+.1f} ms (+ early, - late), spread {:.1f} ms", g_hit_stats.count,
+                mean, spread);
+    g_hit_stats = HitStats{};
+  }
+  const uint32_t manager = g_text_manager.load(std::memory_order_relaxed);
+  if (!REXCVAR_GET(hit_timing) || !manager) return;
+  float x = 0.0f, y = 0.0f;
+  bool found = false;
+  for (const ArrowPlace& a : g_arrows) {
+    if (a.rocket == rocket) { x = a.x; y = a.y; found = true; }
+  }
+  if (!found) return;
+  std::lock_guard<std::mutex> lock(g_hit_mutex);
+  const uint32_t slot = kFirstStoredString + (g_next_slot++ % kStoredStrings);
+  char text[32];
+  std::snprintf(text, sizeof(text), "%+.2f", ms);
+  std::memcpy(base + manager + slot * 256, text, std::strlen(text) + 1);
+  // Screen position -> 640x480 layout units (the layout is 480 * aspect units wide,
+  // centred on x = 320). The number sits just to the right of the arrow.
+  const double aspect = bbr::UiAspectRatio();
+  if (g_hits.size() < 16) {
+    g_hits.push_back({slot, float(320.0 + x * 240.0 * aspect + 34.0), float(240.0 - y * 240.0 - 8.0)});
+  }
+}
+
 struct Stats {
   int count = 0;
   double sum_diff = 0, min_diff = 1e9, max_diff = -1e9, sum_age = 0;
@@ -177,11 +305,9 @@ struct Stats {
 }  // namespace
 
 REX_HOOK_RAW(sub_82064978) {
-  if (REXCVAR_GET(precise_input)) {
-    StartControllerThread();
-    g_anchors[g_anchor_count % kAnchors] = {Now(), ctx.f1.f64};
-    ++g_anchor_count;
-  }
+  if (REXCVAR_GET(precise_input)) StartControllerThread();
+  g_anchors[g_anchor_count % kAnchors] = {Now(), ctx.f1.f64};
+  ++g_anchor_count;
   __imp__sub_82064978(ctx, base);
 }
 
@@ -213,18 +339,93 @@ REX_HOOK_RAW(sub_82066700) {
     }
   }
 
-  if (!precise && shift == 0.0) {
-    __imp__sub_82066700(ctx, base);
-    return;
-  }
+  // Which rocket, whose press, and a marker to see whether a press gets judged here.
+  const uint32_t rocket = ctx.r4.u32;
+  const uint32_t player = LoadU32(base, ctx.r3.u32 + 0x5C);
+  const uint32_t slot = kAccuracySlots + (player < 4 ? player : 0) * 4;
+  const uint32_t accuracy_before = LoadU32(base, slot);
+  StoreU32(base, slot, kUnjudged);
+
+  double centre;
   if (precise) {
-    StoreFloat(base, kPressSpanEnd, float(press_time - shift));
-    StoreFloat(base, kPressSpanStart, float(press_time - shift));
+    centre = press_time - shift;
+    StoreFloat(base, kPressSpanEnd, float(centre + kHalfSpanSeconds));
+    StoreFloat(base, kPressSpanStart, float(centre - kHalfSpanSeconds));
   } else {
+    centre = 0.5 * (double(start) + double(end)) - shift;
     StoreFloat(base, kPressSpanEnd, float(double(end) - shift));
     StoreFloat(base, kPressSpanStart, float(double(start) - shift));
   }
   __imp__sub_82066700(ctx, base);
   StoreFloat(base, kPressSpanEnd, end);
   StoreFloat(base, kPressSpanStart, start);
+
+  const uint32_t accuracy_bits = LoadU32(base, slot);
+  if (accuracy_bits == kUnjudged) {
+    StoreU32(base, slot, accuracy_before);  // nothing was judged
+    return;
+  }
+  double rocket_time;
+  if (LoadFloat(base, slot) > 0.0f && RocketTime(base, rocket, &rocket_time)) {
+    ReportHit(base, rocket, rocket_time - centre);
+  }
+}
+
+// The game looks up a named text (sub_8208D7E0, r3 = text manager): note the manager so
+// the readout can be written into its stored strings.
+REX_HOOK_RAW(sub_8208D7E0) {
+  g_text_manager.store(ctx.r3.u32, std::memory_order_relaxed);
+  __imp__sub_8208D7E0(ctx, base);
+}
+
+// Mid-asm hook at 0x8206A874 (see config/default.toml): an arrow icon is being drawn.
+void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1) {
+  uint8_t* base = bbr::GuestBase();
+  if (!base || r31.u32 < 0x10000) return;
+  const uint32_t rocket = LoadU32(base, r31.u32);
+  if (rocket < 0x10000) return;
+  const float w = LoadFloat(base, r1.u32 + 0x5C);
+  if (w > 1e-4f) {
+    ArrowPlace* place = nullptr;
+    for (ArrowPlace& a : g_arrows) {
+      if (a.rocket == rocket) place = &a;
+    }
+    if (!place) place = &g_arrows[g_arrow_next++ % kArrows];
+    *place = {rocket, LoadFloat(base, r1.u32 + 0x50) / w, LoadFloat(base, r1.u32 + 0x54) / w};
+  }
+
+  // Assist tick: once the rocket's moment is close, place a click in the sound going
+  // out now. A sound mixed now is heard one audio lag later, and the song clock runs
+  // that lag behind the mixer, so the click belongs (rocket time - lag) on the song clock.
+  if (!REXCVAR_GET(assist_tick) || g_anchor_count == 0) return;
+  double rocket_time;
+  if (!RocketTime(base, rocket, &rocket_time)) return;
+  const Anchor& latest = g_anchors[(g_anchor_count - 1) % kAnchors];
+  const double now = Now();
+  if (now - latest.host > 0.1) return;  // song clock not running
+  const double wait = rocket_time - AudioLag() - (latest.time + (now - latest.host));
+  if (wait <= 0.0 || wait > 0.08) return;
+  for (const Ticked& t : g_ticked) {
+    if (t.rocket == rocket && std::fabs(t.time - rocket_time) < 0.001) return;
+  }
+  // Rockets that go off together share one click.
+  bool together = false;
+  for (const Ticked& t : g_ticked) together |= std::fabs(t.time - rocket_time) < 0.001;
+  g_ticked.push_back({rocket, rocket_time});
+  while (g_ticked.size() > 64) g_ticked.pop_front();
+  if (!together) bbr::ScheduleTick(wait);
+}
+
+std::string bbr::HitCommand(const std::string& command) {
+  if (command == "bbrr.hit.enabled") return REXCVAR_GET(hit_timing) ? "1" : "0";
+  if (command == "bbrr.hit.poll") {
+    std::lock_guard<std::mutex> lock(g_hit_mutex);
+    if (g_hits.empty()) return "";
+    const Shown hit = g_hits.front();
+    g_hits.pop_front();
+    char text[64];
+    std::snprintf(text, sizeof(text), "%u,%.1f,%.1f", hit.slot, hit.x, hit.y);
+    return text;
+  }
+  return "";
 }

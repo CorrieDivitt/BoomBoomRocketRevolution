@@ -188,13 +188,9 @@ void OnAudioFrame(uint8_t* block) {
     g_anchor_time = now;
   }
 
-  if (!g_running) {
-    g_voices.clear();
-    return;
-  }
   // Start the clicks that begin inside this block. Accent = first beat of a bar, once
   // the count-in is over.
-  for (;;) {
+  while (g_running) {
     const int64_t at = int64_t(std::llround(g_start_sample + double(g_next_event) * g_beat_samples));
     if (at >= frame_start + kFrame) break;
     if (at >= frame_start && g_audible) {
@@ -231,6 +227,15 @@ void OnAudioFrame(uint8_t* block) {
 }
 }  // namespace
 
+void ScheduleTick(double seconds_from_now) {
+  LoadSounds();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (!g_anchor_valid || g_voices.size() > 64) return;
+  const int64_t at = int64_t(std::llround(SamplesAt(Clock::now()) + seconds_from_now * kRate));
+  if (at < g_samples) return;  // too late to place it
+  g_voices.push_back({&g_sub_sound, at});
+}
+
 std::string MetronomeCommand(const std::string& command, const std::string& key, const std::string& value) {
   if (command == "bbrr.metro.start") {
     LoadSounds();
@@ -252,6 +257,7 @@ std::string MetronomeCommand(const std::string& command, const std::string& key,
   if (command == "bbrr.metro.stop") {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_running = false;
+    g_voices.clear();
     return "ok";
   }
   if (command == "bbrr.metro.pos") {

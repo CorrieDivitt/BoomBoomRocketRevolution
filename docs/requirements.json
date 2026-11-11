@@ -396,11 +396,11 @@
   "category": "Sync",
   "title": "Sync debug overlay",
   "priority": "P1",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "S",
   "acceptance": "Overlay shows audio time, game beat, delta, frame time",
   "depends_on": "R-204",
-  "notes": ""
+  "notes": "Hit Timing (per-hit +/- ms next to the arrow, like StepMania) and Assist Tick (click at each rocket's moment) in BBRR Settings > Calibration; [input] log prints average and spread every 40 hits. Needs play-testing."
  },
  {
   "id": "R-210",

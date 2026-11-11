@@ -11,4 +11,6 @@ bool WidescreenRequested();
 void ApplyAspect(uint8_t* base);
 // Guest memory base (set once the game is running; null before that).
 uint8_t* GuestBase();
+// Width/height ratio the 2D layer is laid out for (16/9 unless widescreen is on).
+double UiAspectRatio();
 }  // namespace bbr

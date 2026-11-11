@@ -183,6 +183,8 @@ double UiAspect() {
 bool Near(double a, double b) { return std::fabs(a - b) < 1e-5; }
 }  // namespace
 
+double bbr::UiAspectRatio() { return bbr::WidescreenRequested() ? UiAspect() : 16.0 / 9.0; }
+
 // vScale.x: the 16:9 value is (2/640) * 0.75. Clip-space x = x * scale + offset.
 void BbrUiScaleXHook(PPCRegister& f0) {
   if (!bbr::WidescreenRequested() || !Near(f0.f64, 1.5 / 640.0)) return;

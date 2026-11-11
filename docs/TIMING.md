@@ -54,6 +54,31 @@ Reverse-engineered from the retail `default.xex` on 2026-11-10. Addresses are gu
 - **R-805 (practice slow-down):** the executable embeds the **SoundTouch** time-stretch library
   (string "SoundTouch : Sample rate not defined"), which may already support tempo changes.
 
+## Judgement (how a press is scored)
+`0x82066700` runs for a rocket and the presses of the frame. With `d` = distance between the
+rocket's time and the press span (0 inside the span) and `W` = the chart's `TargetWidth` in seconds
+(first lines of each `.lvl`; 0.125 to 0.5 depending on song and difficulty):
+
+`accuracy = 1 - d / (W / 2)`
+
+| Accuracy | Shown as | Grade value | Firework | `d` as a share of `W/2` |
+|---|---|---|---|---|
+| >= 0.95 | Perfect | 6 | large | within 5% |
+| > 0.8 | Awesome | 5 | large | within 20% |
+| > 0.4 | Good | 3 | medium | within 60% |
+| > 0 | OK | 1 | small | within 100% |
+| <= 0 | Missed | 0 | none | outside |
+
+Thresholds are the floats at `0x821A04E8` (0.95, 0.8, 0.4). The grade value is `n * 5 / 3 / 1` with
+`n` from the rocket's effect list (1 in what has been seen), sent to the HUD as the `GRADE` message;
+the HUD also has texts for 2 (Bad) and 4 (Excellent), which this code path does not produce with
+`n = 1`. Points for a hit are `accuracy^4 * 10000` before multipliers (`0x821A0510` = 4.0,
+`0x821A0514` = 10000). In casual mode (game mode 3) every hit counts as accuracy 1.
+
+The original span is a whole frame, so at 60 fps a press had about 16.7 ms of extra leeway on top of
+these windows. `--precise_input` keeps that leeway (8.3 ms either side of the real press time) so the
+windows are the same at any frame rate.
+
 ## Judder and the smoothed song clock (R-213)
 The XAudio voice position only advances when an audio buffer is processed, so the song time read once
 per video frame moves in uneven steps and arrows judder at any frame rate. `0x82080A40` (frame delta)

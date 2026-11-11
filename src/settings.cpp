@@ -5,6 +5,7 @@
 
 #include "settings.h"
 #include "metronome.h"
+#include "input_offset.h"
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -68,6 +69,8 @@ const std::vector<Setting>& Settings() {
       input.choices.push_back({std::to_string(ms), std::to_string(ms) + " ms"});
     }
     s.push_back(input);
+    s.push_back({"hit_timing", "hit_timing", "Hit Timing", {{"true", "On"}, {"false", "Off"}}, 0});
+    s.push_back({"assist_tick", "assist_tick", "Assist Tick", {{"true", "On"}, {"false", "Off"}}, 1});
     s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
@@ -89,7 +92,7 @@ const std::vector<Page>& Pages() {
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
-      {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset"}},
+      {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},
   };
   return pages;
 }
@@ -296,6 +299,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     return "0";
   }
   if (command.rfind("bbrr.metro.", 0) == 0) return MetronomeCommand(command, key, value);
+  if (command.rfind("bbrr.hit.", 0) == 0) return HitCommand(command);
   if (command == "bbrr.time") {
     using namespace std::chrono;
     static const steady_clock::time_point start = steady_clock::now();
