@@ -74,6 +74,7 @@ struct State {
   bool applied = false;  // our values are currently in the object
   uint32_t raw_c4 = 0, raw_cc = 0, wrote_c4 = 0, wrote_cc = 0;
   double est = 0;        // smoothed position, in samples
+  double credit = 0;     // part of the audio-lag shift handed back while the audio stands still
   double rate = 0;       // samples per host second
   Clock::time_point last, last_change, window_start;
   uint32_t window_raw = 0;
@@ -195,7 +196,9 @@ REX_HOOK_RAW(sub_82080928) {
     s.valid = true;
     s.last_change = s.window_start = now;
     s.window_raw = raw_c4;
+    s.credit = 0;
   };
+  const double lag_samples = AudioLagSeconds() * nominal;
 
   if (!s.valid || raw_c4 < s.raw_c4) {  // first frame, new song, seek or loop
     snap();
@@ -203,7 +206,20 @@ REX_HOOK_RAW(sub_82080928) {
     const double dt = Seconds(now - s.last);
     if (raw_c4 != s.raw_c4) s.last_change = now;
     const bool stalled = Seconds(now - s.last_change) > 0.05;  // audio not advancing: hold still
-    const double predicted = stalled ? s.est : s.est + dt * s.rate;
+    // When the audio stops advancing (end of the song, or the slow-down when a song is
+    // failed) the game still has to see the clock reach the real position, as it does on
+    // the console - otherwise the end of the song is never reached and the game waits
+    // forever. So the clock keeps running until it has caught up with the audio position,
+    // and the audio-lag shift is handed back at the same pace; it is taken away again
+    // (the clock waits) once the audio moves.
+    const double predicted = stalled ? std::min(double(raw_c4), s.est + dt * s.rate) : s.est + dt * s.rate;
+    if (dt <= 0.25) {
+      if (stalled && s.est >= double(raw_c4) - 1.0) {
+        s.credit = std::min(std::max(lag_samples, 0.0), s.credit + dt * s.rate);
+      } else if (!stalled) {
+        s.credit = std::max(0.0, s.credit - dt * s.rate);
+      }
+    }
     const double error = double(raw_c4) - predicted;
     if (dt > 0.25 || std::fabs(error) > 0.25 * nominal) {
       snap();
@@ -242,7 +258,7 @@ REX_HOOK_RAW(sub_82080928) {
   // +0xC4 feeds the frame delta time, +0xCC the song time. Smoothing moves both; the
   // audio-lag shift only moves the song time (a constant shift must not change dt).
   const int64_t delta = REXCVAR_GET(smooth_song_clock) ? std::llround(s.est) - int64_t(raw_c4) : 0;
-  const int64_t shift = -std::llround(AudioLagSeconds() * nominal);
+  const int64_t shift = -std::llround(lag_samples - s.credit);
   if (delta == 0 && shift == 0) return;
   const int64_t new_c4 = int64_t(raw_c4) + delta;
   const int64_t new_cc = std::max<int64_t>(0, int64_t(raw_cc) + delta + shift);

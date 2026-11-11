@@ -86,6 +86,9 @@ reads player `+0xC4`; `0x82080B00` (song time) reads player `+0xCC`. `src/song_c
 refresh `0x82080928` and replaces both counters with an estimate that advances with the host clock and
 is steered toward the real audio position (0.5 s time constant, snaps on seek/loop, holds when audio
 stalls or pauses). The raw values are restored before the game's next refresh.
+When the audio position stops (end of a song, the slow-down after failing) the clock runs on until it
+reaches the real position and the audio-lag shift is handed back, so the game still sees the song end;
+without this a positive audio offset left the game waiting forever at the end of a song.
 `--smooth_song_clock=false` disables it; the log prints `[songclock]` step statistics every 10 s.
 
 ## Host audio latency and offsets (R-204, R-205)
