@@ -24,12 +24,22 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 REXCVAR_DEFINE_BOOL(smooth_song_clock, true, "BBR",
                     "Smooth the music position used for arrow movement (fixes judder)");
+
+REXCVAR_DEFINE_BOOL(audio_sync_compensation, true, "BBR",
+                    "Shift the song clock by the host's audio buffering so notes line up with the "
+                    "music you hear, not with audio that is still waiting in the output queue");
+REXCVAR_DEFINE_DOUBLE(audio_offset_ms, 0.0, "BBR",
+                      "Extra audio offset in milliseconds. Positive = you hear the music later than "
+                      "the game expects (Bluetooth, TV speakers): notes arrive later. Negative = "
+                      "notes arrive earlier. Range -500..500");
 
 REX_EXTERN(__imp__sub_82080928);
 
@@ -70,6 +80,36 @@ struct State {
   uint32_t frames = 0, updates = 0;
   double max_step_ms = 0;
 };
+
+// How far the heard music lags the XAudio voice position, in seconds.
+//
+// The game's XAudio mixer runs ahead of the speakers: the runtime lets it mix
+// --audio_maxqframes frames (256 samples at 48 kHz = 5.33 ms each, default 8) before
+// the host device takes the first one, and it stays that far ahead. The voice position
+// the game reads is the mixed position, so the music you hear is that much behind it.
+// (On the console this queue was a frame or two.) The device's own buffer and anything
+// after it (USB, Bluetooth, TV) is not known to us - that part is --audio_offset_ms.
+double AudioLagSeconds() {
+  static double queue_seconds = 0.0;
+  static int refresh = 0;
+  static double logged = -1.0;
+  if (refresh++ % 240 == 0) {
+    int frames = std::atoi(rex::cvar::GetFlagByName("audio_maxqframes").c_str());
+    if (frames <= 0) frames = 8;
+    queue_seconds = std::clamp(frames, 4, 64) * 256.0 / 48000.0;
+  }
+  double lag = 0.0;
+  if (REXCVAR_GET(audio_sync_compensation)) lag += queue_seconds;
+  lag += std::clamp(REXCVAR_GET(audio_offset_ms), -500.0, 500.0) / 1000.0;
+  if (std::fabs(lag - logged) > 0.0005) {
+    logged = lag;
+    REXLOG_INFO("[songclock] song clock shifted by {:.1f} ms (host audio queue {:.1f} ms {}, audio_offset_ms {:.1f})",
+                -lag * 1000.0, queue_seconds * 1000.0,
+                REXCVAR_GET(audio_sync_compensation) ? "compensated" : "not compensated",
+                REXCVAR_GET(audio_offset_ms));
+  }
+  return lag;
+}
 
 std::mutex g_mutex;
 std::unordered_map<uint32_t, State> g_states;
@@ -164,11 +204,15 @@ REX_HOOK_RAW(sub_82080928) {
   s.raw_c4 = raw_c4;
   s.raw_cc = raw_cc;
 
-  if (!REXCVAR_GET(smooth_song_clock)) return;
-  const int64_t delta = std::llround(s.est) - int64_t(raw_c4);
-  const int64_t new_cc = int64_t(raw_cc) + delta;
-  if (new_cc < 0 || new_cc > 0xFFFFFFFFll) return;
-  s.wrote_c4 = uint32_t(int64_t(raw_c4) + delta);
+  // +0xC4 feeds the frame delta time, +0xCC the song time. Smoothing moves both; the
+  // audio-lag shift only moves the song time (a constant shift must not change dt).
+  const int64_t delta = REXCVAR_GET(smooth_song_clock) ? std::llround(s.est) - int64_t(raw_c4) : 0;
+  const int64_t shift = -std::llround(AudioLagSeconds() * nominal);
+  if (delta == 0 && shift == 0) return;
+  const int64_t new_c4 = int64_t(raw_c4) + delta;
+  const int64_t new_cc = std::max<int64_t>(0, int64_t(raw_cc) + delta + shift);
+  if (new_c4 < 0 || new_c4 > 0xFFFFFFFFll || new_cc > 0xFFFFFFFFll) return;
+  s.wrote_c4 = uint32_t(new_c4);
   s.wrote_cc = uint32_t(new_cc);
   Store32(base, player + kPosRaw, s.wrote_c4);
   Store32(base, player + kPosLooped, s.wrote_cc);

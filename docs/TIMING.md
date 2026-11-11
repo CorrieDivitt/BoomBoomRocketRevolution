@@ -59,3 +59,20 @@ refresh `0x82080928` and replaces both counters with an estimate that advances w
 is steered toward the real audio position (0.5 s time constant, snaps on seek/loop, holds when audio
 stalls or pauses). The raw values are restored before the game's next refresh.
 `--smooth_song_clock=false` disables it; the log prints `[songclock]` step statistics every 10 s.
+
+## Host audio latency and offsets (R-204, R-205)
+The voice position the game reads is the *mixed* position. In this runtime the guest mixer stays
+`--audio_maxqframes` frames ahead of the host device (256 samples at 48 kHz = 5.33 ms each; default
+8 = 42.7 ms), because the audio worker lets it mix that many frames before the device takes the
+first one. So the music that is heard lags the song clock by that queue plus the device's own
+buffer and whatever follows it (USB, Bluetooth, TV).
+
+`src/song_clock.cpp` therefore shifts the song time (player `+0xCC` only, so the frame delta from
+`+0xC4` is untouched):
+- `--audio_sync_compensation` (default on) subtracts the known queue (`audio_maxqframes * 5.33 ms`).
+- `--audio_offset_ms` (default 0) is the user offset on top: positive = music is heard later than
+  expected, notes arrive later; negative = notes arrive earlier.
+- `--audio_maxqframes=4` halves the queue itself (lower sound latency, more risk of crackle).
+
+The game's own `+0.045 s` constant (`0x821A0508`) is left alone; it most likely compensated for TV
+display lag on the console. The log line `[songclock] song clock shifted by ...` shows what is applied.
