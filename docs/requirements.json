@@ -572,6 +572,19 @@
   "notes": "Edge anchoring works on most menus but not all (user test 2026-11-10); do with the full playtest"
  },
  {
+  "id": "R-416",
+  "phase": 4,
+  "phase_name": "Graphics & resolution",
+  "category": "UI",
+  "title": "Track length on the song lists",
+  "priority": "P2",
+  "status": "done",
+  "effort": "S",
+  "acceptance": "Each song bar shows the track length (m:ss) right-aligned inside the bar",
+  "depends_on": "R-414",
+  "notes": "Done 2026-11-11: drawn by a hook in the engine's menu renderer (src/song_length.cpp), length read from the chart's SongLength line. Design approved. Songs whose chart is not a loose file show no length."
+ },
+ {
   "id": "R-403",
   "phase": 4,
   "phase_name": "Graphics & resolution",
