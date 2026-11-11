@@ -442,6 +442,7 @@ std::string SettingsStrings() {
                     "BBRR_SPEED_LABEL = Scroll Speed\n"
                     "BBRR_SPEED_HINT = ~~{LB}~~ Change ~~{RB}~~\n"
                     "BBRR_BPM = BPM\n"
+                    "BBRR_LENGTH = Length\n"
                     "BBRR_RESTART_NOTE = A new Resolution applies after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"

@@ -22,7 +22,8 @@ local VALUE_SLOT = 119
 local PANEL_X = 640      -- middle of the panel, to the right of the song bars
 local PANEL_Y = 194      -- middle of the song list
 local BPM_X = 505        -- middle of the tempo column inside the bars
-local BPM_Y = 30         -- above the first bar, beside the "Choose Song" title
+local LENGTH_X = 138     -- middle of the length column inside the bars
+local HEADING_Y = 46     -- level with the middle of the "Choose Song" title
 
 local value_id = nil
 local game_Init = Init
@@ -49,8 +50,9 @@ function Init(...)
   game_Init(...)
   BBRR("bbrr.speed.step")
   local styles = UIGlobals.font_render_state
-  -- A heading over the tempo column, in the style of the screen's title.
-  Text(BPM_X, BPM_Y, 24, UIText.IDS_BPM or UIText.BBRR_BPM, styles.new_piped_orange)
+  -- Headings over the two columns, in the style of the screen's title.
+  Text(LENGTH_X, HEADING_Y, 24, UIText.BBRR_LENGTH, styles.new_piped_orange)
+  Text(BPM_X, HEADING_Y, 24, UIText.IDS_BPM or UIText.BBRR_BPM, styles.new_piped_orange)
   Text(PANEL_X, PANEL_Y - 40, 18, UIText.BBRR_SPEED_LABEL, styles.new_filled_blue)
   value_id = Text(PANEL_X, PANEL_Y - 18, 32, "STR" .. VALUE_SLOT, styles.new_filled_orange)
   Text(PANEL_X, PANEL_Y + 20, 18, UIText.BBRR_SPEED_HINT, styles.new_filled_orange)
