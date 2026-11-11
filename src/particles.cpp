@@ -7,10 +7,11 @@
 // and the file's own count, and stores the scaled count instead; when the setting changes
 // later, the noted blocks are rewritten, so it takes effect without a restart.
 //
-// Limits: the game stops making sparks at 70000 alive (see TrackPoolUse below). The
-// settings screen offers 0.25x to 25x to find out what happens on the way there.
+// Limits: the game stops making sparks at 70000 alive (see TrackPoolUse below). 10x gets
+// there within seconds and has crashed the game; 5x stays under half, so that is the top.
 
 #include "particles.h"
+#include "settings.h"
 #include "midasm_hooks.h"
 #include "widescreen.h"
 
@@ -26,7 +27,7 @@
 #include <vector>
 
 REXCVAR_DEFINE_DOUBLE(particle_quality, 1.0, "BBR",
-                      "Particles per firework, as a multiple of the original (0.25 to 25)");
+                      "Particles per firework, as a multiple of the original (0.25 to 5)");
 
 REXCVAR_DEFINE_DOUBLE(particle_limit, 56000.0, "BBR",
                       "Most sparks alive at once before fireworks stop adding more (1000 to 70000). "
@@ -45,7 +46,7 @@ std::mutex g_mutex;
 std::vector<Block> g_blocks;
 double g_applied = -1.0;
 
-double Quality() { return std::clamp(REXCVAR_GET(particle_quality), 0.25, 25.0); }
+double Quality() { return std::clamp(REXCVAR_GET(particle_quality), 0.25, 5.0); }
 
 uint32_t Scaled(uint32_t original, double quality) {
   if (original == 0) return 0;
@@ -147,6 +148,7 @@ void TrackPoolUse(uint8_t* base, double quality) {
 }  // namespace
 
 void bbr::ApplyParticleQuality(uint8_t* base) {
+  bbr::BootCompleted();  // frames are being drawn, so start-up got through
   const double quality = Quality();
   TrackPoolUse(base, quality);
   if (quality == g_applied) return;

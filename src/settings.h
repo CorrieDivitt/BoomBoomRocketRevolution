@@ -16,4 +16,11 @@ std::string SettingsStrings();
 // Call when the window is asked to close: if the normal shutdown has not ended the
 // process a moment later (it can hang while stopping the game's threads), end it.
 void ExitSoon();
+
+// The SDK keeps the game's shaders in <user folder>/boomboomrocket/cache/shaders and reads
+// them back at start-up. If the game crashes while feeding the GPU garbage, the garbage is
+// kept too and the next start crashes on it. So LoadSettings leaves a marker file while a
+// start-up is under way and throws that folder away when the last start-up never finished;
+// BootCompleted (called once frames are being drawn) removes the marker.
+void BootCompleted();
 }  // namespace bbr

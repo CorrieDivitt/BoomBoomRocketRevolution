@@ -82,10 +82,11 @@ const std::vector<Setting>& Settings() {
                  {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
     s.push_back({"glow", "output_glow", "Glow",
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
-    // A multiplier on the original particle count: 0.25x steps below 1x, whole steps up to 25x.
+    // A multiplier on the original particle count: 0.25x steps below 1x, whole steps up to 5x.
+    // (10x fills the game's spark system within seconds and has crashed it; 5x stays under half.)
     Setting particles{"particles", "particle_quality", "Particle Density",
                       {{"0.25", "0.25x"}, {"0.5", "0.5x"}, {"0.75", "0.75x"}}, 3, "video"};
-    for (int i = 1; i <= 25; ++i) {
+    for (int i = 1; i <= 5; ++i) {
       particles.choices.push_back({std::to_string(i), std::to_string(i) + "x"});
     }
     s.push_back(particles);
@@ -234,7 +235,33 @@ void ApplyFrameRate() {
   REXLOG_INFO("[settings] frame rate {} -> {:.0f} fps", wanted, hz);
 }
 
+namespace {
+std::filesystem::path BootMarker() { return FilePath().parent_path() / "cache" / "starting.txt"; }
+
+void GuardShaderCache() {
+  std::error_code ec;
+  const std::filesystem::path marker = BootMarker();
+  if (std::filesystem::exists(marker, ec)) {
+    const std::filesystem::path shaders = marker.parent_path() / "shaders";
+    const auto removed = std::filesystem::remove_all(shaders, ec);
+    REXLOG_WARN("[settings] the last start did not finish; cleared the saved shaders ({} files) in {}",
+                ec ? 0 : removed, shaders.string());
+  }
+  std::filesystem::create_directories(marker.parent_path(), ec);
+  std::ofstream(marker, std::ios::trunc) << "The game is starting. Removed once it is running.\n";
+}
+}  // namespace
+
+void BootCompleted() {
+  static bool done = false;
+  if (done) return;
+  done = true;
+  std::error_code ec;
+  std::filesystem::remove(BootMarker(), ec);
+}
+
 void LoadSettings() {
+  GuardShaderCache();
   // Settings the port wants by default when there is no file and no command-line value.
   auto from_command_line = [](const std::string& cvar) {
     return rex::cvar::GetFlagSource(cvar) == rex::cvar::Source::kCommandLine;
