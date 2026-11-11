@@ -115,13 +115,21 @@ void InstallDlcPackages(rex::Runtime* runtime) {
     data.set_file_name(name);
     if (content->ContentExists(0, data)) {
       REXLOG_INFO("[dlc] {} is already installed", name);
-      continue;
-    }
-    const auto result = content->InstallContent(package);
-    if (result == 0) {
-      REXLOG_INFO("[dlc] installed {}", name);
     } else {
-      REXLOG_ERROR("[dlc] could not install {} (error {:#x})", name, uint32_t(result));
+      const auto result = content->InstallContent(package);
+      if (result != 0) {
+        REXLOG_ERROR("[dlc] could not install {} (error {:#x})", name, uint32_t(result));
+        continue;
+      }
+      REXLOG_INFO("[dlc] installed {}", name);
+    }
+    // The game only uses a pack whose licence mask is non-zero (XContentCreate's
+    // pdwLicenseMask, checked in sub_82070348). Prototype / unlicensed packages carry no
+    // licence flags, so mark every package the user supplied as licensed.
+    rex::system::xam::XCONTENT_AGGREGATE_DATA stored{};
+    if (content->ReadContentHeaderFile(name, 0, title_id, type, stored) != 0) stored = data;
+    if (content->WriteContentHeaderFile(0, stored, 1) != 0) {
+      REXLOG_WARN("[dlc] could not write the licence for {}", name);
     }
   }
 
