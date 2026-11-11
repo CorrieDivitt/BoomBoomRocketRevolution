@@ -50,7 +50,9 @@ bool IsDlcPackage(const fs::path& path, uint32_t title_id) {
   if (n != sizeof(header)) return false;
   const bool magic = (header[0] == 'L' && header[1] == 'I' && header[2] == 'V' && header[3] == 'E') ||
                      (header[0] == 'P' && header[1] == 'I' && header[2] == 'R' && header[3] == 'S');
-  return magic && ReadBE32(header + 0x344) == 2 && ReadBE32(header + 0x360) == title_id;
+  // 0x58410859 is the title id the developers' internal test packages were built with.
+  const uint32_t package_title = ReadBE32(header + 0x360);
+  return magic && ReadBE32(header + 0x344) == 2 && (package_title == title_id || package_title == 0x58410859);
 }
 
 void Collect(const fs::path& where, std::vector<fs::path>& out) {
@@ -73,27 +75,41 @@ void InstallDlcPackages(rex::Runtime* runtime) {
   if (!content || !title_id) return;
 
   std::vector<fs::path> candidates;
+  bool searched = false;
   const std::string& configured = REXCVAR_GET(dlc_path);
   if (!configured.empty()) {
     Collect(fs::path(configured), candidates);
+    searched = true;
   } else {
     std::error_code ec;
     for (fs::path dir = rex::filesystem::GetExecutableFolder(); !dir.empty(); dir = dir.parent_path()) {
       if (fs::is_directory(dir / "DLC", ec)) {
         Collect(dir / "DLC", candidates);
+        searched = true;
         break;
       }
       if (dir == dir.parent_path()) break;
     }
   }
 
+  // The DLC folder decides what is active: packages found there get installed, and
+  // installed packages whose file is no longer there get removed again (only our own
+  // unpacked copy in the content store is deleted, never the user's package file).
+  std::vector<std::string> wanted;
+  const uint32_t device = static_cast<uint32_t>(rex::system::xam::DummyDeviceId::HDD);
+  const auto type = rex::system::XContentType::kMarketplaceContent;
   for (const fs::path& package : candidates) {
     if (!IsDlcPackage(package, title_id)) continue;
     const std::string name = package.filename().string();
+    if (name.size() > 42) {
+      REXLOG_WARN("[dlc] skipping '{}': rename it to 42 characters or fewer", name);
+      continue;
+    }
+    wanted.push_back(name);
 
     rex::system::xam::XCONTENT_AGGREGATE_DATA data{};
-    data.device_id = static_cast<uint32_t>(rex::system::xam::DummyDeviceId::HDD);
-    data.content_type = rex::system::XContentType::kMarketplaceContent;
+    data.device_id = device;
+    data.content_type = type;
     data.title_id = title_id;
     data.xuid = 0;
     data.set_file_name(name);
@@ -108,5 +124,15 @@ void InstallDlcPackages(rex::Runtime* runtime) {
       REXLOG_ERROR("[dlc] could not install {} (error {:#x})", name, uint32_t(result));
     }
   }
-}
+
+  if (!searched) return;  // no DLC folder at all: leave whatever is installed alone
+  for (auto& installed : content->ListContent(device, 0, type, title_id)) {
+    const std::string name = installed.file_name();
+    bool keep = false;
+    for (const std::string& w : wanted) keep |= (w == name);
+    if (keep) continue;
+    const auto result = content->DeleteContent(0, installed);
+    REXLOG_INFO("[dlc] removed {} (its package is no longer in the DLC folder){}", name,
+                result == 0 ? "" : " - FAILED");
+  }
 }  // namespace bbr
