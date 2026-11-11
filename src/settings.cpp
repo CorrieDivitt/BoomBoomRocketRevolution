@@ -82,7 +82,7 @@ const std::vector<Setting>& Settings() {
                  {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
     s.push_back({"glow", "output_glow", "Glow",
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
-    s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video", true});
+    s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
     return s;
@@ -397,7 +397,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
                     "BBRR_OPEN = Open\n"
-                    "BBRR_RESTART_NOTE = HDR and Resolution apply after a restart\n"
+                    "BBRR_RESTART_NOTE = A new Resolution applies after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
                     "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"

@@ -673,7 +673,7 @@
   "effort": "L",
   "acceptance": "Optional HDR pipeline with bloom; off = original look",
   "depends_on": "R-408",
-  "notes": "First version 2026-11-11 (SDK patch 0004, untested): Glow and HDR settings. One output shader, compiled at start-up, adds a single-pass glow and, with HDR on, presents scRGB with highlights expanded. Next: proper multi-pass bloom; true HDR rendering (float render target). See docs/GRAPHICS.md."
+  "notes": "SDK patch 0004: Glow and HDR settings in Video Settings, both live. Glow = quarter-size bloom (bright pass, three blurs) that leaves out the HUD via a mask built from the UI quad list; HDR = scRGB swap chain with highlights expanded (confirmed looking good 2026-11-11). Bloom version untested. Next: true HDR rendering (float render target). See docs/GRAPHICS.md."
  },
  {
   "id": "R-410",

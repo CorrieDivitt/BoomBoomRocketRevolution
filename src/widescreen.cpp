@@ -346,6 +346,55 @@ void AnchorUi(uint8_t* base) {
 }
 }  // namespace
 
+#if defined(_WIN32)
+// Implemented in the SDK (patches/rexglue-sdk/0004): where the HUD is, for the glow.
+namespace rex::ui::d3d12 {
+void SetOutputGlowMask(const uint8_t* cells, uint32_t width, uint32_t height);
+}
+#endif
+
+namespace {
+// The glow (bloom) should come from the fireworks and the city, not from the HUD and
+// menus. Every 2D item is a quad in the UI list, so each frame we mark the cells of a
+// 256 x 144 grid that a quad covers and hand that to the output stage. Quads covering
+// much of the screen (dimmers, fades, backgrounds) are not marked.
+void BuildGlowMask(uint8_t* base) {
+#if defined(_WIN32)
+  constexpr int kWidth = 256, kHeight = 144;
+  static std::vector<uint8_t> cells(size_t(kWidth) * kHeight);
+  std::fill(cells.begin(), cells.end(), uint8_t(0));
+  const uint32_t count = UiCount(base);
+  const uint32_t list = LoadU32(base, kUiRenderer + 8);
+  const double aspect = bbr::UiAspectRatio();
+  for (uint32_t i = 0; list != 0 && i < count; ++i) {
+    const uint32_t quad = list + i * kElemSize;
+    if ((base[quad + 0x80] & 3) != 0) continue;  // scissor commands
+    float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+    for (int v = 0; v < 4; ++v) {
+      const float x = LoadF(base, quad + v * 0x20), y = LoadF(base, quad + v * 0x20 + 4);
+      x0 = std::min(x0, x); x1 = std::max(x1, x);
+      y0 = std::min(y0, y); y1 = std::max(y1, y);
+    }
+    if (!(x1 > x0) || !(y1 > y0)) continue;
+    // Layout units -> 0..1 across the picture (the layout is 480 * aspect units wide).
+    const double u0 = 0.5 + (x0 - 320.0) / (480.0 * aspect), u1 = 0.5 + (x1 - 320.0) / (480.0 * aspect);
+    const double v0 = y0 / 480.0, v1 = y1 / 480.0;
+    const double shown = (std::min(u1, 1.0) - std::max(u0, 0.0)) * (std::min(v1, 1.0) - std::max(v0, 0.0));
+    if (shown <= 0.0 || shown > 0.4) continue;
+    // One cell wider all round, to take in soft edges.
+    const int cx0 = std::clamp(int(std::floor(u0 * kWidth)) - 1, 0, kWidth - 1);
+    const int cx1 = std::clamp(int(std::ceil(u1 * kWidth)) + 1, 0, kWidth);
+    const int cy0 = std::clamp(int(std::floor(v0 * kHeight)) - 1, 0, kHeight - 1);
+    const int cy1 = std::clamp(int(std::ceil(v1 * kHeight)) + 1, 0, kHeight);
+    for (int y = cy0; y < cy1; ++y) std::memset(&cells[size_t(y) * kWidth + cx0], 255, size_t(cx1 - cx0));
+  }
+  rex::ui::d3d12::SetOutputGlowMask(cells.data(), kWidth, kHeight);
+#else
+  (void)base;
+#endif
+}
+}  // namespace
+
 // Before each widget's render call in sub_8208B648 (r3 = widget): note where its quads start.
 void BbrUiWidgetHook(PPCRegister& r3) {
   (void)r3;
@@ -365,5 +414,6 @@ REX_HOOK_RAW(sub_820A1A98) {
   g_marks.clear();
   __imp__sub_820A1A98(ctx, base);
   AnchorUi(base);
+  BuildGlowMask(base);
   g_marks.clear();
 }
