@@ -582,7 +582,7 @@
   "effort": "S",
   "acceptance": "Each song bar shows the track length (m:ss) right-aligned inside the bar",
   "depends_on": "R-414",
-  "notes": "Done 2026-11-11: drawn by a hook in the engine's menu renderer (src/song_length.cpp), length read from the chart's SongLength line. Design approved. Songs whose chart is not a loose file show no length."
+  "notes": "Done 2026-11-11: drawn by a hook in the engine's menu renderer (src/song_length.cpp), length read from the chart's SongLength line. Design approved, then changed on request the same day: length left-aligned and smaller, tempo (BPM x scroll speed) right-aligned; new layout untested. Songs whose chart is not a loose file show no length."
  },
  {
   "id": "R-403",
@@ -1115,7 +1115,7 @@
   "effort": "M",
   "acceptance": "Adjustable approach speed independent of song tempo; judging unchanged",
   "depends_on": "R-801",
-  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Confirmed working in play 2026-11-11. Now also live: RB / LB step it up / down during a song (notes not yet launched are retimed, arrows in the air are repositioned every frame; hooks on sub_82064C50 and sub_8206A328), with a brief on-screen notice; live change untested."
+  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Confirmed working in play 2026-11-11. Now also live: RB / LB step it up / down during a song (notes not yet launched are retimed, arrows in the air are repositioned every frame; hooks on sub_82064C50 and sub_8206A328), with a brief on-screen notice. First live build launched new arrows late (fixed: the rewritten launch time must be before 'now'); fix untested. Song select screen: speed panel right of the list with LB / RB, and each bar shows BPM x speed (right) and length (left, smaller font); untested."
  },
  {
   "id": "R-803",

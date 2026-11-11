@@ -51,7 +51,10 @@ Short WAV files in a `calibration_sounds` folder replace the built-in clicks: `b
 `subbeat.wav` for the calibration test, `tick.wav` for the assist tick. See the README in that folder.
 
 ## Song lists
-Each song shows its length at the right of its bar.
+Each song's bar shows its length at the left and its tempo at the right. The tempo is the song's
+BPM multiplied by the current scroll speed, so it tells you how fast the arrows will feel. On the
+song select screen the scroll speed is shown to the right of the list, and **LB** / **RB** lower
+and raise it there too.
 
 ## Command-line options
 Settings can also be given when starting the game; these win over the saved settings.
@@ -61,7 +64,7 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--audio_offset_ms=<n>` / `--input_offset_ms=<n>` | The two offsets, in milliseconds |
 | `--precise_input=false` | Judge presses by whole frames, as the original game did |
 | `--assist_tick_volume=<n>` | Loudness of the assist tick (default 2.5) |
-| `--show_song_length=false` | No track lengths on the song lists |
+| `--show_song_length=false` | No track lengths or tempos on the song lists |
 | `--skip_intro=false` | Show the start-up logos |
 | `--ui_mods=false` | Turn off every menu addition (BBRR Settings, hit timing, renamed texts) |
 | `--game_debug_log=true` | Write the game's own debug messages to the log |

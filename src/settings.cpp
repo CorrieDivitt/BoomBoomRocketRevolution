@@ -439,6 +439,8 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
                     "BBRR_OPEN = Open\n"
+                    "BBRR_SPEED_LABEL = Scroll Speed\n"
+                    "BBRR_SPEED_HINT = LB -    RB +\n"
                     "BBRR_RESTART_NOTE = A new Resolution applies after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"

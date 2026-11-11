@@ -29,6 +29,7 @@
 #include "input_offset.h"
 #include "modifiers.h"
 #include "settings.h"
+#include "widescreen.h"
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -59,6 +60,7 @@ constexpr uint32_t kChartHeader = 0x821A0564;     // float TargetWidth (the hit 
 constexpr uint32_t kHalf = 0x820006E4;            // the constant the game halves it with
 constexpr uint32_t kTextManager = 0x821D48C8;     // stored strings, 256 bytes each
 constexpr uint32_t kNoticeSlot = 127;             // STR127: "Speed 1.5x"
+constexpr uint32_t kMenuSlot = 119;               // STR119: "1.5x" on the song select screen
 
 float LoadFloat(uint8_t* base, uint32_t address) {
   uint32_t v;
@@ -114,28 +116,47 @@ void MarkChanged(uint32_t note) {
   if (it != g_notes.end()) it->second.changed = true;
 }
 
-// LB / RB: one step down / up through the settings screen's list of speeds.
-void HandleButtons(uint8_t* base) {
+// LB / RB: one step down / up through the settings screen's list of speeds. Returns
+// whether a button was pressed.
+bool TakeSteps() {
   const int steps = bbr::TakeShoulderSteps();
-  if (steps == 0 || !REXCVAR_GET(scroll_speed_buttons)) return;
+  if (steps == 0 || !REXCVAR_GET(scroll_speed_buttons)) return false;
   const int count = std::atoi(bbr::SettingsCommand("bbrr.choices", "scroll_speed", "").c_str());
   const int now = std::atoi(bbr::SettingsCommand("bbrr.get", "scroll_speed", "").c_str());
-  if (count <= 0 || now <= 0) return;
+  if (count <= 0 || now <= 0) return false;
   const int wanted = std::clamp(now + steps, 1, count);
   if (wanted != now) {
     bbr::SettingsCommand("bbrr.set", "scroll_speed", std::to_string(wanted));
     bbr::SettingsCommand("bbrr.save", "", "");
+    REXLOG_INFO("[modifiers] scroll speed set to {:.2f}x with {}", Speed(), steps > 0 ? "RB" : "LB");
   }
+  return true;
+}
+
+// During a song: step, and show the new speed for a moment.
+void HandleButtons(uint8_t* base) {
+  if (!TakeSteps()) return;
   char text[32];
   std::snprintf(text, sizeof(text), "Speed %.4gx", Speed());
   std::memcpy(base + kTextManager + kNoticeSlot * 256, text, std::strlen(text) + 1);
   g_notice.store(true);
-  REXLOG_INFO("[modifiers] scroll speed set to {:.2f}x with {}", Speed(), steps > 0 ? "RB" : "LB");
 }
 }  // namespace
 
 std::string bbr::SpeedCommand(const std::string& command) {
   if (command == "bbrr.speed.poll") return g_notice.exchange(false) ? "1" : "";
+  if (command == "bbrr.speed.step") {
+    // Song select screen: LB / RB step the speed; the value to show goes into STR119.
+    TakeSteps();
+    uint8_t* base = bbr::GuestBase();
+    if (!base) return "";
+    char text[32];
+    std::snprintf(text, sizeof(text), "%.4gx", Speed());
+    char* slot = reinterpret_cast<char*>(base + kTextManager + kMenuSlot * 256);
+    const bool changed = std::strcmp(slot, text) != 0;
+    if (changed) std::memcpy(slot, text, std::strlen(text) + 1);
+    return changed ? "1" : "0";
+  }
   return "";
 }
 
@@ -174,13 +195,21 @@ REX_HOOK_RAW(sub_82064C50) {
     const double now = ctx.f1.f64;
     double flight = entry.flight / speed;
     const double left = entry.arrival - now;
-    // Should already be in the air: launch now. Its arrow is then put part of the way
-    // along by the icon hook below.
-    if (left < flight && left > 0.02) flight = left;
-    if (left > 0.02 && std::fabs(flight - double(LoadFloat(base, note + 0x38))) > 1e-4) {
-      StoreFloat(base, note + 0x38, float(flight));
-      StoreFloat(base, note + 0x1C, float(entry.arrival - flight));
-      MarkChanged(note);
+    if (left > 0.02) {
+      if (left < flight) {
+        // Its launch time has come (or, after slowing down, already passed): launch in
+        // this very call. The game launches when the song time is *past* +0x1C, so the
+        // launch time has to be a little before now - writing "now" itself would put it
+        // off again every frame. The arrow is then put where it belongs along the path
+        // by the icon hook below.
+        StoreFloat(base, note + 0x38, float(left));
+        StoreFloat(base, note + 0x1C, float(now - 0.001));
+        MarkChanged(note);
+      } else if (std::fabs(flight - double(LoadFloat(base, note + 0x38))) > 1e-4) {
+        StoreFloat(base, note + 0x38, float(flight));
+        StoreFloat(base, note + 0x1C, float(entry.arrival - flight));
+        MarkChanged(note);
+      }
     }
   }
   __imp__sub_82064C50(ctx, base);
