@@ -3,7 +3,8 @@
 // The song list is one menu widget drawn by sub_82094D40. For every row it looks up the
 // row's text by name (sub_8208D7E0, e.g. "TRK3" = title of track 3), turns it into a
 // drawable string (sub_8208EB38) and draws it (sub_820908D8: r3 renderer, r4 colours,
-// r5 string, r6 = 1, r7 alignment, f1 size, f2 x, f3 y, font style at 0x5C(r1)).
+// r5 string, r6 alignment (1 = centred), f1 size, f2 widest allowed; the position is the
+// renderer's current transform, font style at 0x5C(r1)).
 // Right after a "TRK<n>" row has been drawn we draw a second, short text the same way,
 // moved towards the right end of the bar: the track's length.
 //
@@ -40,6 +41,7 @@ REX_EXTERN(__imp__sub_820908D8);
 namespace {
 constexpr uint32_t kTextManager = 0x821D48C8;  // 128 stored strings of 256 chars at its start
 constexpr uint32_t kRenderer = 0x821DCAC8;
+constexpr uint32_t kTransform = 0x10004C;       // renderer: transform used for the next text
 constexpr uint32_t kStringFormat = 0x820043D0;  // second argument the menu passes to sub_8208EB38
 constexpr uint32_t kLengthSlot = 124;           // stored string that carries the length text
 constexpr uint32_t kNameSlot = 125;             // ... and one that holds the name "STR124"
@@ -180,7 +182,19 @@ REX_HOOK_RAW(sub_820908D8) {
   ctx.r10 = r10;
   ctx.f1 = f1;
   ctx.f2 = f2;
-  ctx.f2.f64 = f2.f64 + REXCVAR_GET(song_length_offset);
   ctx.f3 = f3;
+  // The text is placed by the renderer's current transform (a 4x4 matrix whose
+  // translation is its fourth row); move it right for this one draw.
+  uint8_t* x_slot = base + kRenderer + kTransform + 0x30;
+  uint32_t saved;
+  std::memcpy(&saved, x_slot, 4);
+  uint32_t bits = __builtin_bswap32(saved);
+  float x;
+  std::memcpy(&x, &bits, 4);
+  x += float(REXCVAR_GET(song_length_offset));
+  std::memcpy(&bits, &x, 4);
+  bits = __builtin_bswap32(bits);
+  std::memcpy(x_slot, &bits, 4);
   __imp__sub_820908D8(ctx, base);
+  std::memcpy(x_slot, &saved, 4);
 }
