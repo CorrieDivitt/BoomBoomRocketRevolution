@@ -673,7 +673,7 @@
   "effort": "L",
   "acceptance": "Optional HDR pipeline with bloom; off = original look",
   "depends_on": "R-408",
-  "notes": "SDK patch 0004: Glow and HDR settings in Video Settings, both live. Glow = quarter-size bloom (bright pass, three blurs) that leaves out the HUD via a mask built from the UI quad list; HDR = scRGB swap chain with highlights expanded (confirmed looking good 2026-11-11). Bloom version untested. Next: true HDR rendering (float render target). See docs/GRAPHICS.md."
+  "notes": "SDK patch 0004: Glow and HDR settings in Video Settings, both live. Glow = quarter-size bloom (bright pass, three blurs) that leaves out the HUD via a mask built from the UI quad list; HDR = scRGB swap chain with highlights expanded. Both confirmed looking good in play 2026-11-11. Next: true HDR rendering (float render target). See docs/GRAPHICS.md."
  },
  {
   "id": "R-410",
@@ -695,11 +695,11 @@
   "category": "Particles",
   "title": "Particle quality/quantity scaling",
   "priority": "P1",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Multiplier on firework Count with stable perf",
   "depends_on": "R-302",
-  "notes": "Fireworks/*.config hold Count/Velocity per grade"
+  "notes": "Particles setting in Video Settings (--particle_quality 0.5x-3x, live): scales each firework's Count at config load and rewrites loaded configs when changed. Pool limit 32768 particles; overflow is dropped safely. Untested as of 2026-11-11."
  },
  {
   "id": "R-412",
@@ -994,11 +994,11 @@
   "category": "Feature",
   "title": "Average timing on the results screen",
   "priority": "P2",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Results screen shows mean hit offset (ms, early/late) and spread for the song just played; optional per-difficulty history",
   "depends_on": "R-801,R-803",
-  "notes": "Requested 2026-11-10"
+  "notes": "Done 2026-11-11: results screen line with average, spread, early and late counts (see R-803). Per-difficulty history not done."
  },
  {
   "id": "R-901",
@@ -1038,6 +1038,45 @@
   "acceptance": "Play in a VR headset (OpenXR): stereo rendering of the city and fireworks with head tracking, menus and HUD on a comfortable panel, timing unaffected",
   "depends_on": "R-402,R-302",
   "notes": "Stretch goal (requested 2026-11-10). Needs per-eye camera/projection hooks and a stereo present path in the SDK"
+ },
+ {
+  "id": "R-904",
+  "phase": 9,
+  "phase_name": "Accessibility (stretch)",
+  "category": "Feature",
+  "title": "Gameplay across the full screen width",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "L",
+  "acceptance": "On wide screens the rockets, arrows and target line use the whole width of the display instead of the middle 16:9 part; judging unchanged",
+  "depends_on": "R-402,R-415",
+  "notes": "Stretch goal (requested 2026-11-11, experimental). Needs: how launch/target splines and zones map to screen positions, and whether they can be spread by aspect ratio without changing charts."
+ },
+ {
+  "id": "R-905",
+  "phase": 9,
+  "phase_name": "Accessibility (stretch)",
+  "category": "Feature",
+  "title": "Visualizer driven by audio playing in Windows",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "L",
+  "acceptance": "Visualizer mode reacts to whatever is playing on the PC (system audio capture), no game music needed",
+  "depends_on": "R-211",
+  "notes": "Stretch goal (requested 2026-11-11, experimental). Idea: WASAPI loopback capture feeding the visualizer's beat/level input; first find what the original visualizer reads (XMP / console music levels)."
+ },
+ {
+  "id": "R-906",
+  "phase": 9,
+  "phase_name": "Accessibility (stretch)",
+  "category": "Feature",
+  "title": "Custom charts and automatic chart generation",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "XL",
+  "acceptance": "A documented chart format and a tool to build a pack from the player's own music; an auto-generator proposes a playable chart from an audio file (beat/onset detection) that can then be edited by hand",
+  "depends_on": "R-111,R-112",
+  "notes": "Stretch goal (requested 2026-11-11, experimental). Charts are tab-separated text (.lvl: BPM, length, offset, target width, launch/detonation rows) plus spline files; packs are folders with contents.txt, so home-made packs look feasible. Needs: music encoding the game accepts, pack layout without a console package, and a generator."
  },
  {
   "id": "R-801",

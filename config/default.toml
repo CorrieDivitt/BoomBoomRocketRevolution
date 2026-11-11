@@ -74,6 +74,11 @@ name = "BbrArrowIconHook"
 registers = ["r31", "r1"]
 
 [[midasm_hook]]
+address = 0x8206C7A4
+name = "BbrParticleCountHook"
+registers = ["r3", "r25"]
+
+[[midasm_hook]]
 address = 0x8213E490
 name = "BbrAudioFrameHook"
 registers = ["r4"]

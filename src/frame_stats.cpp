@@ -11,6 +11,7 @@
 // The same is done for the per-frame step of the slow-down after failing a song.
 
 #include "frame_stats.h"
+#include "particles.h"
 #include "widescreen.h"
 
 #include <rex/hook.h>
@@ -88,6 +89,7 @@ REX_HOOK_RAW(sub_82077100) {
   const float fail_step = kFailStepAt60 * float(dt * 60.0);
   std::memcpy(&bits, &fail_step, sizeof(bits));
   *reinterpret_cast<volatile uint32_t*>(base + kFailStepAddr) = __builtin_bswap32(bits);
+  bbr::ApplyParticleQuality(base);
   bbr::ApplyAspect(base);
   __imp__sub_82077100(ctx, base);
 }

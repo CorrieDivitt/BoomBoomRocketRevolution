@@ -42,8 +42,12 @@ Things that follow from this:
 - The game renders 1280x720; the port already scales that up (Resolution setting) and stretches it
   for wide screens.
 
-Not yet known (needs a look in a running game): the colour format of the game's render target,
-whether it uses multisampling, and the particle system's hard limits.
+Particle limits (found 2026-11-11): all particles share one pool of 32,768; when it is full, new
+particles are simply not created, so raising counts cannot overflow anything. A firework's `Count`
+is handed to an emitter as a number, not used to size any table.
+
+Not yet known (needs a look in a running game): the colour format of the game's render target and
+whether it uses multisampling.
 
 ## HDR
 ### Level 1 - Windows Auto HDR (nothing to build)

@@ -82,6 +82,8 @@ const std::vector<Setting>& Settings() {
                  {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
     s.push_back({"glow", "output_glow", "Glow",
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
+    s.push_back({"particles", "particle_quality", "Particles",
+                 {{"0.5", "Low"}, {"1", "Normal"}, {"1.5", "High"}, {"2", "Very High"}, {"3", "Extreme"}}, 1, "video"});
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
@@ -94,7 +96,7 @@ const std::vector<Setting>& Settings() {
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
       {"main", "BBRR Settings", {"page:video", "page:timing", "skip_intro", "layout"}},
-      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "hdr", "resolution"}},
+      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
       {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},

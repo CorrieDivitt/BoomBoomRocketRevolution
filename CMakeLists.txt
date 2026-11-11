@@ -16,6 +16,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/frame_stats.cpp
     src/leaderboards.cpp
     src/input_offset.cpp
+    src/particles.cpp
     src/song_clock.cpp
     src/song_length.cpp
     src/widescreen.cpp

@@ -23,6 +23,10 @@ void BbrArrowAspectHook(PPCRegister& f0);
 // Implemented in src/input_offset.cpp.
 void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1);
 
+// Firework config loader (sub_8206C0F8) at 0x8206C7A4: r3 = a section's particle Count
+// about to be stored at 0(r25). Implemented in src/particles.cpp.
+void BbrParticleCountHook(PPCRegister& r3, PPCRegister& r25);
+
 // Audio block about to go to the driver (sub_8213E448 at 0x8213E490): r4 = 6 x 256 floats.
 // Implemented in src/metronome.cpp.
 void BbrAudioFrameHook(PPCRegister& r4);
