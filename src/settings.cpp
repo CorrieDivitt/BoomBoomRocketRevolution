@@ -325,7 +325,7 @@ std::string SettingsStrings() {
                     "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"
                     "BBRR_CAL_SOUND_RUN = Press ~~{A}~~ on every beat\n"
                     "BBRR_CAL_PICTURE_INTRO = Picture test. No sound this time\n"
-                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ every time the rings line up\n"
+                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ every time a bar reaches the line\n"
                     "BBRR_CAL_BEGIN = Press ~~{A}~~ to begin\n"
                     "BBRR_CAL_RESULT = Suggested audio offset. Press ~~{A}~~ to save\n"
                     "BBRR_CAL_FAILED = Those taps were too uneven. Let us try again\n"

@@ -81,6 +81,12 @@ struct State {
   Clock::time_point report_start;
   uint32_t frames = 0, updates = 0;
   double max_step_ms = 0;
+  // frame pacing and smoothed-clock steps (to tell display judder from clock judder)
+  Clock::time_point prev_frame;
+  bool have_prev = false;
+  double dt_min = 1e9, dt_max = 0, dt_sum = 0;
+  uint32_t dt_count = 0, late_frames = 0;
+  double clock_min = 1e9, clock_max = 0, prev_est = 0;
 };
 
 // How far the heard music lags the XAudio voice position, in seconds.
@@ -155,12 +161,32 @@ REX_HOOK_RAW(sub_82080928) {
     if (raw_c4 > s.raw_c4)
       s.max_step_ms = std::max(s.max_step_ms, 1000.0 * (raw_c4 - s.raw_c4) / nominal);
   }
+  // Time between frames. A "late" frame took over 1.5x the average: a visible hitch.
+  if (s.have_prev) {
+    const double dt_ms = 1000.0 * Seconds(now - s.prev_frame);
+    if (dt_ms < 250.0) {
+      const double average = s.dt_count ? s.dt_sum / s.dt_count : dt_ms;
+      if (s.dt_count > 20 && dt_ms > 1.5 * average) ++s.late_frames;
+      s.dt_min = std::min(s.dt_min, dt_ms);
+      s.dt_max = std::max(s.dt_max, dt_ms);
+      s.dt_sum += dt_ms;
+      ++s.dt_count;
+    }
+  }
+  s.prev_frame = now;
+  s.have_prev = true;
   if (Seconds(now - s.report_start) >= 10.0) {
     REXLOG_INFO("[songclock] last 10 s: {} frames, {} audio position updates, biggest step {:.1f} ms, "
-                "smoothing {}",
-                s.frames, s.updates, s.max_step_ms, REXCVAR_GET(smooth_song_clock) ? "on" : "off");
+                "smoothing {}; frame time avg {:.2f} / min {:.2f} / max {:.2f} ms, {} late frames; "
+                "song clock step min {:.2f} / max {:.2f} ms",
+                s.frames, s.updates, s.max_step_ms, REXCVAR_GET(smooth_song_clock) ? "on" : "off",
+                s.dt_count ? s.dt_sum / s.dt_count : 0.0, s.dt_min, s.dt_max, s.late_frames,
+                s.clock_min > 1e8 ? 0.0 : s.clock_min, s.clock_max);
     s.frames = s.updates = 0;
     s.max_step_ms = 0;
+    s.dt_min = s.clock_min = 1e9;
+    s.dt_max = s.dt_sum = s.clock_max = 0;
+    s.dt_count = s.late_frames = 0;
   }
 
   auto snap = [&] {
@@ -202,6 +228,13 @@ REX_HOOK_RAW(sub_82080928) {
       s.window_raw = raw_c4;
     }
   }
+  // How far the smoothed clock moved this frame (should track the frame time).
+  if (s.prev_est > 0 && s.est >= s.prev_est && s.est - s.prev_est < 0.25 * nominal) {
+    const double step_ms = 1000.0 * (s.est - s.prev_est) / nominal;
+    s.clock_min = std::min(s.clock_min, step_ms);
+    s.clock_max = std::max(s.clock_max, step_ms);
+  }
+  s.prev_est = s.est;
   s.last = now;
   s.raw_c4 = raw_c4;
   s.raw_cc = raw_cc;

@@ -3,8 +3,8 @@
 -- Two tap tests, the way band games do it:
 --   1. Sound:   a metronome plays in 4/4 (accent on the first beat of each bar); the
 --               player presses A on every beat.
---   2. Picture: no sound; a ring slides to a target ring and the player presses A when
---               they line up.
+--   2. Picture: no sound; bars rise up the screen like the game's rockets and the player
+--               presses A each time one reaches the line.
 -- Both start with a four-beat count-in (shown as -3 .. 0) and then count four bars,
 -- sixteen beats, 1 to 16. The player presses through the count-in too; only 1 to 16 count.
 -- Each test gives "how late the taps were" (sound or picture delay plus the player's
@@ -34,8 +34,10 @@ local BAR = 4             -- beats per bar: the first one of each bar is accente
 local TAPS = 16           -- beats that count (shown as 1 .. 16): four bars
 local MIN_TAPS = 10       -- fewer taps than this is not enough to go on
 local MAX_SPREAD_MS = 70  -- taps more uneven than this are not trusted
-local TARGET_X = 320
-local TRAVEL = 220        -- how far left of the target the ring starts
+local LINE_Y = 170        -- the line the bars rise to (like the game's target line)
+local TRAVEL = 260        -- how far below the line a bar starts
+local LEAD_BEATS = 2      -- a bar is on its way for this many beats, so two are in view
+local BAR_WIDTH, BAR_HEIGHT = 56, 10
 
 local STATE_SOUND_INTRO, STATE_SOUND, STATE_PICTURE_INTRO, STATE_PICTURE, STATE_RESULT, STATE_FAILED = 1, 2, 3, 4, 5, 6
 
@@ -90,9 +92,51 @@ local function AddText(y, height, text, render_state)
   })
 end
 
-local function ShowRings(visible)
-  Buttons.SetActive(GUI.target_ID, visible)
-  Buttons.SetActive(GUI.ring_ID, visible)
+-- A plain coloured rectangle (x, y = top left corner; colour is "alpha red green blue").
+local function AddBox(x, y, width, height, colour)
+  return Buttons.AddButton({
+    type = UIEnums.ButtonTypes.GRAPHIC,
+    x = x,
+    y = y,
+    width = width,
+    height = height,
+    colour = colour,
+    textures = {
+      { name = UIEnums.Texture.null, u = 0, v = 0, usize = 1, vsize = 1 }
+    },
+    effects = {
+      {
+        when = UIEnums.EffectWhen.End,
+        type = UIEnums.EffectType.Colour,
+        from = colour,
+        to = "0 0 0 0",
+        duration = 0.1,
+        timer = 0
+      }
+    }
+  })
+end
+
+-- Where the two rising bars are for a metronome position: bar 1 carries the even beats,
+-- bar 2 the odd ones; each reaches the line exactly on its beat.
+local function PlaceBars(position)
+  for m = 1, 2 do
+    local beat = math.ceil(position)
+    if beat - math.floor(beat / 2) * 2 ~= m - 1 then
+      beat = beat + 1
+    end
+    local to_go = (beat - position) / LEAD_BEATS
+    if position < -1 then
+      to_go = 1 + (m - 1) * 0.5
+    end
+    Buttons.ChangePosition(GUI.bar_ID[m], 320 - BAR_WIDTH / 2, LINE_Y - BAR_HEIGHT / 2 + TRAVEL * to_go)
+  end
+end
+
+local function ShowBars(visible)
+  Buttons.SetActive(GUI.line_ID, visible)
+  Buttons.SetActive(GUI.bar_ID[1], visible)
+  Buttons.SetActive(GUI.bar_ID[2], visible)
 end
 
 local function SetState(state)
@@ -100,12 +144,12 @@ local function SetState(state)
   if state == STATE_SOUND_INTRO then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_SOUND_INTRO)
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_BEGIN)
-    ShowRings(false)
+    ShowBars(false)
   elseif state == STATE_PICTURE_INTRO then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_PICTURE_INTRO)
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_BEGIN)
-    ShowRings(true)
-    Buttons.ChangePosition(GUI.ring_ID, TARGET_X - TRAVEL, GUI.ring_y)
+    ShowBars(true)
+    PlaceBars(-100)
   elseif state == STATE_SOUND or state == STATE_PICTURE then
     if state == STATE_SOUND then
       Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_SOUND_RUN)
@@ -115,17 +159,17 @@ local function SetState(state)
       BBRR("bbrr.metro.start", BEAT_MS, "0," .. COUNT_IN .. "," .. BAR)
     end
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_READY)
-    ShowRings(state == STATE_PICTURE)
+    ShowBars(state == STATE_PICTURE)
     GUI.taps = {}
     GUI.shown = nil
   elseif state == STATE_RESULT then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_RESULT)
     Buttons.ChangeText(GUI.line2_ID, UIText["BBRR_C_audio_offset_" .. GUI.option] or UIText.IDS_NOWT)
-    ShowRings(false)
+    ShowBars(false)
   elseif state == STATE_FAILED then
     Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_FAILED)
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_BEGIN)
-    ShowRings(false)
+    ShowBars(false)
   end
 end
 
@@ -134,11 +178,13 @@ function Init()
   SetDefaultScreenTimers()
   SetupNextAndBack(true)
   SetupTitleText(UIText.BBRR_T_page_calibrate)
-  GUI.ring_y = 270
-  GUI.line1_ID = AddText(150, UIGlobals.font_size.small, UIText.BBRR_CAL_SOUND_INTRO, UIGlobals.font_render_state.new_filled_orange)
-  GUI.line2_ID = AddText(190, UIGlobals.font_size.small, UIText.BBRR_CAL_BEGIN, UIGlobals.font_render_state.new_filled_blue)
-  GUI.target_ID = AddText(GUI.ring_y, UIGlobals.font_size.large, UIText.BBRR_CAL_RING, UIGlobals.font_render_state.new_filled_blue)
-  GUI.ring_ID = AddText(GUI.ring_y, UIGlobals.font_size.large, UIText.BBRR_CAL_RING, UIGlobals.font_render_state.new_filled_orange)
+  GUI.line1_ID = AddText(100, UIGlobals.font_size.small, UIText.BBRR_CAL_SOUND_INTRO, UIGlobals.font_render_state.new_filled_orange)
+  GUI.line2_ID = AddText(132, UIGlobals.font_size.small, UIText.BBRR_CAL_BEGIN, UIGlobals.font_render_state.new_filled_blue)
+  GUI.line_ID = AddBox(170, LINE_Y - 2, 300, 4, "255 255 255 255")
+  GUI.bar_ID = {
+    AddBox(320 - BAR_WIDTH / 2, LINE_Y + TRAVEL, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255"),
+    AddBox(320 - BAR_WIDTH / 2, LINE_Y + TRAVEL, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255")
+  }
   -- The menu music would drown out the clicks; it comes back when the screen is left.
   Game.StopTitleMusic()
   SetState(STATE_SOUND_INTRO)
@@ -206,12 +252,7 @@ function Update()
     Buttons.ChangeText(GUI.line2_ID, CounterText(beat))
   end
   if GUI.state == STATE_PICTURE then
-    -- The ring reaches the target exactly on each beat, then starts again from the left.
-    local to_go = math.ceil(position) - position
-    if position < 0 then
-      to_go = 1
-    end
-    Buttons.ChangePosition(GUI.ring_ID, TARGET_X - TRAVEL * to_go, GUI.ring_y)
+    PlaceBars(position)
   end
   -- Half a beat after the last counted beat the test is over.
   if position > COUNT_IN + TAPS - 0.5 then
