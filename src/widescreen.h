@@ -13,4 +13,6 @@ void ApplyAspect(uint8_t* base);
 uint8_t* GuestBase();
 // Width/height ratio the 2D layer is laid out for (16/9 unless widescreen is on).
 double UiAspectRatio();
+// Called whenever the game loads a UI script (src/ui_mod.cpp): a new screen is starting.
+void NoteUiScriptLoaded(const char* name);
 }  // namespace bbr

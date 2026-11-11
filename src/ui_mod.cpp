@@ -19,6 +19,7 @@
 // folder) every time the game loads that script, so edits show up without a rebuild.
 
 #include "settings.h"
+#include "widescreen.h"
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -155,6 +156,7 @@ void AddStringsIfNeeded(PPCContext& ctx, uint8_t* base) {
 REX_HOOK_RAW(sub_820A6898) {
   const uint32_t L = ctx.r3.u32, name_ptr = ctx.r4.u32;
   AddStringsIfNeeded(ctx, base);
+  if (name_ptr) bbr::NoteUiScriptLoaded(reinterpret_cast<const char*>(Host(base, name_ptr)));
   if (REXCVAR_GET(ui_mods)) {
     const std::string name = GuestString(base, name_ptr);
     const std::string source = name.rfind("orig:", 0) == 0 ? std::string() : OverrideSource(name);

@@ -17,6 +17,14 @@
 // edges pushed out to the real screen edges, and groups of widgets that sit in the
 // outer part of the 16:9 layout are moved out to the matching side of the window.
 // Everything is recomputed from the current aspect ratio, so resizing the window works.
+//
+// Which side a group follows is worked out from where its quads are in that frame. While
+// a screen is still arriving (items sliding, text flying in) the groups can look different
+// from the finished screen, so a menu used to be drawn in its 16:9 place for a moment and
+// then jump to the edge. To avoid that the finished layout of every screen is remembered
+// (by script name and number of widgets, also across runs, in cache/ui_layout.txt) and
+// used for the first two seconds after the screen's script is loaded, until the layout
+// has settled.
 
 #include "widescreen.h"
 #include "midasm_hooks.h"
@@ -25,9 +33,17 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 
+#include <rex/filesystem.h>
+
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <utility>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -235,6 +251,54 @@ struct UiItem {
   int parent;
 };
 
+// ---- remembered layouts ----
+using Sides = std::vector<std::pair<uint32_t, int>>;  // (item id, -1 left / 0 centre / +1 right)
+using SteadyClock = std::chrono::steady_clock;
+std::mutex g_screen_mutex;
+std::string g_screen_name;                    // last UI script loaded
+SteadyClock::time_point g_screen_loaded_at{};
+std::map<std::string, Sides> g_layouts;       // finished layout by "<script>|<widgets>"
+bool g_layouts_loaded = false;
+std::string g_last_signature;
+Sides g_last_sides;
+int g_same_frames = 0;
+
+std::filesystem::path LayoutFile() {
+  return rex::filesystem::GetUserFolder() / "boomboomrocket" / "cache" / "ui_layout.txt";
+}
+
+void LoadLayouts() {
+  if (g_layouts_loaded) return;
+  g_layouts_loaded = true;
+  std::ifstream in(LayoutFile());
+  std::string line;
+  while (std::getline(in, line)) {
+    const size_t tab = line.find('\t');
+    if (tab == std::string::npos) continue;
+    Sides sides;
+    std::istringstream parts(line.substr(tab + 1));
+    std::string part;
+    while (std::getline(parts, part, ',')) {
+      const size_t colon = part.find(':');
+      if (colon == std::string::npos) continue;
+      sides.emplace_back(uint32_t(std::strtoul(part.c_str(), nullptr, 10)),
+                         std::clamp(std::atoi(part.c_str() + colon + 1), -1, 1));
+    }
+    if (!sides.empty() && g_layouts.size() < 2000) g_layouts[line.substr(0, tab)] = sides;
+  }
+}
+
+void SaveLayouts() {
+  std::error_code ec;
+  std::filesystem::create_directories(LayoutFile().parent_path(), ec);
+  std::ofstream out(LayoutFile(), std::ios::trunc);
+  for (const auto& [signature, sides] : g_layouts) {
+    out << signature << '\t';
+    for (size_t i = 0; i < sides.size(); ++i) out << (i ? "," : "") << sides[i].first << ':' << sides[i].second;
+    out << '\n';
+  }
+}
+
 int Find(std::vector<UiItem>& items, int i) {
   while (items[i].parent != i) i = items[i].parent = items[items[i].parent].parent;
   return i;
@@ -261,6 +325,8 @@ void AnchorUi(uint8_t* base) {
   const uint32_t first_mark = cuts.empty() ? count : cuts.front();
   const uint32_t last_mark = cuts.empty() ? count : cuts.back();
   std::vector<UiItem> items;
+  std::vector<uint32_t> ids;  // the same from frame to frame: widget number, or quad number + 0x10000
+  uint32_t next_id = 0;
   auto add = [&](uint32_t first, uint32_t last) {
     UiItem it{first, last, 1e9f, -1e9f, 1e9f, -1e9f, int(items.size())};
     for (uint32_t i = first; i < last; ++i) {
@@ -270,11 +336,17 @@ void AnchorUi(uint8_t* base) {
         it.y0 = std::min(it.y0, y); it.y1 = std::max(it.y1, y);
       }
     }
-    if (it.x1 >= it.x0) items.push_back(it);
+    if (it.x1 >= it.x0) {
+      items.push_back(it);
+      ids.push_back(next_id);
+    }
   };
-  for (uint32_t i = 0; i < first_mark; ++i) add(i, i + 1);
-  for (size_t k = 0; k + 1 < cuts.size(); ++k) if (cuts[k + 1] > cuts[k]) add(cuts[k], cuts[k + 1]);
-  for (uint32_t i = last_mark; i < count; ++i) add(i, i + 1);
+  for (uint32_t i = 0; i < first_mark; ++i) { next_id = 0x10000 + i; add(i, i + 1); }
+  for (size_t k = 0; k + 1 < cuts.size(); ++k) {
+    next_id = uint32_t(k);
+    if (cuts[k + 1] > cuts[k]) add(cuts[k], cuts[k + 1]);
+  }
+  for (uint32_t i = last_mark; i < count; ++i) { next_id = 0x10000 + i; add(i, i + 1); }
 
   // Full-screen covers: stretch to the real edges and keep them out of the grouping.
   // Other very wide items stay centred and do not take part either.
@@ -322,18 +394,68 @@ void AnchorUi(uint8_t* base) {
   constexpr float kCentre = 320.0f, kOuterLeft = 213.3f, kOuterRight = 426.7f;
   static uint32_t debug_frame = 0;
   const bool debug = REXCVAR_GET(ui_anchor_debug) && (debug_frame++ % 300 == 0);
+  Sides sides;  // what this frame's positions say
+  std::vector<int> side_of(items.size(), 0);
   for (size_t k = 0; k < items.size(); ++k) {
     if (!grouped[k]) continue;
-    const int root = Find(items, int(k));
-    const Box& b = boxes[root];
+    const Box& b = boxes[Find(items, int(k))];
     const float mid = (b.x0 + b.x1) * 0.5f;
-    float dx = 0.0f;
-    if (b.x1 <= kCentre && mid <= kOuterLeft) dx = -shift;
-    else if (b.x0 >= kCentre && mid >= kOuterRight) dx = shift;
+    if (b.x1 <= kCentre && mid <= kOuterLeft) side_of[k] = -1;
+    else if (b.x0 >= kCentre && mid >= kOuterRight) side_of[k] = 1;
+    sides.emplace_back(ids[k], side_of[k]);
+  }
+
+  // Remember the layout once it has stopped changing; while a screen is still arriving,
+  // use what was remembered for it.
+  std::string name;
+  double since_load;
+  {
+    std::lock_guard<std::mutex> lock(g_screen_mutex);
+    name = g_screen_name;
+    since_load = std::chrono::duration<double>(SteadyClock::now() - g_screen_loaded_at).count();
+  }
+  const std::string signature = name + "|" + std::to_string(cuts.size());
+  LoadLayouts();
+  if (signature == g_last_signature && sides == g_last_sides) {
+    ++g_same_frames;
+  } else {
+    g_same_frames = 0;
+    g_last_signature = signature;
+    g_last_sides = sides;
+  }
+  constexpr int kSettledFrames = 30;
+  if (g_same_frames == kSettledFrames) {
+    auto it = g_layouts.find(signature);
+    if (it == g_layouts.end() || it->second != sides) {
+      if (it != g_layouts.end() && since_load < 3.0) {
+        REXLOG_INFO("[ui] layout of {} changed while it arrived; remembered for next time", signature);
+      }
+      if (g_layouts.size() < 2000) g_layouts[signature] = sides;
+      SaveLayouts();
+    }
+  }
+  if (g_same_frames < kSettledFrames && since_load < 2.0) {
+    const auto it = g_layouts.find(signature);
+    if (it != g_layouts.end()) {
+      for (size_t k = 0; k < items.size(); ++k) {
+        if (!grouped[k]) continue;
+        for (const auto& [id, side] : it->second) {
+          if (id == ids[k]) {
+            side_of[k] = side;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  for (size_t k = 0; k < items.size(); ++k) {
+    if (!grouped[k]) continue;
+    const float dx = float(side_of[k]) * shift;
     if (debug) {
-      REXLOG_INFO("[ui] group {:3} quads {:3}-{:3} x {:7.1f}..{:7.1f} y {:6.1f}..{:6.1f} -> {}", root,
-                  items[k].first, items[k].last, items[k].x0, items[k].x1, items[k].y0, items[k].y1,
-                  dx < 0 ? "left" : dx > 0 ? "right" : "centre");
+      REXLOG_INFO("[ui] group {:3} quads {:3}-{:3} x {:7.1f}..{:7.1f} y {:6.1f}..{:6.1f} -> {}",
+                  Find(items, int(k)), items[k].first, items[k].last, items[k].x0, items[k].x1, items[k].y0,
+                  items[k].y1, dx < 0 ? "left" : dx > 0 ? "right" : "centre");
     }
     if (dx == 0.0f) continue;
     for (uint32_t i = items[k].first; i < items[k].last; ++i) {
@@ -345,6 +467,14 @@ void AnchorUi(uint8_t* base) {
   }
 }
 }  // namespace
+
+void bbr::NoteUiScriptLoaded(const char* name) {
+  if (!name) return;
+  if (std::strncmp(name, "orig:", 5) == 0) name += 5;
+  std::lock_guard<std::mutex> lock(g_screen_mutex);
+  g_screen_name = name;
+  g_screen_loaded_at = SteadyClock::now();
+}
 
 #if defined(_WIN32)
 // Implemented in the SDK (patches/rexglue-sdk/0004): where the HUD is, for the glow.
