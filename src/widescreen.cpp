@@ -359,10 +359,13 @@ void AnchorUi(uint8_t* base) {
   // Full-screen covers: stretch to the real edges and keep them out of the grouping.
   // Other very wide items stay centred and do not take part either.
   std::vector<char> grouped(items.size(), 1);
+  std::vector<char> fixed(items.size(), 0);  // covers and kept items: never moved
+  int wide_items = 0;
   for (size_t k = 0; k < items.size(); ++k) {
     UiItem& it = items[k];
     if (it.x0 <= kLeft16x9 && it.x1 >= kRight16x9) {
       grouped[k] = 0;
+      fixed[k] = 1;
       if (shift <= 0) continue;
       for (uint32_t i = it.first; i < it.last; ++i) {
         for (int v = 0; v < vertices(i); ++v) {
@@ -374,6 +377,7 @@ void AnchorUi(uint8_t* base) {
       }
     } else if (it.x1 - it.x0 > 560.0f) {
       grouped[k] = 0;
+      ++wide_items;
     }
   }
   if (!anchor) return;
@@ -382,7 +386,7 @@ void AnchorUi(uint8_t* base) {
     for (size_t k = 0; k < items.size(); ++k) {
       const UiItem& it = items[k];
       for (const Rect& r : g_keep) {
-        if (it.x0 >= r.x0 && it.x1 <= r.x1 && it.y0 >= r.y0 && it.y1 <= r.y1) grouped[k] = 0;
+        if (it.x0 >= r.x0 && it.x1 <= r.x1 && it.y0 >= r.y0 && it.y1 <= r.y1) grouped[k] = 0, fixed[k] = 1;
       }
     }
   }
@@ -450,11 +454,15 @@ void AnchorUi(uint8_t* base) {
       SaveLayouts();
     }
   }
+  bool remembered = false;
   if (since_load < kArrival) {
     const auto it = g_layouts.find(signature);
     if (it != g_layouts.end()) {
+      remembered = true;
+      // Also for items that are too wide to be grouped right now: a text whose letters
+      // are still flying in is spread over the screen, and is exactly what would jump.
       for (size_t k = 0; k < items.size(); ++k) {
-        if (!grouped[k]) continue;
+        if (fixed[k]) continue;
         for (const auto& [id, side] : it->second) {
           if (id == ids[k]) {
             side_of[k] = side;
@@ -464,9 +472,18 @@ void AnchorUi(uint8_t* base) {
       }
     }
   }
+  // While a screen arrives, note every change in what the positions say: this is how a
+  // menu that still jumps can be understood from the log.
+  if (since_load < 2.5 && g_same_frames == 0) {
+    int left = 0, right = 0;
+    for (const auto& [id, side] : sides) left += side < 0, right += side > 0;
+    REXLOG_INFO("[ui] {:.2f} s after loading {}: {} left, {} right, {} centre, {} too wide to place; {}", since_load,
+                signature, left, right, int(sides.size()) - left - right, wide_items,
+                remembered ? "using the remembered layout" : since_load < kArrival ? "nothing remembered" : "arrival over");
+  }
 
   for (size_t k = 0; k < items.size(); ++k) {
-    if (!grouped[k]) continue;
+    if (fixed[k] || (!grouped[k] && side_of[k] == 0)) continue;
     const float dx = float(side_of[k]) * shift;
     if (debug) {
       REXLOG_INFO("[ui] group {:3} quads {:3}-{:3} x {:7.1f}..{:7.1f} y {:6.1f}..{:6.1f} -> {}",
