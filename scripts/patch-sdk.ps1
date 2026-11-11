@@ -1,7 +1,7 @@
 <#
   Apply our patches (patches\rexglue-sdk\*.patch) to the ReXGlue SDK and rebuild/install it.
   Usage:  powershell -ExecutionPolicy Bypass -File scripts\patch-sdk.ps1
-  Safe to run again: patches that are already applied are skipped.
+  Safe to run again: nothing is changed when the patches are already in.
 #>
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
@@ -17,12 +17,22 @@ $llvm = Join-Path $env:ProgramFiles "LLVM\bin"
 if (Test-Path $llvm) { $env:PATH = "$llvm;$env:PATH" }
 
 $Sdk = Join-Path $Root "thirdparty\rexglue-sdk"
-Get-ChildItem (Join-Path $Root "patches\rexglue-sdk") -Filter *.patch | Sort-Object Name | ForEach-Object {
-  $patch = $_.FullName
-  git -C $Sdk apply --ignore-whitespace --reverse --check $patch 2>$null
-  if ($LASTEXITCODE -eq 0) { Write-Host "already applied: $($_.Name)"; return }
-  Run "Applying $($_.Name)" { git -C $Sdk apply --ignore-whitespace $patch }
-  Write-Host "applied: $($_.Name)"
+$patches = @(Get-ChildItem (Join-Path $Root "patches\rexglue-sdk") -Filter *.patch -ErrorAction SilentlyContinue | Sort-Object Name)
+if ($patches.Count -gt 0) {
+  # The patches build on each other, so only the last one can be checked on its own:
+  # if it is in, they all are. Otherwise put the SDK files back and apply them all in order.
+  $ErrorActionPreference = "Continue"
+  git -C $Sdk apply --ignore-whitespace --reverse --check $patches[-1].FullName 2>&1 | Out-Null
+  $applied = ($LASTEXITCODE -eq 0)
+  $ErrorActionPreference = "Stop"
+  if ($applied) { Write-Host "SDK patches already applied ($($patches.Count))" }
+  else {
+    Run "Restoring the SDK sources" { git -C $Sdk checkout -- src include }
+    foreach ($p in $patches) {
+      Run "Applying $($p.Name)" { git -C $Sdk apply --ignore-whitespace $p.FullName }
+      Write-Host "applied: $($p.Name)"
+    }
+  }
 }
 $global:LASTEXITCODE = 0
 

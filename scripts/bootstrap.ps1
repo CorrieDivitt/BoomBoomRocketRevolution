@@ -63,10 +63,22 @@ $Prefix = Join-Path $Sdk "out\install\win-amd64"
 if (-not $SkipSdkBuild) {
   Step "Building and installing ReXGlue SDK (this takes a while)"
   # Our own SDK patches (see patches\rexglue-sdk); skipped when already applied.
-  Get-ChildItem (Join-Path $Root "patches\rexglue-sdk") -Filter *.patch -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object {
-    $patch = $_.FullName
-    git -C $Sdk apply --ignore-whitespace --reverse --check $patch 2>$null
-    if ($LASTEXITCODE -ne 0) { Run "Applying $($_.Name)" { git -C $Sdk apply --ignore-whitespace $patch } }
+  $patches = @(Get-ChildItem (Join-Path $Root "patches\rexglue-sdk") -Filter *.patch -ErrorAction SilentlyContinue | Sort-Object Name)
+  if ($patches.Count -gt 0) {
+    # The patches build on each other, so only the last one can be checked on its own:
+    # if it is in, they all are. Otherwise put the SDK files back and apply them all in order.
+    $ErrorActionPreference = "Continue"
+    git -C $Sdk apply --ignore-whitespace --reverse --check $patches[-1].FullName 2>&1 | Out-Null
+    $applied = ($LASTEXITCODE -eq 0)
+    $ErrorActionPreference = "Stop"
+    if ($applied) { Write-Host "SDK patches already applied ($($patches.Count))" }
+    else {
+      Run "Restoring the SDK sources" { git -C $Sdk checkout -- src include }
+      foreach ($p in $patches) {
+        Run "Applying $($p.Name)" { git -C $Sdk apply --ignore-whitespace $p.FullName }
+        Write-Host "applied: $($p.Name)"
+      }
+    }
   }
   $global:LASTEXITCODE = 0
   Push-Location $Sdk
