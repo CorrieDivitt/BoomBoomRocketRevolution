@@ -28,3 +28,6 @@ __pycache__/
 .vs/
 .vscode/
 *.user
+
+# Calibration metronome sounds are supplied by the user (see calibration_sounds/README.txt)
+/calibration_sounds/*.wav

@@ -1,18 +1,20 @@
 -- Boom Boom Rocket Revolution: calibration screen.
 --
 -- Two tap tests, the way band games do it:
---   1. Sound:   a metronome plays (beats plus softer half-beats); the player presses A
---               on every beat.
+--   1. Sound:   a metronome plays in 4/4 (accent on the first beat of each bar); the
+--               player presses A on every beat.
 --   2. Picture: no sound; a ring slides to a target ring and the player presses A when
 --               they line up.
--- Both start with a count-in (-2, -1, 0) and then count twelve beats, 1 to 12.
+-- Both start with a four-beat count-in (shown as -3 .. 0) and then count four bars,
+-- sixteen beats, 1 to 16. The player presses through the count-in too; only 1 to 16 count.
 -- Each test gives "how late the taps were" (sound or picture delay plus the player's
 -- input delay). Their difference is how far sound and picture are apart, which is what
 -- the Audio Offset setting corrects.
 --
 -- The metronome runs on the PC side, mixed into the game's own sound output, so its
 -- clicks take exactly the same path to the speakers as the music does:
---   BBRR("bbrr.metro.start", beat_ms, audible)  audible = 1 (sound test) or 0 (silent)
+--   BBRR("bbrr.metro.start", beat_ms, "audible,count_in,beats_per_bar")
+--                                               audible = 1 (sound test) or 0 (silent)
 --   BBRR("bbrr.metro.pos")                      -> position in beats (0 = first count-in beat)
 --   BBRR("bbrr.metro.stop")
 --   BBRR("bbrr.calibrate", sound, picture)      -> Audio Offset option number for those delays
@@ -26,10 +28,11 @@ local function BBRR(command, key, value)
   return nil
 end
 
-local BEAT_MS = 600       -- 100 beats per minute
-local COUNT_IN = 3        -- beats shown as -2, -1, 0 before the counted ones
-local TAPS = 12           -- beats that count (shown as 1 .. 12)
-local MIN_TAPS = 8        -- fewer taps than this is not enough to go on
+local BEAT_MS = 60000 / 115  -- 115 beats per minute
+local COUNT_IN = 4        -- beats shown as -3 .. 0 before the counted ones
+local BAR = 4             -- beats per bar: the first one of each bar is accented
+local TAPS = 16           -- beats that count (shown as 1 .. 16): four bars
+local MIN_TAPS = 10       -- fewer taps than this is not enough to go on
 local MAX_SPREAD_MS = 70  -- taps more uneven than this are not trusted
 local TARGET_X = 320
 local TRAVEL = 220        -- how far left of the target the ring starts
@@ -50,7 +53,7 @@ local function Position()
   return tonumber(BBRR("bbrr.metro.pos")) or -100
 end
 
--- Counter text for a beat index: -2, -1, 0 during the count-in, then 1 .. 12.
+-- Counter text for a beat index: -3 .. 0 during the count-in, then 1 .. 16.
 local function CounterText(beat)
   local number = beat - (COUNT_IN - 1)
   if beat < 0 then
@@ -106,10 +109,10 @@ local function SetState(state)
   elseif state == STATE_SOUND or state == STATE_PICTURE then
     if state == STATE_SOUND then
       Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_SOUND_RUN)
-      BBRR("bbrr.metro.start", BEAT_MS, 1)
+      BBRR("bbrr.metro.start", BEAT_MS, "1," .. COUNT_IN .. "," .. BAR)
     else
       Buttons.ChangeText(GUI.line1_ID, UIText.BBRR_CAL_PICTURE_RUN)
-      BBRR("bbrr.metro.start", BEAT_MS, 0)
+      BBRR("bbrr.metro.start", BEAT_MS, "0," .. COUNT_IN .. "," .. BAR)
     end
     Buttons.ChangeText(GUI.line2_ID, UIText.BBRR_CAL_READY)
     ShowRings(state == STATE_PICTURE)

@@ -323,20 +323,21 @@ std::string SettingsStrings() {
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
                     "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"
-                    "BBRR_CAL_SOUND_RUN = Press ~~{A}~~ on every beat from 1\n"
+                    "BBRR_CAL_SOUND_RUN = Press ~~{A}~~ on every beat\n"
                     "BBRR_CAL_PICTURE_INTRO = Picture test. No sound this time\n"
-                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ when the rings line up from 1\n"
+                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ every time the rings line up\n"
                     "BBRR_CAL_BEGIN = Press ~~{A}~~ to begin\n"
                     "BBRR_CAL_RESULT = Suggested audio offset. Press ~~{A}~~ to save\n"
                     "BBRR_CAL_FAILED = Those taps were too uneven. Let us try again\n"
                     "BBRR_CAL_READY = Get ready\n"
-                    "BBRR_CAL_TAP_M2 = -2 / 12\n"
-                    "BBRR_CAL_TAP_M1 = -1 / 12\n"
+                    "BBRR_CAL_TAP_M3 = -3 / 16\n"
+                    "BBRR_CAL_TAP_M2 = -2 / 16\n"
+                    "BBRR_CAL_TAP_M1 = -1 / 16\n"
                     "BBRR_CAL_RING = O\n"
                     "BBRR_X_RESTART = ~~{X}~~ Restart\n"
                     "BBRR_B_LATER = Not now ~~{B}~~\n";
   for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";
-  for (int i = 0; i <= 12; ++i) out += "BBRR_CAL_TAP_" + std::to_string(i) + " = " + std::to_string(i) + " / 12\n";
+  for (int i = 0; i <= 16; ++i) out += "BBRR_CAL_TAP_" + std::to_string(i) + " = " + std::to_string(i) + " / 16\n";
   for (const Setting& s : Settings()) {
     out += "BBRR_T_" + s.key + " = " + s.title + "\n";
     for (size_t i = 0; i < s.choices.size(); ++i) {

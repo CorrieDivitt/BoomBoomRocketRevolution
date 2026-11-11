@@ -13,7 +13,8 @@
 //
 // Sounds: calibration_sounds/beat.wav and subbeat.wav next to the exe (or in a parent
 // folder) if present - PCM or float WAV, any sample rate, mono or stereo - otherwise two
-// built-in clicks. Beats play beat.wav, the half-beats in between play subbeat.wav.
+// built-in clicks. The first beat of every bar plays beat.wav; the other beats, and the
+// whole count-in, play subbeat.wav.
 
 #include "metronome.h"
 #include "midasm_hooks.h"
@@ -58,7 +59,9 @@ double g_anchor_samples = 0;
 bool g_running = false, g_audible = false;
 double g_beat_samples = 0;   // samples per beat
 double g_start_sample = 0;   // where beat 0 sits
-int64_t g_next_event = 0;    // next half-beat index to schedule
+int64_t g_next_event = 0;    // next beat index to schedule
+int g_count_in = 4;          // beats before the first bar (all played with the lighter sound)
+int g_bar = 4;               // beats per bar
 std::vector<Voice> g_voices;
 std::vector<float> g_beat_sound, g_sub_sound;
 bool g_sounds_loaded = false;
@@ -189,13 +192,14 @@ void OnAudioFrame(uint8_t* block) {
     g_voices.clear();
     return;
   }
-  // Start the clicks that begin inside this block (beats and the half-beats between).
-  const double half = g_beat_samples / 2.0;
+  // Start the clicks that begin inside this block. Accent = first beat of a bar, once
+  // the count-in is over.
   for (;;) {
-    const int64_t at = int64_t(std::llround(g_start_sample + double(g_next_event) * half));
+    const int64_t at = int64_t(std::llround(g_start_sample + double(g_next_event) * g_beat_samples));
     if (at >= frame_start + kFrame) break;
     if (at >= frame_start && g_audible) {
-      g_voices.push_back({(g_next_event % 2 == 0) ? &g_beat_sound : &g_sub_sound, at});
+      const bool accent = g_next_event >= g_count_in && (g_next_event - g_count_in) % g_bar == 0;
+      g_voices.push_back({accent ? &g_beat_sound : &g_sub_sound, at});
     }
     ++g_next_event;
   }
@@ -233,7 +237,11 @@ std::string MetronomeCommand(const std::string& command, const std::string& key,
     std::lock_guard<std::mutex> lock(g_mutex);
     const double beat_ms = std::clamp(std::strtod(key.c_str(), nullptr), 200.0, 2000.0);
     g_beat_samples = beat_ms * kRate / 1000.0;
-    g_audible = value != "0";
+    int audible = 1, count_in = 4, bar = 4;
+    std::sscanf(value.c_str(), "%d,%d,%d", &audible, &count_in, &bar);
+    g_audible = audible != 0;
+    g_count_in = std::clamp(count_in, 0, 64);
+    g_bar = std::clamp(bar, 1, 16);
     // Beat 0 comes one beat from now; nothing is scheduled before it.
     g_start_sample = SamplesAt(Clock::now()) + g_beat_samples;
     g_next_event = 0;

@@ -2,8 +2,8 @@ Calibration metronome sounds (BBRR Settings > Calibration)
 
 Put two WAV files in this folder to replace the built-in clicks:
 
-  beat.wav      played on every beat (the one you press A on)
-  subbeat.wav   played on the half-beats in between
+  beat.wav      the accent: first beat of every bar
+  subbeat.wav   beats 2, 3 and 4 of every bar, and the four count-in beats
 
 Format: ordinary WAV - 16-bit, 24-bit or 32-bit PCM, or 32-bit float; any sample rate
 (48000 Hz is used as-is, others are converted); mono or stereo (stereo is mixed to mono).
