@@ -24,6 +24,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <map>
 #include <string>
 
@@ -61,15 +62,48 @@ std::filesystem::path ContentFolder() {
   return folder;
 }
 
-// "3:05" for a song file name, "" when unknown.
-std::string LengthText(const std::string& song) {
+std::string Lower(std::string text) {
+  for (char& c : text) c = char(std::tolower(static_cast<unsigned char>(c)));
+  return text;
+}
+
+// Every "<song>_Easy.lvl" we can find as a file: the game's Content folder and anything
+// under the user folder (installed packs, if they are unpacked there). Key = song name,
+// lower case.
+const std::map<std::string, std::filesystem::path>& Charts() {
+  static const std::map<std::string, std::filesystem::path> charts = [] {
+    namespace fs = std::filesystem;
+    std::map<std::string, fs::path> found;
+    const std::string ending = "_easy.lvl";
+    for (const fs::path& root : {ContentFolder(), rex::filesystem::GetUserFolder() / "boomboomrocket"}) {
+      std::error_code ec;
+      if (root.empty() || !fs::is_directory(root, ec)) continue;
+      for (fs::recursive_directory_iterator it(root, fs::directory_options::skip_permission_denied, ec), end;
+           !ec && it != end; it.increment(ec)) {
+        const std::string name = Lower(it->path().filename().string());
+        if (name.size() > ending.size() && name.compare(name.size() - ending.size(), ending.size(), ending) == 0) {
+          found.emplace(name.substr(0, name.size() - ending.size()), it->path());
+        }
+      }
+    }
+    REXLOG_INFO("[songs] found {} chart files to read track lengths from", found.size());
+    return found;
+  }();
+  return charts;
+}
+
+// "3:05" for a song file name as the game stores it ("Carmen_Overture.xma"), "" when unknown.
+std::string LengthText(const std::string& stored) {
   static std::map<std::string, std::string> cache;
-  const auto it = cache.find(song);
+  const auto it = cache.find(stored);
   if (it != cache.end()) return it->second;
+  std::string song = Lower(stored);
+  const size_t dot = song.rfind('.');
+  if (dot != std::string::npos) song.resize(dot);
   std::string text;
-  const std::filesystem::path folder = ContentFolder();
-  if (!folder.empty() && !song.empty()) {
-    std::ifstream in(folder / (song + "_Easy.lvl"));
+  const auto chart = Charts().find(song);
+  if (chart != Charts().end()) {
+    std::ifstream in(chart->second);
     std::string line;
     for (int i = 0; i < 12 && std::getline(in, line); ++i) {
       if (line.rfind("SongLength", 0) != 0) continue;
@@ -83,8 +117,8 @@ std::string LengthText(const std::string& song) {
       break;
     }
   }
-  REXLOG_INFO("[songs] length of '{}': {}", song, text.empty() ? "unknown" : text);
-  cache[song] = text;
+  REXLOG_INFO("[songs] length of '{}': {}", stored, text.empty() ? "unknown" : text);
+  cache[stored] = text;
   return text;
 }
 }  // namespace
