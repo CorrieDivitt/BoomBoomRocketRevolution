@@ -14,6 +14,7 @@ local function BBRR(command, key, value)
 end
 
 local HEIGHT = 18
+local BOX_BOTTOM = 336  -- lower edge of the results box, in layout units
 local game_Init = Init
 
 function Init(...)
@@ -21,14 +22,14 @@ function Init(...)
   if BBRR("bbrr.hit.summary") ~= "1" then
     return
   end
-  -- Bottom right, clear of the button prompts at the bottom left.
+  -- Centred, just below the results box (the box ends at about y = 336).
   Buttons.AddButton({
     type = UIEnums.ButtonTypes.TEXT,
-    x = SCREEN_RIGHT - 70,
-    y = GUIBank.screen.safe_bottom - HEIGHT - 4,
+    x = 320,
+    y = BOX_BOTTOM + 8,
     width = SCREEN_WIDTH,
     height = HEIGHT,
-    justify = UIEnums.Justify.JUSTIFY_RIGHT,
+    justify = UIEnums.Justify.JUSTIFY_CENTRE,
     colour = "255 255 255 255",
     text = "STR126",
     render_state = UIGlobals.font_render_state.new_filled_orange,
