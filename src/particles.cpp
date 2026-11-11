@@ -19,6 +19,7 @@
 #include <rex/logging.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <mutex>
@@ -77,8 +78,35 @@ void BbrParticleCountHook(PPCRegister& r3, PPCRegister& r25) {
   r3.u64 = scaled;
 }
 
+namespace {
+// How full the particle pool gets: [0x821C0518] -> pool, +0x18 = its size, +0x1C = how
+// many particles are alive. Logged every 10 seconds while anything is alive.
+void TrackPoolUse(uint8_t* base, double quality) {
+  using Clock = std::chrono::steady_clock;
+  static Clock::time_point window_start = Clock::now();
+  static uint32_t peak = 0, capacity = 0, frames_full = 0, frames = 0;
+  const uint32_t pool = Load32(base, 0x821C0518);
+  if (pool >= 0x10000) {
+    capacity = Load32(base, pool + 0x18);
+    const uint32_t alive = Load32(base, pool + 0x1C);
+    peak = std::max(peak, alive);
+    ++frames;
+    if (capacity != 0 && alive >= capacity) ++frames_full;
+  }
+  if (Clock::now() - window_start < std::chrono::seconds(10)) return;
+  if (peak > 0 && capacity > 0) {
+    REXLOG_INFO("[particles] last 10 s: peak {} of {} particles ({:.0f}%), pool full on {} of {} frames; "
+                "quality {:.2f}x",
+                peak, capacity, 100.0 * peak / capacity, frames_full, frames, quality);
+  }
+  window_start = Clock::now();
+  peak = frames_full = frames = 0;
+}
+}  // namespace
+
 void bbr::ApplyParticleQuality(uint8_t* base) {
   const double quality = Quality();
+  TrackPoolUse(base, quality);
   if (quality == g_applied) return;
   std::lock_guard<std::mutex> lock(g_mutex);
   size_t changed = 0;
