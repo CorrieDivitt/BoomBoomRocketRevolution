@@ -18,6 +18,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/song_clock.cpp
     src/widescreen.cpp
     src/dlc.cpp
+    src/game_log.cpp
 )
 
 if(WIN32)
