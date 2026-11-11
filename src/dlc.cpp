@@ -135,4 +135,5 @@ void InstallDlcPackages(rex::Runtime* runtime) {
     REXLOG_INFO("[dlc] removed {} (its package is no longer in the DLC folder){}", name,
                 result == 0 ? "" : " - FAILED");
   }
+}
 }  // namespace bbr
