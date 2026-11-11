@@ -25,6 +25,14 @@
 //     the time it really has left. One that would not have been launched yet at the new
 //     speed waits at its starting point.
 // Nothing is touched while the multiplier is 1 and has not been changed during the song.
+//
+// The first notes of a song: one whose launch would fall before the song starts is built
+// by the game with a shortened flight and a starting point part of the way up its path
+// (0x820687C0), so that it is already in the air when the song begins. At a higher speed
+// such a note often has time for its whole path, so the full path is put back first: the
+// starting point and flight time are taken from another note of the same kind that ends
+// at the same place. If even the faster flight does not fit before the song starts, the
+// arrow still begins part of the way up - there is nothing earlier to show.
 
 #include "input_offset.h"
 #include "modifiers.h"
@@ -56,6 +64,7 @@ REX_EXTERN(__imp__sub_82064C50);
 REX_EXTERN(__imp__sub_8206A328);
 
 namespace {
+constexpr uint32_t kSongStart = 0x821BE9C8;       // float: song time notes are built from
 constexpr uint32_t kChartHeader = 0x821A0564;     // float TargetWidth (the hit window)
 constexpr uint32_t kHalf = 0x820006E4;            // the constant the game halves it with
 constexpr uint32_t kTextManager = 0x821D48C8;     // stored strings, 256 bytes each
@@ -83,9 +92,13 @@ uint32_t Load32(uint8_t* base, uint32_t address) {
 }
 
 struct Note {
-  double flight;   // the game's own flight time
-  double arrival;  // song time it must arrive
-  bool changed;    // we have rewritten it or its arrow at some point
+  double flight;    // the game's own flight time
+  double arrival;   // song time it must arrive
+  bool changed;     // we have rewritten it or its arrow at some point
+  bool shortened;   // built already part of the way up (see "The first notes" above)
+  uint32_t kind;    // note +0x3C
+  float start[3];   // note +0x20
+  float end[3];     // note +0x2C
 };
 std::mutex g_mutex;
 std::unordered_map<uint32_t, Note> g_notes;  // by note address
@@ -110,6 +123,29 @@ bool Lookup(uint8_t* base, uint32_t note, Note* out) {
   *out = it->second;
   return true;
 }
+// Gives a shortened first note its whole path back, from a note of the same kind that
+// ends at the same place. Only for a note that has not been launched.
+void RestoreFullPath(uint8_t* base, uint32_t note) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  auto it = g_notes.find(note);
+  if (it == g_notes.end() || !it->second.shortened) return;
+  Note& mine = it->second;
+  mine.shortened = false;  // one attempt
+  for (const auto& [address, other] : g_notes) {
+    if (other.shortened || address == note || other.kind != mine.kind || !(other.flight > mine.flight)) continue;
+    bool same_end = true;
+    for (int i = 0; i < 3; ++i) same_end &= std::fabs(other.end[i] - mine.end[i]) < 1e-3f;
+    if (!same_end) continue;
+    for (int i = 0; i < 3; ++i) {
+      mine.start[i] = other.start[i];
+      StoreFloat(base, note + 0x20 + 4 * i, other.start[i]);
+    }
+    mine.flight = other.flight;
+    mine.changed = true;
+    return;
+  }
+}
+
 void MarkChanged(uint32_t note) {
   std::lock_guard<std::mutex> lock(g_mutex);
   auto it = g_notes.find(note);
@@ -169,14 +205,22 @@ REX_HOOK_RAW(sub_82065958) {
 REX_HOOK_RAW(sub_82065E70) {
   const double flight = ctx.f1.f64;
   const double arrival = ctx.f2.f64;
+  const float song_start = LoadFloat(base, kSongStart);
   t_building = true;
   t_new_note = 0;
   __imp__sub_82065E70(ctx, base);
   t_building = false;
   if (t_new_note < 0x10000 || !(flight > 0.001) || !std::isfinite(arrival)) return;
+  Note entry{flight, arrival, false, false, Load32(base, t_new_note + 0x3C), {}, {}};
+  for (int i = 0; i < 3; ++i) {
+    entry.start[i] = LoadFloat(base, t_new_note + 0x20 + 4 * i);
+    entry.end[i] = LoadFloat(base, t_new_note + 0x2C + 4 * i);
+  }
+  // Launch time equal to the start of the song = the game shortened this one.
+  entry.shortened = std::fabs((arrival - flight) - double(song_start)) < 1e-3;
   std::lock_guard<std::mutex> lock(g_mutex);
   if (g_notes.size() > 20000) g_notes.clear();  // left over from many songs ago
-  g_notes[t_new_note] = {flight, arrival, false};
+  g_notes[t_new_note] = entry;
 }
 
 // A note's per-frame check, before it is launched.
@@ -187,6 +231,10 @@ REX_HOOK_RAW(sub_82064C50) {
   Note entry;
   if (note >= 0x10000 && base[note + 4] == 0 && Lookup(base, note, &entry) &&
       (entry.changed || std::fabs(speed - 1.0) > 1e-6)) {
+    if (entry.shortened) {
+      RestoreFullPath(base, note);
+      Lookup(base, note, &entry);
+    }
     if (speed != g_logged_speed) {
       g_logged_speed = speed;
       REXLOG_INFO("[modifiers] scroll speed {:.2f}x: flight time {:.3f} s -> {:.3f} s", speed, entry.flight,
