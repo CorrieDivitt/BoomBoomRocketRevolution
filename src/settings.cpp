@@ -14,7 +14,9 @@
 #endif
 
 #include <cctype>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -75,8 +77,10 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"audio_offset", "skip_intro", "layout", "page:video"}},
+      {"main", "BBRR Settings", {"audio_offset", "page:calibrate", "skip_intro", "layout", "page:video"}},
       {"video", "Video Settings", {"aspect", "vsync", "window", "fps", "resolution", "antialiasing"}},
+      // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
+      {"calibrate", "Calibration", {}},
   };
   return pages;
 }
@@ -248,6 +252,39 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     }
     return "0";
   }
+  if (command == "bbrr.time") {
+    using namespace std::chrono;
+    static const steady_clock::time_point start = steady_clock::now();
+    char text[32];
+    std::snprintf(text, sizeof(text), "%.3f", duration<double, std::milli>(steady_clock::now() - start).count());
+    return text;
+  }
+  if (command == "bbrr.calibrate") {
+    // key = how late the taps were in the sound test, value = in the picture test (ms).
+    // Both include the player's input delay, so their difference is how far the sound
+    // trails the picture. The song clock is already shifted by the host audio queue
+    // (see src/song_clock.cpp), so only the rest goes into Audio Offset.
+    const Setting* offset = Find("audio_offset");
+    if (!offset) return "";
+    const double sound = std::strtod(key.c_str(), nullptr), picture = std::strtod(value.c_str(), nullptr);
+    double queue_ms = 0.0;
+    if (rex::cvar::GetFlagByName("audio_sync_compensation") != "false") {
+      int frames = std::atoi(rex::cvar::GetFlagByName("audio_maxqframes").c_str());
+      if (frames <= 0) frames = 8;
+      queue_ms = frames * 256.0 * 1000.0 / 48000.0;
+    }
+    const double wanted = (sound - picture) - queue_ms;
+    size_t best = offset->default_choice;
+    double best_error = 1e18;
+    for (size_t i = 0; i < offset->choices.size(); ++i) {
+      const double error = std::fabs(std::strtod(offset->choices[i].value.c_str(), nullptr) - wanted);
+      if (error < best_error) { best_error = error; best = i; }
+    }
+    REXLOG_INFO("[settings] calibration: sound taps {:.1f} ms late, picture taps {:.1f} ms late, audio queue {:.1f} ms "
+                "-> audio offset {:.1f} ms, using {} ms",
+                sound, picture, queue_ms, wanted, offset->choices[best].value);
+    return std::to_string(best + 1);
+  }
   if (command == "bbrr.restart_needed") {
     for (const auto& [cvar, value_at_boot] : g_boot_values) {
       const std::string now = rex::cvar::GetFlagByName(cvar);
@@ -283,9 +320,18 @@ std::string SettingsStrings() {
                     "BBRR_RESTART_NOTE = The last four settings apply after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
+                    "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ in time with the clicks\n"
+                    "BBRR_CAL_SOUND_RUN = Press ~~{A}~~ on every click\n"
+                    "BBRR_CAL_PICTURE_INTRO = Picture test. No sound this time\n"
+                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ when the rings line up\n"
+                    "BBRR_CAL_BEGIN = Press ~~{A}~~ to begin\n"
+                    "BBRR_CAL_RESULT = Suggested audio offset. Press ~~{A}~~ to save\n"
+                    "BBRR_CAL_FAILED = Those taps were too uneven. Let us try again\n"
+                    "BBRR_CAL_RING = O\n"
                     "BBRR_X_RESTART = ~~{X}~~ Restart\n"
                     "BBRR_B_LATER = Not now ~~{B}~~\n";
   for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";
+  for (int i = 0; i <= 12; ++i) out += "BBRR_CAL_TAP_" + std::to_string(i) + " = " + std::to_string(i) + " / 12\n";
   for (const Setting& s : Settings()) {
     out += "BBRR_T_" + s.key + " = " + s.title + "\n";
     for (size_t i = 0; i < s.choices.size(); ++i) {

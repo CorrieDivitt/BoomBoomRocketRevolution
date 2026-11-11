@@ -370,11 +370,11 @@
   "category": "Sync",
   "title": "Calibration screen (tap to the beat)",
   "priority": "P1",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
-  "acceptance": "Guided tap test suggests audio + input offsets",
+  "acceptance": "Guided sound tap test and picture tap test (as in band games) suggest the audio offset; later also the input offset",
   "depends_on": "R-205,R-206",
-  "notes": ""
+  "notes": "First version (untested): BBRR Settings > Calibration (ui_scripts/Options/BBRR_calibrate.lua): 12 taps to clicks, 12 taps to a ring lining up; audio offset = (sound lateness - picture lateness) - host audio queue. Picture lateness is logged for the future input offset (R-206)"
  },
  {
   "id": "R-208",
