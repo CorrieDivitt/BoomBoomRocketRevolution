@@ -699,7 +699,7 @@
   "effort": "M",
   "acceptance": "Multiplier on firework Count with stable perf",
   "depends_on": "R-302",
-  "notes": "Particle Density in Video Settings (--particle_quality, 0.25x-5x multiplier, live): scales each firework's Count at config load and rewrites loaded configs when changed. Game stops making sparks at 70000 alive. Running at the game's own 70000 limit crashed twice (2026-11-11), so the port stops adding sparks at 68000 (--particle_limit) and the setting tops out at 5x. Full song at 5x with that limit confirmed without a crash; both values locked in."
+  "notes": "Particle Density in Video Settings (--particle_quality, 0.25x-5x multiplier, live): scales each firework's Count at config load and rewrites loaded configs when changed. Game stops making sparks at 70000 alive. Running at the game's own 70000 limit crashed twice (2026-11-11), so the port stops adding sparks at 68000 (--particle_limit) and the setting tops out at 5x. Full song at 5x with that limit confirmed without a crash; both values locked in. Keep the [particles] log lines in place: they are how a spark-related crash will be recognised later (ends with ShaderTranslator 'Unsupported write to export' errors)."
  },
  {
   "id": "R-412",
@@ -1111,11 +1111,11 @@
   "category": "Feature",
   "title": "Note speed / scroll-speed modifier",
   "priority": "P2",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Adjustable approach speed independent of song tempo; judging unchanged",
   "depends_on": "R-801",
-  "notes": ""
+  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Applies from the next song. Untested as of 2026-11-11."
  },
  {
   "id": "R-803",

@@ -116,7 +116,10 @@ namespace {
 // (The pools at [0x821C0518] and [game + 0x74] hold rockets and trail segments, a few
 // hundred at most, and do not grow with Count.)
 // Logged every 10 seconds, and every second once either number passes half its limit, so
-// the last line before a crash shows how full things were.
+// the last line before a crash shows how full things were. KEEP THIS LOGGING (asked for
+// 2026-11-11): a crash from too many sparks may turn up long after anyone is thinking
+// about particles, and these lines plus a "ShaderTranslator ... Unsupported write to
+// export" error at the end of the log are how to recognise it.
 constexpr uint32_t kSparkLimit = 70000;
 constexpr uint32_t kBlockLimit = 2048;
 

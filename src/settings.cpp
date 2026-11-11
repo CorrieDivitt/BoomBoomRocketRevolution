@@ -90,6 +90,11 @@ const std::vector<Setting>& Settings() {
       particles.choices.push_back({std::to_string(i), std::to_string(i) + "x"});
     }
     s.push_back(particles);
+    // Scroll speed, as in StepMania: arrows travel faster and sit further apart, timing unchanged.
+    s.push_back({"scroll_speed", "scroll_speed", "Scroll Speed",
+                 {{"0.5", "0.5x"}, {"0.75", "0.75x"}, {"1", "1x"}, {"1.25", "1.25x"}, {"1.5", "1.5x"},
+                  {"1.75", "1.75x"}, {"2", "2x"}, {"2.5", "2.5x"}, {"3", "3x"}, {"4", "4x"}},
+                 2, "modifiers"});
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
@@ -101,7 +106,8 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:video", "page:timing", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:video", "page:timing", "page:modifiers", "skip_intro", "layout"}},
+      {"modifiers", "Modifiers", {"scroll_speed"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
