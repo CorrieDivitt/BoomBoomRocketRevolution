@@ -660,7 +660,7 @@
   "effort": "L",
   "acceptance": "Loose + embedded shaders replaced with native HLSL equivalents, pixel-matched",
   "depends_on": "R-407",
-  "notes": ""
+  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): all game shaders are covered by the 9 recovered sources; replacement would be a hash-keyed table in the SDK's pipeline cache (does not exist yet)."
  },
  {
   "id": "R-409",
@@ -673,7 +673,7 @@
   "effort": "L",
   "acceptance": "Optional HDR pipeline with bloom; off = original look",
   "depends_on": "R-408",
-  "notes": ""
+  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): no bloom in the original; three HDR levels - Windows Auto HDR (test), HDR output + bloom in the presenter (M), float render target for true HDR (L-XL)."
  },
  {
   "id": "R-410",
@@ -686,7 +686,7 @@
   "effort": "L",
   "acceptance": "Firework light reflected on city (dynamic point lights), optional",
   "depends_on": "R-408",
-  "notes": ""
+  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): city is texture x one scene-wide ambient colour, no normals; plan = per-firework light list + replaced city shader. Ray tracing only as a later hybrid (shadows/reflections); RTX Remix not applicable."
  },
  {
   "id": "R-411",
