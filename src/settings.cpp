@@ -9,11 +9,16 @@
 #include <rex/filesystem.h>
 #include <rex/logging.h>
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bbr {
@@ -28,10 +33,16 @@ struct Setting {
   std::string title;
   std::vector<Choice> choices;
   size_t default_choice;
+  std::string page = "main";  // which settings page shows it
+  bool restart = false;       // only takes effect the next time the game starts
 };
 
-// Order = order on the screen. The last four only take effect after a restart (the
-// screen says so in its footnote, BBRR_RESTART_NOTE) - keep them last.
+// Pages of the settings screen. A row is a setting key or "page:<name>" (opens that page).
+struct Page {
+  std::string name, title;
+  std::vector<std::string> rows;
+};
+
 const std::vector<Setting>& Settings() {
   static const std::vector<Setting> settings = [] {
     std::vector<Setting> s;
@@ -42,21 +53,39 @@ const std::vector<Setting>& Settings() {
     }
     s.push_back(offset);
     s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
-    s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
-                 {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0});
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
-    s.push_back({"vsync", "vsync", "VSync", {{"true", "On"}, {"false", "Off"}}, 0});
-    s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0});
+    s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
+                 {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0, "video"});
+    s.push_back({"vsync", "vsync", "VSync", {{"true", "On"}, {"false", "Off"}}, 0, "video"});
+    s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video", true});
     s.push_back({"fps", "video_mode_refresh_rate", "Frame Rate",
-                 {{"60", "60"}, {"90", "90"}, {"120", "120"}, {"144", "144"}, {"165", "165"}, {"240", "240"}}, 0});
+                 {{"60", "60"}, {"90", "90"}, {"120", "120"}, {"144", "144"}, {"165", "165"}, {"240", "240"}},
+                 0, "video", true});
     s.push_back({"resolution", "resolution_scale", "Resolution",
-                 {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1});
+                 {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
     s.push_back({"antialiasing", "swap_post_effect", "Anti-Aliasing",
-                 {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0});
+                 {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video", true});
     return s;
   }();
   return settings;
 }
+
+// On a page, settings that need a restart go last (the footnote says "the last N settings").
+const std::vector<Page>& Pages() {
+  static const std::vector<Page> pages = {
+      {"main", "BBRR Settings", {"audio_offset", "skip_intro", "layout", "page:video"}},
+      {"video", "Video Settings", {"aspect", "vsync", "window", "fps", "resolution", "antialiasing"}},
+  };
+  return pages;
+}
+
+const Page* FindPage(const std::string& name) {
+  for (const Page& p : Pages()) if (p.name == name) return &p;
+  return nullptr;
+}
+
+// Values the restart-only settings had when the game started (= what is really in use).
+std::vector<std::pair<std::string, std::string>> g_boot_values;
 
 const Setting* Find(const std::string& key) {
   for (const Setting& s : Settings()) if (s.key == key) return &s;
@@ -108,6 +137,24 @@ void Apply(const Setting& s, size_t choice) {
   }
   REXLOG_INFO("[settings] {} = {}", s.cvar, value);
 }
+
+// Starts a fresh copy of the game with the same command line, then ends this one.
+void RestartGame() {
+  REXLOG_INFO("[settings] restarting the game to apply settings");
+#if defined(_WIN32)
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION process{};
+  std::wstring command_line = GetCommandLineW();
+  if (CreateProcessW(nullptr, command_line.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &process)) {
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    TerminateProcess(GetCurrentProcess(), 0);
+  } else {
+    REXLOG_ERROR("[settings] could not start a new copy of the game (error {})", GetLastError());
+  }
+#endif
+}
 }  // namespace
 
 void LoadSettings() {
@@ -123,8 +170,17 @@ void LoadSettings() {
   for (const Setting& s : Settings()) {
     if (!locked(s.cvar)) rex::cvar::SetFlagByName(s.cvar, s.choices[s.default_choice].value);
   }
+  auto snapshot = [] {
+    g_boot_values.clear();
+    for (const Setting& s : Settings()) {
+      if (s.restart) g_boot_values.push_back({s.cvar, rex::cvar::GetFlagByName(s.cvar)});
+    }
+  };
   std::ifstream in(FilePath());
-  if (!in) return;
+  if (!in) {
+    snapshot();
+    return;
+  }
   std::string line;
   int applied = 0;
   while (std::getline(in, line)) {
@@ -137,6 +193,7 @@ void LoadSettings() {
     if (!known || locked(cvar)) continue;
     if (rex::cvar::SetFlagByName(cvar, value)) ++applied;
   }
+  snapshot();
   REXLOG_INFO("[settings] loaded {} setting(s) from {}", applied, FilePath().string());
 }
 
@@ -150,10 +207,29 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     REXLOG_INFO("[settings] saved to {}", FilePath().string());
     return "ok";
   }
-  if (command == "bbrr.count") return std::to_string(Settings().size());
-  if (command == "bbrr.key") {
-    const long n = std::strtol(key.c_str(), nullptr, 10);
-    return (n >= 1 && size_t(n) <= Settings().size()) ? Settings()[size_t(n - 1)].key : "";
+  if (command == "bbrr.count" || command == "bbrr.key" || command == "bbrr.note") {
+    const Page* page = FindPage(key);
+    if (!page) return command == "bbrr.key" ? "" : "0";
+    if (command == "bbrr.count") return std::to_string(page->rows.size());
+    if (command == "bbrr.key") {
+      const long n = std::strtol(value.c_str(), nullptr, 10);
+      return (n >= 1 && size_t(n) <= page->rows.size()) ? page->rows[size_t(n - 1)] : "";
+    }
+    for (const std::string& row : page->rows) {
+      const Setting* s = Find(row);
+      if (s && s->restart) return "1";
+    }
+    return "0";
+  }
+  if (command == "bbrr.restart_needed") {
+    for (const auto& [cvar, value_at_boot] : g_boot_values) {
+      if (rex::cvar::GetFlagByName(cvar) != value_at_boot) return "1";
+    }
+    return "0";
+  }
+  if (command == "bbrr.restart") {
+    RestartGame();
+    return "ok";
   }
   const Setting* s = Find(key);
   if (!s) return "";
@@ -170,7 +246,10 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 
 std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
-                    "BBRR_RESTART_NOTE = The last four settings apply after a restart\n";
+                    "BBRR_OPEN = Open\n"
+                    "BBRR_RESTART_NOTE = The last four settings apply after a restart\n"
+                    "BBRR_RESTART_PROMPT = Saved. Press X to restart the game now\n";
+  for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";
   for (const Setting& s : Settings()) {
     out += "BBRR_T_" + s.key + " = " + s.title + "\n";
     for (size_t i = 0; i < s.choices.size(); ++i) {
