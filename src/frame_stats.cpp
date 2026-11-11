@@ -8,6 +8,7 @@
 // fade timer by the float at 0x821D4330, which the game initialises once to 1/60
 // (assuming 60 fps), so fades ran 2-4x too fast at 120-240 fps. Before each call we
 // overwrite that value with the real frame time, keeping fade speed constant.
+// The same is done for the per-frame step of the slow-down after failing a song.
 
 #include "frame_stats.h"
 #include "widescreen.h"
@@ -69,6 +70,11 @@ rex::ui::FrameStats GetFrameStats() {
 namespace {
 // Guest address of the fade step (seconds per frame), see docs/TIMING.md.
 constexpr uint32_t kFadeStepAddr = 0x821D4330;
+// The slow-down after failing a song (state 4 in sub_8207BBC0) counts a timer down by
+// this float once per frame - 0.01, i.e. 100 frames: 1.67 s at 60 fps but half that at
+// 120. Scaled by the real frame time it lasts 1.67 s at any frame rate.
+constexpr uint32_t kFailStepAddr = 0x821A0794;
+constexpr float kFailStepAt60 = 0.01f;
 }
 
 REX_HOOK_RAW(sub_82077100) {
@@ -79,6 +85,9 @@ REX_HOOK_RAW(sub_82077100) {
   uint32_t bits;
   std::memcpy(&bits, &step, sizeof(bits));
   *reinterpret_cast<volatile uint32_t*>(base + kFadeStepAddr) = __builtin_bswap32(bits);
+  const float fail_step = kFailStepAt60 * float(dt * 60.0);
+  std::memcpy(&bits, &fail_step, sizeof(bits));
+  *reinterpret_cast<volatile uint32_t*>(base + kFailStepAddr) = __builtin_bswap32(bits);
   bbr::ApplyAspect(base);
   __imp__sub_82077100(ctx, base);
 }

@@ -71,13 +71,31 @@ rocket's time and the press span (0 inside the span) and `W` = the chart's `Targ
 
 Thresholds are the floats at `0x821A04E8` (0.95, 0.8, 0.4). The grade value is `n * 5 / 3 / 1` with
 `n` from the rocket's effect list (1 in what has been seen), sent to the HUD as the `GRADE` message;
-the HUD also has texts for 2 (Bad) and 4 (Excellent), which this code path does not produce with
-`n = 1`. Points for a hit are `accuracy^4 * 10000` before multipliers (`0x821A0510` = 4.0,
+the HUD also has texts for 2 (Bad) and 4 (Excellent). This is the only place in the executable that
+sends `GRADE`, so those two can only appear if a rocket's effect list carries `n` = 2 or 4; whether any
+chart does has not been checked in a running game. Points for a hit are `accuracy^4 * 10000` before multipliers (`0x821A0510` = 4.0,
 `0x821A0514` = 10000). In casual mode (game mode 3) every hit counts as accuracy 1.
 
 The original span is a whole frame, so at 60 fps a press had about 16.7 ms of extra leeway on top of
 these windows. `--precise_input` keeps that leeway (8.3 ms either side of the real press time) so the
 windows are the same at any frame rate.
+
+## End of a song and failing a song
+Game state lives at `0x821A0578` (`+4` = state: 1 playing, 4 failing, 2 game over, 3 finished;
+`+0x114`/`+0x134` = each player's bonus meter). The per-mode updates are `0x8207B470`, `0x8207B6A0`
+and `0x8207BBC0`.
+
+- **Finished:** `0x82080830(player)` returns true once the player's position `+0xCC` reaches its end
+  position `+0xFC`. The game then sends the HUD the `FINISHED` message, and the HUD script counts
+  0.1 s down before asking for the results screen. `+0xCC` is the value `src/song_clock.cpp` shifts
+  for the audio lag, which is why a positive audio offset used to leave it short of `+0xFC`
+  forever; the clock now runs on to the real position when the audio stops.
+- **Failing:** when a meter reaches 0 the state becomes 4 and the HUD gets `PRE_GAME_OVER`. Each
+  frame the timer at state `+0xC8` drops by the float at `0x821A0794` (0.01), the music pitch
+  follows it down (`0x82077E78`, `0x82080868`), and at 0 the music is paused and `GAME_OVER` is
+  sent. That is 100 frames: 1.67 s at 60 fps. `src/frame_stats.cpp` scales the step by the real
+  frame time so the slow-down lasts 1.67 s at any frame rate.
+- The song clock plays no part in the failing countdown itself.
 
 ## Judder and the smoothed song clock (R-213)
 The XAudio voice position only advances when an audio buffer is processed, so the song time read once

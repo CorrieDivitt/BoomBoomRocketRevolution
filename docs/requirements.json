@@ -266,11 +266,11 @@
   "category": "Content",
   "title": "Clean up prototype DLC packs",
   "priority": "P2",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Unreleased prototype packs (Boom Rocket Test 2, early Rock Pack build) load with proper song/pack names, their own unlock icons or sensible placeholders, correct leaderboards, and every listed track, chart and model verified in play",
   "depends_on": "R-111",
-  "notes": "Stretch goal. Test 2 already loads after automatic repair of its contents.txt (missing UnlockFirework keys, William_Tell_2 -> Beethovens_Fifth_2, borrowed icon sheet). Still to do: placeholder names, icon art, play-test all 5 tracks, try early Rock Pack (different XMA header), scrambled A8A6 copy is unreadable"
+  "notes": "Analysed 2026-11-11 (docs/DLC_PROTOTYPES.md): Test 2 = second set of charts for five shipped songs (4 music files byte-identical, 1 re-encode); loads after automatic repairs and now has real titles. Early Rock Pack = retail pack with differently packed music, not needed. Left: unlock icons, local-only scores, final titles."
  },
  {
   "id": "R-113",
@@ -478,7 +478,7 @@
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": "120 and 144 fps tested OK (2026-11-10); fade timer now uses real frame time (src/frame_stats.cpp); needs 240/uncapped + replay check"
+  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, fix untested). Particle/camera code still needs a visual check; replay test not built."
  },
  {
   "id": "R-303",
@@ -530,7 +530,7 @@
   "effort": "M",
   "acceptance": "Input polled >= 1 kHz on its own thread; presses timestamped against audio clock",
   "depends_on": "R-204",
-  "notes": "--precise_input (default on): controller read every 1 ms on its own thread; a press is judged at the song time the button went down instead of by whole frames. XInput pads only; keyboard and other pads use the game's frame span. Needs play-testing and tuning of input_frame_credit_ms from the [input] log."
+  "notes": "--precise_input (default on): controller read every 1 ms on its own thread; a press is judged at the song time the button went down, keeping one 60 Hz frame of leeway. A press is used only by the first frame that judges after it. XInput pads only. Play-tested 2026-11-11 (felt good); far-off hits are logged for follow-up."
  },
  {
   "id": "R-401",
@@ -1072,11 +1072,11 @@
   "category": "Feature",
   "title": "Timing feedback (early/late, ms offset)",
   "priority": "P2",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Per-hit early/late indicator and end-of-song timing histogram / mean offset",
   "depends_on": "R-801,R-306",
-  "notes": ""
+  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread, early and late counts. Results line untested as of 2026-11-11."
  },
  {
   "id": "R-804",

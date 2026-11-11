@@ -256,6 +256,17 @@ struct HitStats {
   double sum = 0, sum_squares = 0;
 } g_hit_stats;
 
+// The whole song so far, for the line on the results screen. Starts again when a hit's
+// rocket time is well before the previous hit's (new song, restart; in endurance play
+// also every lap).
+struct SongStats {
+  int count = 0, early = 0, late = 0;
+  double sum = 0, sum_squares = 0;
+  double last_time = 0;
+} g_song_stats;
+std::mutex g_song_mutex;
+constexpr uint32_t kSummarySlot = 126;  // stored string that carries the results line
+
 // How far the music that is heard trails the song clock (same sum as src/song_clock.cpp).
 double AudioLag() {
   double lag = 0.0;
@@ -268,8 +279,18 @@ double AudioLag() {
   return lag;
 }
 
-void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds, float accuracy) {
+void ReportHit(uint8_t* base, uint32_t rocket, double rocket_time, double early_seconds, float accuracy) {
   const double ms = early_seconds * 1000.0;
+  {
+    std::lock_guard<std::mutex> lock(g_song_mutex);
+    if (rocket_time < g_song_stats.last_time - 5.0) g_song_stats = SongStats{};
+    g_song_stats.last_time = rocket_time;
+    g_song_stats.count++;
+    g_song_stats.sum += ms;
+    g_song_stats.sum_squares += ms * ms;
+    if (ms > 0.0) g_song_stats.early++;
+    if (ms < 0.0) g_song_stats.late++;
+  }
   g_hit_stats.count++;
   g_hit_stats.sum += ms;
   g_hit_stats.sum_squares += ms * ms;
@@ -394,7 +415,7 @@ REX_HOOK_RAW(sub_82066700) {
                   (Now() - g_last_press.load(std::memory_order_relaxed)) * 1000.0,
                   (rocket_time - frame_centre) * 1000.0);
     }
-    ReportHit(base, rocket, early, accuracy);
+    ReportHit(base, rocket, rocket_time, early, accuracy);
   }
 }
 
@@ -438,6 +459,24 @@ void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1) {
 
 std::string bbr::HitCommand(const std::string& command) {
   if (command == "bbrr.hit.enabled") return REXCVAR_GET(hit_timing) ? "1" : "0";
+  if (command == "bbrr.hit.summary") {
+    // Results screen: write the song's timing line into its stored string.
+    SongStats song;
+    {
+      std::lock_guard<std::mutex> lock(g_song_mutex);
+      song = g_song_stats;
+    }
+    uint8_t* base = bbr::GuestBase();
+    if (!REXCVAR_GET(hit_timing) || !base || song.count == 0) return "0";
+    const double mean = song.sum / song.count;
+    const double spread = std::sqrt(std::max(0.0, song.sum_squares / song.count - mean * mean));
+    char text[128];
+    std::snprintf(text, sizeof(text), "Timing  avg %+.1f ms   spread %.1f ms   early %d   late %d", mean, spread,
+                  song.early, song.late);
+    std::memcpy(base + kTextManager + kSummarySlot * 256, text, std::strlen(text) + 1);
+    REXLOG_INFO("[input] song summary over {} hits: {}", song.count, text);
+    return "1";
+  }
   if (command == "bbrr.hit.poll") {
     std::lock_guard<std::mutex> lock(g_hit_mutex);
     if (g_hits.empty()) return "";
