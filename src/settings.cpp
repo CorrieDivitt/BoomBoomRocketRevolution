@@ -82,8 +82,13 @@ const std::vector<Setting>& Settings() {
                  {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
     s.push_back({"glow", "output_glow", "Glow",
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
-    s.push_back({"particles", "particle_quality", "Particles",
-                 {{"0.5", "Low"}, {"1", "Normal"}, {"1.5", "High"}, {"2", "Very High"}, {"3", "Extreme"}}, 1, "video"});
+    // A multiplier on the original particle count: 0.25x steps below 1x, whole steps up to 25x.
+    Setting particles{"particles", "particle_quality", "Particle Density",
+                      {{"0.25", "0.25x"}, {"0.5", "0.5x"}, {"0.75", "0.75x"}}, 3, "video"};
+    for (int i = 1; i <= 25; ++i) {
+      particles.choices.push_back({std::to_string(i), std::to_string(i) + "x"});
+    }
+    s.push_back(particles);
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});

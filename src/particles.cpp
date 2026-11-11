@@ -7,9 +7,11 @@
 // and the file's own count, and stores the scaled count instead; when the setting changes
 // later, the noted blocks are rewritten, so it takes effect without a restart.
 //
-// Limits: all particles share one pool of 32768 (sub_82081B30 is created with 0x8000);
-// when it is full, new particles are simply not made (sub_820735D0 checks), so a high
-// setting thins out the busiest moments rather than breaking anything.
+// Limits: rockets and bursts live in a pool of 32768 (sub_82081B30, never close to full);
+// sparks come from a second system of 16384 (sub_82082A00). Its allocator sub_820823C0
+// returns null when full and both callers check, so a very high setting thins out the
+// busiest moments rather than breaking anything. The settings screen offers 0.25x to 25x
+// to find out where that happens.
 
 #include "particles.h"
 #include "midasm_hooks.h"
@@ -26,7 +28,7 @@
 #include <vector>
 
 REXCVAR_DEFINE_DOUBLE(particle_quality, 1.0, "BBR",
-                      "Particles per firework, as a multiple of the original (0.25 to 4)");
+                      "Particles per firework, as a multiple of the original (0.25 to 25)");
 
 namespace {
 struct Block {
@@ -38,11 +40,11 @@ std::mutex g_mutex;
 std::vector<Block> g_blocks;
 double g_applied = -1.0;
 
-double Quality() { return std::clamp(REXCVAR_GET(particle_quality), 0.25, 4.0); }
+double Quality() { return std::clamp(REXCVAR_GET(particle_quality), 0.25, 25.0); }
 
 uint32_t Scaled(uint32_t original, double quality) {
   if (original == 0) return 0;
-  return uint32_t(std::clamp(std::lround(double(original) * quality), 1l, 4000l));
+  return uint32_t(std::clamp(std::lround(double(original) * quality), 1l, 20000l));
 }
 
 uint32_t Load32(uint8_t* base, uint32_t address) {
