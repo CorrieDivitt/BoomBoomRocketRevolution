@@ -86,7 +86,8 @@ using Clock = std::chrono::steady_clock;
 
 constexpr uint32_t kPressSpanEnd = 0x821BE9CC;    // song time of the previous frame
 constexpr uint32_t kPressSpanStart = 0x821BE9D0;  // song time of the frame before that
-constexpr double kFreshPressSeconds = 0.15;       // a press older than this is not "this" press
+constexpr double kFreshPressSeconds = 0.06;       // a press older than this is not "this" press
+constexpr double kSameFrameSeconds = 0.004;       // judge calls this close together are one frame
 constexpr double kHalfSpanSeconds = 0.5 / 60.0;   // precise presses keep a 60 Hz frame of leeway
 constexpr uint32_t kAccuracySlots = 0x821A0450;   // float per player: accuracy of the last judged press
 constexpr uint32_t kUnjudged = 0x7FC0BB12;        // marker (a NaN) to see whether a press was judged
@@ -314,6 +315,11 @@ REX_HOOK_RAW(sub_82064978) {
 }
 
 REX_HOOK_RAW(sub_82066700) {
+  // Nothing was pressed this frame: the game has nothing to judge either.
+  if (LoadU32(base, ctx.r3.u32 + 0x18) == 0) {
+    __imp__sub_82066700(ctx, base);
+    return;
+  }
   const double shift = std::clamp(REXCVAR_GET(input_offset_ms), -300.0, 300.0) / 1000.0;
   const float end = LoadFloat(base, kPressSpanEnd), start = LoadFloat(base, kPressSpanStart);
 
@@ -321,7 +327,15 @@ REX_HOOK_RAW(sub_82066700) {
   double press_time = 0.0;
   if (REXCVAR_GET(precise_input)) {
     const double pressed = g_last_press.load(std::memory_order_relaxed), now = Now();
-    if (pressed > 0.0 && now - pressed < kFreshPressSeconds && SongTimeAt(pressed, &press_time)) {
+    // A controller press belongs to the first frame that judges anything after it. Later
+    // frames (a trigger pull, a key, a pad we do not read) must not reuse its time.
+    static double bound_press = 0.0, bound_at = 0.0;
+    if (pressed > 0.0 && pressed != bound_press && now - pressed < kFreshPressSeconds) {
+      bound_press = pressed;
+      bound_at = now;
+    }
+    if (pressed > 0.0 && pressed == bound_press && now - bound_at < kSameFrameSeconds &&
+        SongTimeAt(pressed, &press_time)) {
       precise = true;
       // For tuning: how the real press time compares with the game's frame span.
       const double diff = press_time - 0.5 * (double(start) + double(end));

@@ -141,6 +141,92 @@ void WriteBlankIconSheet(const fs::path& path) {
   for (int y = 0; y < 256; ++y) out.write(row.data(), std::streamsize(row.size()));
 }
 
+// Title for a music file. The prototype pack's tracks are second versions of songs from
+// the game ("Moonlight_Sonata_2.xma"): they get that song's title with "II".
+std::string TitleForMusic(const std::string& file) {
+  static const std::pair<const char*, const char*> known[] = {
+      {"moonlight_sonata", "Tail Light Sonata"},   {"beethovens_fifth", "Game Over Beethoven"},
+      {"dvorak_9th", "Rave New World"},            {"flower_duet", "Smooth Operetta"},
+      {"valkyries", "Valkyries Rising"},           {"ride_of_the_valkyries", "Valkyries Rising"},
+      {"carmen_overture", "Carmen Electric"},      {"mountain_king", "Hall Of The Mountain Dude"},
+      {"overture_1812", "1812 Overdrive"},         {"toccata_and_fugue", "Toccata And Funk"},
+      {"william_tell", "William Tell Overload"},
+  };
+  std::string stem = file.substr(0, file.rfind('.'));
+  const std::string lower = Lower(stem);
+  const bool second = lower.size() > 2 && lower.compare(lower.size() - 2, 2, "_2") == 0;
+  const std::string base = second ? lower.substr(0, lower.size() - 2) : lower;
+  std::string title;
+  for (const auto& [key, value] : known) {
+    if (base == key) title = value;
+  }
+  if (title.empty()) {
+    title = second ? stem.substr(0, stem.size() - 2) : stem;
+    for (char& c : title) if (c == '_') c = ' ';
+  }
+  return second ? title + " II" : title;
+}
+
+// Unfinished packs still carry placeholder texts ("Pack 2 Track 01 [NO TRANSLATE]") in
+// their language files (UTF-16 "KEY = text" lines). Replace those with real titles; texts
+// that are not placeholders are left alone.
+void NamePlaceholderTitles(const fs::path& dir, const std::vector<Section>& sections, const std::string& name) {
+  std::vector<std::pair<std::string, std::string>> titles;  // text key -> title
+  for (const Section& s : sections) {
+    if (s.name == "Pack" && !s.Get("IdsPackname").empty()) titles.push_back({s.Get("IdsPackname"), "Prototype Pack"});
+    if (StartsWith(s.name, "Track_") && !s.Get("IdsSongname").empty() && !s.Get("Filename").empty()) {
+      titles.push_back({s.Get("IdsSongname"), TitleForMusic(s.Get("Filename"))});
+    }
+  }
+  std::error_code ec;
+  for (const auto& entry : fs::directory_iterator(dir, ec)) {
+    if (Lower(entry.path().extension().string()) != ".ini") continue;
+    std::string bytes;
+    {
+      std::ifstream in(entry.path(), std::ios::binary);
+      std::stringstream buffer;
+      buffer << in.rdbuf();
+      bytes = buffer.str();
+    }
+    if (bytes.size() < 4 || uint8_t(bytes[0]) != 0xFF || uint8_t(bytes[1]) != 0xFE) continue;
+    // The keys and placeholder texts are plain ASCII, so work on a narrowed copy of each
+    // line and only rewrite the lines that change.
+    std::string out = bytes.substr(0, 2);
+    int changed = 0;
+    for (size_t pos = 2; pos < bytes.size();) {
+      size_t end = pos;
+      while (end + 1 < bytes.size() && !(bytes[end] == '\n' && bytes[end + 1] == 0)) end += 2;
+      const size_t next = std::min(bytes.size(), end + 2);
+      const std::string raw = bytes.substr(pos, next - pos);
+      std::string narrow;
+      for (size_t i = 0; i + 1 < raw.size(); i += 2) narrow.push_back(raw[i + 1] == 0 ? raw[i] : '?');
+      const size_t eq = narrow.find('=');
+      std::string replacement;
+      if (eq != std::string::npos && narrow.find("[NO TRANSLATE]") != std::string::npos) {
+        const std::string key = Trim(narrow.substr(0, eq));
+        for (const auto& [text_key, title] : titles) {
+          if (key == text_key) replacement = key + " = " + title + "\r\n";
+        }
+      }
+      if (replacement.empty()) {
+        out += raw;
+      } else {
+        for (char c : replacement) { out.push_back(c); out.push_back(0); }
+        ++changed;
+      }
+      pos = next;
+    }
+    if (changed == 0) continue;
+    fs::path backup = entry.path();
+    backup += ".orig";
+    if (!fs::exists(backup, ec)) fs::copy_file(entry.path(), backup, ec);
+    std::ofstream file(entry.path(), std::ios::binary | std::ios::trunc);
+    file.write(out.data(), std::streamsize(out.size()));
+    REXLOG_INFO("[dlc] {}: gave {} placeholder text(s) in {} real titles", name, changed,
+                entry.path().filename().string());
+  }
+}
+
 void RepairPack(const fs::path& dir, const fs::path& content_type_root, const std::string& name) {
   std::error_code ec;
   const fs::path contents = dir / "contents.txt";
@@ -240,6 +326,8 @@ void RepairPack(const fs::path& dir, const fs::path& content_type_root, const st
     if (!copied) WriteBlankIconSheet(icons);
     notes.push_back(copied ? "copied Unlock_firework_Icons.tga from another pack" : "created a blank Unlock_firework_Icons.tga");
   }
+
+  NamePlaceholderTitles(dir, sections, name);
 
   bool rewrite = false;
   for (const std::string& n : notes) rewrite |= (n.find("Unlock_firework_Icons") == std::string::npos);
