@@ -9,4 +9,6 @@ void SetWindowAspectProvider(std::function<double()> provider);
 bool WidescreenRequested();
 // Called once per game frame: keeps the game's camera aspect ratio at the target.
 void ApplyAspect(uint8_t* base);
+// Guest memory base (set once the game is running; null before that).
+uint8_t* GuestBase();
 }  // namespace bbr

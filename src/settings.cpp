@@ -4,6 +4,7 @@
 // Each setting is a list of choices for one cvar; the screen works with option numbers.
 
 #include "settings.h"
+#include "metronome.h"
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -252,6 +253,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     }
     return "0";
   }
+  if (command.rfind("bbrr.metro.", 0) == 0) return MetronomeCommand(command, key, value);
   if (command == "bbrr.time") {
     using namespace std::chrono;
     static const steady_clock::time_point start = steady_clock::now();
@@ -320,14 +322,14 @@ std::string SettingsStrings() {
                     "BBRR_RESTART_NOTE = The last four settings apply after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
-                    "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ in time with the clicks\n"
-                    "BBRR_CAL_SOUND_RUN = Press ~~{A}~~ on every click\n"
+                    "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"
+                    "BBRR_CAL_SOUND_RUN = Press ~~{A}~~ on every beat from 1\n"
                     "BBRR_CAL_PICTURE_INTRO = Picture test. No sound this time\n"
-                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ when the rings line up\n"
+                    "BBRR_CAL_PICTURE_RUN = Press ~~{A}~~ when the rings line up from 1\n"
                     "BBRR_CAL_BEGIN = Press ~~{A}~~ to begin\n"
                     "BBRR_CAL_RESULT = Suggested audio offset. Press ~~{A}~~ to save\n"
                     "BBRR_CAL_FAILED = Those taps were too uneven. Let us try again\n"
-                    "BBRR_CAL_CLICK_HINT = ~~{X}~~ Try a different click sound\n"
+                    "BBRR_CAL_READY = Get ready\n"
                     "BBRR_CAL_TAP_M2 = -2 / 12\n"
                     "BBRR_CAL_TAP_M1 = -1 / 12\n"
                     "BBRR_CAL_RING = O\n"

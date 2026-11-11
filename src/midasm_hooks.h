@@ -17,3 +17,7 @@ void BbrUiWidgetHook(PPCRegister& r3);
 
 // Arrow icon quad (sub_8206A600) at 0x8206A844: f0 = width/height factor (9/16).
 void BbrArrowAspectHook(PPCRegister& f0);
+
+// Audio block about to go to the driver (sub_8213E448 at 0x8213E490): r4 = 6 x 256 floats.
+// Implemented in src/metronome.cpp.
+void BbrAudioFrameHook(PPCRegister& r4);

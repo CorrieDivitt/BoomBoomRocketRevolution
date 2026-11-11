@@ -20,6 +20,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/dlc.cpp
     src/game_log.cpp
     src/intro_skip.cpp
+    src/metronome.cpp
     src/settings.cpp
     src/ui_mod.cpp
 )

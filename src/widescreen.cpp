@@ -92,6 +92,8 @@ double TargetAspect() {
 }
 }  // namespace
 
+uint8_t* GuestBase() { return g_base.load(std::memory_order_relaxed); }
+
 void SetWindowAspectProvider(std::function<double()> provider) { g_window_aspect = std::move(provider); }
 
 bool WidescreenRequested() {
