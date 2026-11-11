@@ -273,6 +273,19 @@
   "notes": "Stretch goal. Test 2 already loads after automatic repair of its contents.txt (missing UnlockFirework keys, William_Tell_2 -> Beethovens_Fifth_2, borrowed icon sheet). Still to do: placeholder names, icon art, play-test all 5 tracks, try early Rock Pack (different XMA header), scrambled A8A6 copy is unreadable"
  },
  {
+  "id": "R-113",
+  "phase": 1,
+  "phase_name": "Recompile & boot",
+  "category": "Boot",
+  "title": "Skip start-up logos",
+  "priority": "P1",
+  "status": "in_progress",
+  "effort": "S",
+  "acceptance": "Start-up splash and legal screens are skipped or fast-forwarded; game reaches the title screen in a few seconds",
+  "depends_on": "R-104",
+  "notes": "--skip_intro (default on) runs the UI clock 16x until Main\\TitleScreen.lua is requested (src/intro_skip.cpp); untested"
+ },
+ {
   "id": "R-201",
   "phase": 2,
   "phase_name": "Audio & music sync",
@@ -304,12 +317,12 @@
   "phase_name": "Audio & music sync",
   "category": "Audio",
   "title": "Native low-latency music path",
-  "priority": "P0",
+  "priority": "P2",
   "status": "todo",
   "effort": "L",
   "acceptance": "Songs pre-decoded to PCM and played via WASAPI (SDL3); reported output latency < 20 ms",
   "depends_on": "R-201",
-  "notes": ""
+  "notes": "Demoted from P0: sync is solved by compensating the host audio queue (R-204). Only worth doing for lower sound latency; --audio_maxqframes=4 already halves the queue"
  },
  {
   "id": "R-204",
@@ -318,11 +331,11 @@
   "category": "Sync",
   "title": "Audio-clock-driven beat timeline",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "L",
-  "acceptance": "Song time comes from audio device playback position; drift < 2 ms over a full song",
-  "depends_on": "R-202,R-203",
-  "notes": "Stock timing felt near-perfect on USB headset PC; audio-clock rework still planned"
+  "acceptance": "Song time follows the music actually being played; no drift over a full song",
+  "depends_on": "R-202",
+  "notes": "Done: song clock = XAudio voice position minus the host audio queue (audio_maxqframes x 5.33 ms, default 42.7 ms), --audio_sync_compensation (src/song_clock.cpp, docs/TIMING.md). User A/B test 2026-11-10: new behaviour feels good"
  },
  {
   "id": "R-205",
@@ -331,11 +344,11 @@
   "category": "Sync",
   "title": "Global audio offset setting (ms)",
   "priority": "P0",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "S",
   "acceptance": "-200..+200 ms offset applied to judging and visuals",
   "depends_on": "R-204",
-  "notes": "Hook point: 0x821A0508 latency constant (0.045 s) or wrap 0x82080B00"
+  "notes": "--audio_offset_ms works (default -20; user found -15..-25 best on USB headset). Still needs exposing in the settings menu (R-414)"
  },
  {
   "id": "R-206",

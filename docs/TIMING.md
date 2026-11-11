@@ -70,7 +70,7 @@ buffer and whatever follows it (USB, Bluetooth, TV).
 `src/song_clock.cpp` therefore shifts the song time (player `+0xCC` only, so the frame delta from
 `+0xC4` is untouched):
 - `--audio_sync_compensation` (default on) subtracts the known queue (`audio_maxqframes * 5.33 ms`).
-- `--audio_offset_ms` (default 0) is the user offset on top: positive = music is heard later than
+- `--audio_offset_ms` (default -20, from the first play test: -15..-25 felt best) is the user offset on top: positive = music is heard later than
   expected, notes arrive later; negative = notes arrive earlier.
 - `--audio_maxqframes=4` halves the queue itself (lower sound latency, more risk of crackle).
 

@@ -19,6 +19,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/widescreen.cpp
     src/dlc.cpp
     src/game_log.cpp
+    src/intro_skip.cpp
 )
 
 if(WIN32)

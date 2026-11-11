@@ -36,7 +36,9 @@ REXCVAR_DEFINE_BOOL(smooth_song_clock, true, "BBR",
 REXCVAR_DEFINE_BOOL(audio_sync_compensation, true, "BBR",
                     "Shift the song clock by the host's audio buffering so notes line up with the "
                     "music you hear, not with audio that is still waiting in the output queue");
-REXCVAR_DEFINE_DOUBLE(audio_offset_ms, 0.0, "BBR",
+// Default -20 ms: on the first test setup (USB headset, 120 Hz monitor) -15..-25 felt right
+// on top of the queue compensation. Other setups will differ until there is a calibration screen.
+REXCVAR_DEFINE_DOUBLE(audio_offset_ms, -20.0, "BBR",
                       "Extra audio offset in milliseconds. Positive = you hear the music later than "
                       "the game expects (Bluetooth, TV speakers): notes arrive later. Negative = "
                       "notes arrive earlier. Range -500..500");
