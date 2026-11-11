@@ -284,8 +284,8 @@ function Message(message, pad, data)
         no_next = true,
         message_text_ID = UIText.BBRR_RESTART_TITLE,
         info_text_ID = UIText.BBRR_RESTART_INFO,
-        left_text_ID = UIText.BBRR_B_LATER,
-        right_text_ID = UIText.BBRR_X_RESTART,
+        left_text_ID = UIText.BBRR_X_RESTART,
+        right_text_ID = UIText.BBRR_B_LATER,
         prev_screen = ParentScript(),
         message_CB = function(popup_message, popup_pad, popup_data)
           if popup_message == "BUTTON_X" then

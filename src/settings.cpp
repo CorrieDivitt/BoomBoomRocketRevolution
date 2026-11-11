@@ -283,8 +283,8 @@ std::string SettingsStrings() {
                     "BBRR_RESTART_NOTE = The last four settings apply after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
-                    "BBRR_B_LATER = ~~{B}~~ Not now\n"
-                    "BBRR_X_RESTART = Restart ~~{X}~~\n";
+                    "BBRR_X_RESTART = ~~{X}~~ Restart\n"
+                    "BBRR_B_LATER = Not now ~~{B}~~\n";
   for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";
   for (const Setting& s : Settings()) {
     out += "BBRR_T_" + s.key + " = " + s.title + "\n";
