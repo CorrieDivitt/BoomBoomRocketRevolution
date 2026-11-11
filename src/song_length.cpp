@@ -3,7 +3,7 @@
 // The song list is one menu widget drawn by sub_82094D40. For every row it looks up the
 // row's text by name (sub_8208D7E0, e.g. "TRK3" = title of track 3), turns it into a
 // drawable string (sub_8208EB38) and draws it (sub_820908D8: r3 renderer, r4 colours,
-// r5 string, r6 alignment (1 = centred), f1 size, f2 widest allowed; the position is the
+// r5 string, r6 alignment (1 = centred, 2 = ends at the position), f1 size, f2 widest allowed; the position is the
 // renderer's current transform, font style at 0x5C(r1)).
 // Right after a "TRK<n>" row has been drawn we draw a second, short text the same way,
 // moved towards the right end of the bar: the track's length.
@@ -30,8 +30,8 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(show_song_length, true, "BBR", "Show each track's length on the song lists");
-REXCVAR_DEFINE_DOUBLE(song_length_offset, 205.0, "BBR",
-                      "How far right of the title's centre the track length is drawn (layout units)");
+REXCVAR_DEFINE_DOUBLE(song_length_offset, 204.0, "BBR",
+                      "How far right of the title's centre the track length ends (layout units)");
 
 REX_EXTERN(__imp__sub_82094D40);
 REX_EXTERN(__imp__sub_8208D7E0);
@@ -152,7 +152,7 @@ REX_HOOK_RAW(sub_820908D8) {
     return;
   }
   // Keep the arguments of the title's draw call to repeat it for the length.
-  const PPCRegister r4 = ctx.r4, r6 = ctx.r6, r7 = ctx.r7, r8 = ctx.r8, r9 = ctx.r9, r10 = ctx.r10;
+  const PPCRegister r4 = ctx.r4, r7 = ctx.r7, r8 = ctx.r8, r9 = ctx.r9, r10 = ctx.r10;
   const PPCRegister f1 = ctx.f1, f2 = ctx.f2, f3 = ctx.f3;
   __imp__sub_820908D8(ctx, base);
 
@@ -175,7 +175,7 @@ REX_HOOK_RAW(sub_820908D8) {
   ctx.r5.u64 = ctx.r3.u32;
   ctx.r3.u64 = kRenderer;
   ctx.r4 = r4;
-  ctx.r6 = r6;
+  ctx.r6.u64 = 2;  // right-aligned, so every length ends at the same place
   ctx.r7 = r7;
   ctx.r8 = r8;
   ctx.r9 = r9;
