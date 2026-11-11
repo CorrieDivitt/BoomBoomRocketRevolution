@@ -1,0 +1,102 @@
+diff --git a/src/graphics/command_processor.cpp b/src/graphics/command_processor.cpp
+index a744375..a245b80 100644
+--- a/src/graphics/command_processor.cpp
++++ b/src/graphics/command_processor.cpp
+@@ -1033,12 +1033,9 @@ bool CommandProcessor::ExecutePacketType3_WAIT_REG_MEM(memory::RingBuffer* reade
+       // Wait.
+       if (wait >= 0x100) {
+         PrepareForWait();
+-        if (!REXCVAR_GET(vsync)) {
+-          // User wants it fast and dangerous.
+-          rex::thread::MaybeYield();
+-        } else {
+-          rex::thread::Sleep(std::chrono::milliseconds(wait / 0x100));
+-        }
++        // Yield instead of sleeping for whole milliseconds: a sleep wakes up to a couple
++        // of milliseconds late, which makes frame times uneven (visible as judder).
++        rex::thread::MaybeYield();
+         rex::thread::SyncMemory();
+         ReturnFromWait();
+ 
+diff --git a/src/graphics/graphics_system.cpp b/src/graphics/graphics_system.cpp
+index 8f2fcb0..a744201 100644
+--- a/src/graphics/graphics_system.cpp
++++ b/src/graphics/graphics_system.cpp
+@@ -31,6 +31,18 @@
+ #include <rex/ui/window.h>
+ #include <rex/ui/windowed_app_context.h>
+ 
++#if REX_PLATFORM_WIN32
++// DwmFlush from dwmapi.h, declared here so this file does not need the Windows headers.
++extern "C" __declspec(dllimport) long __stdcall DwmFlush(void);
++#pragma comment(lib, "dwmapi.lib")
++#endif  // REX_PLATFORM_WIN32
++
++#include <chrono>
++
++REXCVAR_DEFINE_BOOL(vblank_display_sync, true, "GPU",
++                    "With vsync on, tick the guest vblank on the real display's refresh (desktop "
++                    "compositor) instead of a timer, so guest frames line up with the display");
++
+ REXCVAR_DEFINE_STRING(swap_post_effect, "none", "GPU", "Swap post effect: none, fxaa, fxaa_extreme")
+     .allowed({"none", "fxaa", "fxaa_extreme"})
+     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+@@ -158,15 +170,53 @@ X_STATUS GraphicsSystem::SetupGuestGpu(runtime::FunctionDispatcher* function_dis
+             std::max(uint64_t(1), uint64_t(double(guest_tick_frequency) / refresh_rate_hz));
+         uint64_t no_vsync_interval_ticks = std::max(uint64_t(1), guest_tick_frequency / 1000);
+         uint64_t last_frame_time = chrono::Clock::QueryGuestTickCount();
++        bool display_sync_usable = true;
++        uint32_t display_sync_misfires = 0;
+         while (vsync_worker_running_) {
+-          uint64_t current_time = chrono::Clock::QueryGuestTickCount();
+-          uint64_t interval_ticks =
+-              REXCVAR_GET(vsync) ? vsync_interval_ticks : no_vsync_interval_ticks;
+-          while (current_time - last_frame_time >= interval_ticks) {
++          const bool limited = REXCVAR_GET(vsync);
++#if REX_PLATFORM_WIN32
++          // Preferred: one guest vblank per real display refresh. DwmFlush returns at the
++          // desktop compositor's next vertical blank. If it fails, or keeps returning at
++          // once (no composition), fall back to the timer below for good.
++          if (limited && display_sync_usable && REXCVAR_GET(vblank_display_sync)) {
++            const auto before = std::chrono::steady_clock::now();
++            const long hr = DwmFlush();
++            const auto waited = std::chrono::steady_clock::now() - before;
++            if (hr < 0) {
++              display_sync_usable = false;
++              continue;
++            }
++            if (waited < std::chrono::microseconds(300)) {
++              if (++display_sync_misfires > 30) {
++                display_sync_usable = false;
++              }
++              rex::thread::Sleep(std::chrono::milliseconds(1));
++              continue;
++            }
++            display_sync_misfires = 0;
++            MarkVblank();
++            last_frame_time = chrono::Clock::QueryGuestTickCount();
++            continue;
++          }
++#endif  // REX_PLATFORM_WIN32
++          // Timer: sleep while the next vblank is more than ~2 ms away, then yield until
++          // it is due, so vblanks are evenly spaced instead of landing on sleep boundaries.
++          const uint64_t interval_ticks = limited ? vsync_interval_ticks : no_vsync_interval_ticks;
++          const uint64_t current_time = chrono::Clock::QueryGuestTickCount();
++          if (current_time - last_frame_time >= interval_ticks) {
+             MarkVblank();
+             last_frame_time += interval_ticks;
++            if (current_time - last_frame_time > 4 * interval_ticks) {
++              last_frame_time = current_time;  // fell far behind: start again from now
++            }
++            continue;
++          }
++          const uint64_t remaining = interval_ticks - (current_time - last_frame_time);
++          if (remaining > guest_tick_frequency / 500) {
++            rex::thread::Sleep(std::chrono::milliseconds(1));
++          } else {
++            rex::thread::MaybeYield();
+           }
+-          rex::thread::Sleep(std::chrono::milliseconds(1));
+         }
+         return 0;
+       }));

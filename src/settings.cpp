@@ -66,15 +66,7 @@ const std::vector<Setting>& Settings() {
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
                  {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0, "video"});
-    // "vsync" in the runtime is not display sync: on = the game runs at the Frame Rate
-    // setting, off = as fast as it can.
-    s.push_back({"vsync", "vsync", "Frame Rate Limit", {{"true", "On"}, {"false", "Off"}}, 0, "video"});
     s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video", true});
-    // frame_rate is our own cvar; LoadSettings turns it into video_mode_refresh_rate.
-    s.push_back({"fps", "frame_rate", "Frame Rate",
-                 {{"display", "Match Display"}, {"60", "60"}, {"90", "90"}, {"120", "120"}, {"144", "144"},
-                  {"165", "165"}, {"240", "240"}},
-                 0, "video", true});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
     s.push_back({"antialiasing", "swap_post_effect", "Anti-Aliasing",
@@ -88,7 +80,7 @@ const std::vector<Setting>& Settings() {
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
       {"main", "BBRR Settings", {"audio_offset", "page:calibrate", "skip_intro", "layout", "page:video"}},
-      {"video", "Video Settings", {"aspect", "vsync", "window", "fps", "resolution", "antialiasing"}},
+      {"video", "Video Settings", {"aspect", "window", "resolution", "antialiasing"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Calibration", {}},
   };
@@ -188,8 +180,11 @@ void RestartGame() {
 }
 }  // namespace
 
-// Turns our frame_rate setting into the runtime's guest refresh rate. A running game
-// that does not match the display's refresh rate judders, so the default follows the display.
+// Sets the runtime's guest refresh rate. There is no menu setting for it: the game runs
+// at the main display's refresh rate, and (with the SDK patch in patches/rexglue-sdk)
+// each game frame is started on a real display refresh, so motion does not judder.
+// --frame_rate=<number> or --video_mode_refresh_rate on the command line override it;
+// --vsync=false removes the limit, --vblank_display_sync=false goes back to a timer.
 void ApplyFrameRate();
 
 // Refresh rate of the main display in Hz (0 if unknown).
@@ -359,7 +354,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
                     "BBRR_OPEN = Open\n"
-                    "BBRR_RESTART_NOTE = The last four settings apply after a restart\n"
+                    "BBRR_RESTART_NOTE = The last three settings apply after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
                     "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"

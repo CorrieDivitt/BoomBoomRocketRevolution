@@ -498,13 +498,13 @@
   "phase": 3,
   "phase_name": "Frame rate & timing",
   "category": "Timing",
-  "title": "Frame limiter, VSync, VRR",
+  "title": "Frame pacing matched to the display",
   "priority": "P0",
-  "status": "todo",
-  "effort": "S",
-  "acceptance": "Cap options (30..360/unlimited), VSync toggle, G-Sync/FreeSync friendly",
+  "status": "in_progress",
+  "effort": "M",
+  "acceptance": "No frame-rate setting needed: the game runs at the display's refresh rate with each frame started on a real display refresh; no judder; optional unlimited mode",
   "depends_on": "R-302",
-  "notes": ""
+  "notes": "Untested: guest refresh rate = main display refresh (src/settings.cpp ApplyFrameRate); SDK patch 0002 ticks the guest vblank from the desktop compositor (DwmFlush) with an evenly spaced timer fallback and no millisecond sleeps in the GPU wait. Before: 120 fps limit gave 5.5-12 ms frame times (judder) on a 120 Hz display"
  },
  {
   "id": "R-305",
