@@ -24,6 +24,8 @@ different folder.
 | Video Settings | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
 | | Window Mode | Fullscreen or Windowed; changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
+| | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things; changes at once |
+| | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; needs a restart |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |
 | Calibration | Auto Calibration | Two short tap tests (sound, then picture) that set the two offsets below |
 | | Audio Offset | Moves the notes against the music. Positive = notes arrive later |
@@ -61,6 +63,7 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--skip_intro=false` | Show the start-up logos |
 | `--ui_mods=false` | Turn off every menu addition (BBRR Settings, hit timing, renamed texts) |
 | `--game_debug_log=true` | Write the game's own debug messages to the log |
+| `--hdr_paper_white_nits=<n>` / `--hdr_peak_nits=<n>` | HDR: brightness of ordinary white (default 200) and of the brightest highlights (default: what the display reports) |
 
 ## Files
 - `boomboomrocket.log`, in the folder the game was started from: what happened in the last run.

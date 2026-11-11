@@ -1,0 +1,333 @@
+diff --git a/include/rex/ui/d3d12/d3d12_presenter.h b/include/rex/ui/d3d12/d3d12_presenter.h
+index 83d09f7..c423f95 100644
+--- a/include/rex/ui/d3d12/d3d12_presenter.h
++++ b/include/rex/ui/d3d12/d3d12_presenter.h
+@@ -52,7 +52,10 @@ class D3D12Presenter final : public Presenter {
+   static constexpr DXGI_FORMAT kGuestOutputIntermediateFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
+ 
+   // The format used internally by Windows composition.
+-  static constexpr DXGI_FORMAT kSwapChainFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
++  static constexpr DXGI_FORMAT kSwapChainFormatSdr = DXGI_FORMAT_B8G8R8A8_UNORM;
++  // With output_hdr the swap chain is scRGB (16-bit float, linear, 1.0 = 80 nits).
++  // Chosen once, the first time it is asked for.
++  static DXGI_FORMAT SwapChainFormat();
+ 
+   // The callback must use the main direct queue of the provider.
+   class D3D12GuestOutputRefreshContext final : public GuestOutputRefreshContext {
+diff --git a/src/ui/d3d12/d3d12_immediate_drawer.cpp b/src/ui/d3d12/d3d12_immediate_drawer.cpp
+index ce654c8..9b26075 100644
+--- a/src/ui/d3d12/d3d12_immediate_drawer.cpp
++++ b/src/ui/d3d12/d3d12_immediate_drawer.cpp
+@@ -153,7 +153,7 @@ bool D3D12ImmediateDrawer::Initialize() {
+   pipeline_desc.InputLayout.NumElements = UINT(rex::countof(pipeline_input_elements));
+   pipeline_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+   pipeline_desc.NumRenderTargets = 1;
+-  pipeline_desc.RTVFormats[0] = D3D12Presenter::kSwapChainFormat;
++  pipeline_desc.RTVFormats[0] = D3D12Presenter::SwapChainFormat();
+   pipeline_desc.SampleDesc.Count = 1;
+   if (FAILED(
+           device->CreateGraphicsPipelineState(&pipeline_desc, IID_PPV_ARGS(&pipeline_triangle_)))) {
+diff --git a/src/ui/d3d12/d3d12_presenter.cpp b/src/ui/d3d12/d3d12_presenter.cpp
+index 306118e..fe07a42 100644
+--- a/src/ui/d3d12/d3d12_presenter.cpp
++++ b/src/ui/d3d12/d3d12_presenter.cpp
+@@ -24,6 +24,8 @@
+ #include <rex/ui/d3d12/d3d12_util.h>
+ #include <rex/ui/surface_win.h>
+ 
++#include <dxgi1_6.h>
++
+ #if defined(REX_HAS_FIDELITYFX_RUNTIME) && REX_HAS_FIDELITYFX_RUNTIME
+ #include <ffx_api/dx12/ffx_api_dx12.h>
+ #include <ffx_api/ffx_api.h>
+@@ -33,8 +35,134 @@
+ REXCVAR_DEFINE_BOOL(d3d12_allow_variable_refresh_rate_and_tearing, true, "UI/D3D12",
+                     "Allow variable refresh rate and tearing");
+ 
++REXCVAR_DEFINE_DOUBLE(output_glow, 0.0, "UI/D3D12",
++                      "Glow around bright parts of the picture (0 = off, 1 = strong). Bilinear output only");
++REXCVAR_DEFINE_BOOL(output_hdr, false, "UI/D3D12",
++                    "Present in HDR (scRGB swap chain); bright parts of the picture are expanded. "
++                    "Needs a restart");
++REXCVAR_DEFINE_DOUBLE(hdr_paper_white_nits, 200.0, "UI/D3D12", "HDR: brightness of ordinary white");
++REXCVAR_DEFINE_DOUBLE(hdr_peak_nits, 0.0, "UI/D3D12",
++                      "HDR: brightest highlight (0 = what the display reports)");
++
+ namespace rex::ui::d3d12 {
+ 
++// ---------------------------------------------------------------------------------------
++// Glow and HDR output: one extra pixel shader that can stand in for the plain bilinear
++// output shader in the last paint step. It reads the picture (gamma-encoded SDR), adds a
++// glow gathered from bright pixels around each point, and writes either SDR again or
++// linear scRGB with the top of the range opened up into the display's HDR headroom.
++// The shader is compiled when the presenter starts (d3dcompiler_47.dll); if anything
++// fails the normal output path is used.
++namespace {
++Microsoft::WRL::ComPtr<ID3D12RootSignature> g_glow_root_signature;
++Microsoft::WRL::ComPtr<ID3D12PipelineState> g_glow_pipeline;
++bool g_swap_chain_is_scrgb = false;  // SwapChainFormat() chose the HDR format
++bool g_display_hdr = false;          // the display the window is on is in HDR mode
++float g_display_peak_nits = 1000.0f;
++
++const char kGlowPixelShader[] = R"hlsl(
++cbuffer push_consts_xe : register(b0) {
++  int2 xe_output_offset;
++  float2 xe_output_size_inv;
++  float xe_glow;         // strength, 0 = none
++  float xe_linear_out;   // 0 = gamma-encoded SDR out, 1 = linear scRGB out
++  float xe_paper_white;  // scRGB value of ordinary white (nits / 80)
++  float xe_headroom;     // peak / paper white, >= 1
++};
++Texture2D<float4> xe_source : register(t0);
++SamplerState xe_sampler : register(s0);
++
++float3 ToLinear(float3 c) { return pow(max(c, 0.0), 2.2); }
++
++float4 main(float4 position : SV_Position) : SV_Target {
++  float2 uv = (position.xy - float2(xe_output_offset)) * xe_output_size_inv;
++  float3 color = ToLinear(xe_source.SampleLevel(xe_sampler, uv, 0.0).rgb);
++
++  if (xe_glow > 0.0) {
++    // Bright pixels on a spiral around this one, weighted towards the centre. The
++    // spiral is turned by a per-pixel amount so its pattern does not show.
++    const int kTaps = 48;
++    const float kRadius = 0.045;  // of the picture height
++    float2 radius = float2(kRadius * xe_output_size_inv.x / xe_output_size_inv.y, kRadius);
++    float turn = frac(52.9829189 * frac(dot(position.xy, float2(0.06711056, 0.00583715))));
++    float3 sum = 0.0;
++    float weight_sum = 0.0;
++    for (int i = 0; i < kTaps; ++i) {
++      float t = (float(i) + 0.5) / float(kTaps);
++      float angle = (float(i) + turn) * 2.39996323;
++      float2 offset = float2(cos(angle), sin(angle)) * (t * radius);
++      float3 tap = ToLinear(xe_source.SampleLevel(xe_sampler, uv + offset, 0.0).rgb);
++      float brightest = max(tap.r, max(tap.g, tap.b));
++      tap *= smoothstep(0.25, 0.85, brightest);
++      float weight = 1.0 - t;
++      sum += tap * weight;
++      weight_sum += weight;
++    }
++    color += xe_glow * sum / weight_sum;
++  }
++
++  float brightest = max(color.r, max(color.g, color.b));
++  float darkest = min(color.r, min(color.g, color.b));
++  float level = brightest;
++  if (xe_headroom > 1.0) {
++    // HDR: the upper half of the range grows into the headroom. Strong colours (fireworks)
++    // get all of it, near-white (menu text) only part, so menus do not glare.
++    float saturation = (brightest - darkest) / max(brightest, 1e-5);
++    float share = lerp(0.35, 1.0, saturation);
++    float ramp = smoothstep(0.5, 1.0, saturate(brightest));
++    level *= 1.0 + (xe_headroom - 1.0) * ramp * share;
++  }
++  // Soft shoulder into the limit instead of a hard cut.
++  float limit = max(xe_headroom, 1.0);
++  float knee = 0.8 * limit;
++  if (level > knee) {
++    level = knee + (limit - knee) * tanh((level - knee) / (limit - knee));
++  }
++  color *= level / max(brightest, 1e-5);
++
++  if (xe_linear_out > 0.5) {
++    return float4(color * xe_paper_white, 1.0);
++  }
++  return float4(pow(saturate(color), 1.0 / 2.2), 1.0);
++}
++)hlsl";
++
++// Compiles kGlowPixelShader. Null on failure (logged).
++Microsoft::WRL::ComPtr<ID3DBlob> CompileGlowPixelShader() {
++  Microsoft::WRL::ComPtr<ID3DBlob> code;
++  HMODULE compiler = LoadLibraryW(L"d3dcompiler_47.dll");
++  if (!compiler) {
++    REXLOG_WARN("D3D12Presenter: d3dcompiler_47.dll not found - glow and HDR output are off");
++    return code;
++  }
++  using CompileFn = HRESULT(WINAPI*)(LPCVOID, SIZE_T, LPCSTR, const D3D_SHADER_MACRO*, ID3DInclude*,
++                                     LPCSTR, LPCSTR, UINT, UINT, ID3DBlob**, ID3DBlob**);
++  auto compile = reinterpret_cast<CompileFn>(GetProcAddress(compiler, "D3DCompile"));
++  if (!compile) {
++    REXLOG_WARN("D3D12Presenter: D3DCompile not available - glow and HDR output are off");
++    return code;
++  }
++  Microsoft::WRL::ComPtr<ID3DBlob> errors;
++  const UINT kOptimizationLevel3 = 1u << 15;  // D3DCOMPILE_OPTIMIZATION_LEVEL3
++  HRESULT result = compile(kGlowPixelShader, sizeof(kGlowPixelShader) - 1, "glow_output_ps", nullptr,
++                           nullptr, "main", "ps_5_1", kOptimizationLevel3, 0, &code, &errors);
++  if (FAILED(result) || !code) {
++    REXLOG_WARN("D3D12Presenter: the glow / HDR output shader did not compile: {}",
++                errors ? static_cast<const char*>(errors->GetBufferPointer()) : "(no message)");
++    code.Reset();
++  }
++  return code;
++}
++}  // namespace
++
++DXGI_FORMAT D3D12Presenter::SwapChainFormat() {
++  static const DXGI_FORMAT format = [] {
++    g_swap_chain_is_scrgb = REXCVAR_GET(output_hdr);
++    return g_swap_chain_is_scrgb ? DXGI_FORMAT_R16G16B16A16_FLOAT : kSwapChainFormatSdr;
++  }();
++  return format;
++}
++
+ // Generated with `xb buildshaders`.
+ namespace shaders {
+ #include "ui/shaders/bytecode/d3d12_5_1/guest_output_bilinear_dither_ps.h"
+@@ -390,7 +518,7 @@ D3D12Presenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_sur
+     DXGI_SWAP_CHAIN_DESC1 swap_chain_desc;
+     swap_chain_desc.Width = UINT(new_swap_chain_width);
+     swap_chain_desc.Height = UINT(new_swap_chain_height);
+-    swap_chain_desc.Format = kSwapChainFormat;
++    swap_chain_desc.Format = SwapChainFormat();
+     swap_chain_desc.Stereo = FALSE;
+     swap_chain_desc.SampleDesc.Count = 1;
+     swap_chain_desc.SampleDesc.Quality = 0;
+@@ -444,6 +572,26 @@ D3D12Presenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_sur
+           "interface");
+       return SurfacePaintConnectResult::kFailure;
+     }
++    // HDR: tell DXGI the buffers hold linear scRGB, and find out whether the display the
++    // window is on is in HDR mode (and how bright it gets).
++    g_display_hdr = false;
++    if (g_swap_chain_is_scrgb) {
++      if (FAILED(paint_context_.swap_chain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709))) {
++        REXLOG_WARN("D3D12Presenter: could not set the scRGB colour space on the swap chain");
++      }
++      Microsoft::WRL::ComPtr<IDXGIOutput> output;
++      Microsoft::WRL::ComPtr<IDXGIOutput6> output_6;
++      DXGI_OUTPUT_DESC1 output_desc;
++      if (SUCCEEDED(paint_context_.swap_chain->GetContainingOutput(&output)) && output &&
++          SUCCEEDED(output.As(&output_6)) && SUCCEEDED(output_6->GetDesc1(&output_desc))) {
++        g_display_hdr = output_desc.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
++        if (output_desc.MaxLuminance >= 100.0f) {
++          g_display_peak_nits = output_desc.MaxLuminance;
++        }
++      }
++      REXLOG_INFO("D3D12Presenter: HDR output requested; display HDR is {}, peak {:.0f} nits",
++                  g_display_hdr ? "on" : "off (showing SDR)", g_display_peak_nits);
++    }
+     // From now on, in case of any failure, DestroySwapChain must be called
+     // before returning.
+     paint_context_.swap_chain_width = new_swap_chain_width;
+@@ -472,7 +620,7 @@ D3D12Presenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_sur
+   rtv_desc.Texture2D.PlaneSlice = 0;
+   for (uint32_t i = 0; i < PaintContext::kSwapChainBufferCount; ++i) {
+     ID3D12Resource* swap_chain_buffer = paint_context_.swap_chain_buffers[i].Get();
+-    rtv_desc.Format = kSwapChainFormat;
++    rtv_desc.Format = SwapChainFormat();
+     device->CreateRenderTargetView(
+         swap_chain_buffer, &rtv_desc,
+         provider_.OffsetRTVDescriptor(rtv_heap_start, PaintContext::kRTVIndexSwapChainBuffer0 + i));
+@@ -914,14 +1062,27 @@ Presenter::PaintResult D3D12Presenter::PaintAndPresentImpl(bool execute_ui_drawe
+           scissor.bottom = LONG(effect_dest_resource_desc.Height);
+           command_list->RSSetScissorRects(1, &scissor);
+ 
++          // Glow / HDR output stands in for the plain bilinear shader in the last step.
++          const float glow_strength = float(std::clamp(REXCVAR_GET(output_glow), 0.0, 4.0));
++          const bool use_glow_output =
++              is_final_effect && g_glow_pipeline &&
++              (effect == GuestOutputPaintEffect::kBilinear ||
++               effect == GuestOutputPaintEffect::kBilinearDither) &&
++              (glow_strength > 0.0f || g_swap_chain_is_scrgb);
+           command_list->SetPipelineState(
+-              is_final_effect ? guest_output_paint_final_pipelines_[size_t(effect)].Get()
+-                              : guest_output_paint_intermediate_pipelines_[size_t(effect)].Get());
++              use_glow_output
++                  ? g_glow_pipeline.Get()
++                  : is_final_effect
++                        ? guest_output_paint_final_pipelines_[size_t(effect)].Get()
++                        : guest_output_paint_intermediate_pipelines_[size_t(effect)].Get());
+           GuestOutputPaintRootSignatureIndex guest_output_paint_root_signature_index =
+               GetGuestOutputPaintRootSignatureIndex(effect);
+           command_list->SetGraphicsRootSignature(
+-              guest_output_paint_root_signatures_[size_t(guest_output_paint_root_signature_index)]
+-                  .Get());
++              use_glow_output
++                  ? g_glow_root_signature.Get()
++                  : guest_output_paint_root_signatures_[size_t(
++                                                            guest_output_paint_root_signature_index)]
++                        .Get());
+ 
+           UINT effect_src_view_index =
+               UINT(i ? (PaintContext::kViewIndexGuestOutputIntermediate0Srv + (i - 1))
+@@ -989,6 +1150,23 @@ Presenter::PaintResult D3D12Presenter::PaintAndPresentImpl(bool execute_ui_drawe
+                 effect_constants_size / sizeof(uint32_t), &effect_constants, 0);
+           }
+ 
++          if (use_glow_output) {
++            // glow, linear output, paper white (scRGB units), headroom (peak / paper white).
++            float glow_constants[4] = {glow_strength, g_swap_chain_is_scrgb ? 1.0f : 0.0f, 1.0f, 1.0f};
++            if (g_swap_chain_is_scrgb && g_display_hdr) {
++              const float paper_nits =
++                  float(std::clamp(REXCVAR_GET(hdr_paper_white_nits), 80.0, 500.0));
++              float peak_nits = float(REXCVAR_GET(hdr_peak_nits));
++              if (peak_nits <= 0.0f) peak_nits = g_display_peak_nits;
++              peak_nits = std::clamp(peak_nits, paper_nits, 4000.0f);
++              glow_constants[2] = paper_nits / 80.0f;
++              glow_constants[3] = peak_nits / paper_nits;
++            }
++            command_list->SetGraphicsRoot32BitConstants(
++                UINT(GuestOutputPaintRootParameter::kEffectConstants), 4, glow_constants,
++                UINT(sizeof(BilinearConstants) / sizeof(uint32_t)));
++          }
++
+           command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+           command_list->DrawInstanced(4, 1, 0, 0);
+           drew_graphics_effect = true;
+@@ -1269,6 +1447,14 @@ bool D3D12Presenter::InitializeSurfaceIndependent() {
+     *(guest_output_paint_root_signatures_[kGuestOutputPaintRootSignatureIndexBilinear]
+           .ReleaseAndGetAddressOf()) = guest_output_paint_root_signature;
+   }
++  // Glow / HDR output: the bilinear layout with four more constants.
++  guest_output_paint_root_parameter_effect_constants.Constants.Num32BitValues =
++      sizeof(BilinearConstants) / sizeof(uint32_t) + 4;
++  *(g_glow_root_signature.ReleaseAndGetAddressOf()) =
++      util::CreateRootSignature(provider_, guest_output_paint_root_signature_desc);
++  if (!g_glow_root_signature) {
++    REXLOG_WARN("D3D12Presenter: no root signature for glow / HDR output");
++  }
+ #if defined(REX_HAS_FIDELITYFX_SDK)
+   // EASU (needs the sampler).
+   guest_output_paint_root_parameter_effect_constants.Constants.Num32BitValues =
+@@ -1426,7 +1612,7 @@ bool D3D12Presenter::InitializeSurfaceIndependent() {
+       }
+     }
+     if (CanGuestOutputPaintEffectBeFinal(guest_output_paint_effect)) {
+-      guest_output_paint_pipeline_desc.RTVFormats[0] = kSwapChainFormat;
++      guest_output_paint_pipeline_desc.RTVFormats[0] = SwapChainFormat();
+       if (FAILED(device->CreateGraphicsPipelineState(
+               &guest_output_paint_pipeline_desc,
+               IID_PPV_ARGS(&guest_output_paint_final_pipelines_[i])))) {
+@@ -1439,6 +1625,30 @@ bool D3D12Presenter::InitializeSurfaceIndependent() {
+     }
+   }
+ 
++  // Glow / HDR output pipeline (optional).
++  g_glow_pipeline.Reset();
++  if (g_glow_root_signature) {
++    Microsoft::WRL::ComPtr<ID3DBlob> glow_shader = CompileGlowPixelShader();
++    if (glow_shader) {
++      guest_output_paint_pipeline_desc.PS.pShaderBytecode = glow_shader->GetBufferPointer();
++      guest_output_paint_pipeline_desc.PS.BytecodeLength = glow_shader->GetBufferSize();
++      guest_output_paint_pipeline_desc.pRootSignature = g_glow_root_signature.Get();
++      guest_output_paint_pipeline_desc.RTVFormats[0] = SwapChainFormat();
++      if (FAILED(device->CreateGraphicsPipelineState(&guest_output_paint_pipeline_desc,
++                                                     IID_PPV_ARGS(&g_glow_pipeline)))) {
++        REXLOG_WARN("D3D12Presenter: could not create the glow / HDR output pipeline");
++        g_glow_pipeline.Reset();
++      } else {
++        REXLOG_INFO("D3D12Presenter: glow / HDR output is available (HDR swap chain: {})",
++                    g_swap_chain_is_scrgb ? "yes" : "no");
++      }
++    }
++  }
++  if (g_swap_chain_is_scrgb && !g_glow_pipeline) {
++    REXLOG_ERROR("D3D12Presenter: HDR output was requested but its shader is not available - "
++                 "colours will be wrong; turn output_hdr off");
++  }
++
+   // Initialize connection-independent parts of the painting context.
+ 
+   ID3D12CommandQueue* direct_queue = provider_.GetDirectQueue();
