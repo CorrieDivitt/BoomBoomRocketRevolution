@@ -79,28 +79,47 @@ void BbrParticleCountHook(PPCRegister& r3, PPCRegister& r25) {
 }
 
 namespace {
-// How full the particle pool gets: [0x821C0518] -> pool, +0x18 = its size, +0x1C = how
-// many particles are alive. Logged every 10 seconds while anything is alive.
+// How full the particle systems get. The game has two:
+//   A = [0x821C0518]: 32768 slots of 0x80 bytes (+0x18 size, +0x1C alive, +0x2C points drawn)
+//   B = [game + 0x74]: 16384 slots of 48 bytes (+0x14 size, +0x0C alive), where
+//       game = [0x821D4438] - 0xA0.
+// Logged every 10 seconds while anything is alive.
 void TrackPoolUse(uint8_t* base, double quality) {
   using Clock = std::chrono::steady_clock;
   static Clock::time_point window_start = Clock::now();
-  static uint32_t peak = 0, capacity = 0, frames_full = 0, frames = 0;
-  const uint32_t pool = Load32(base, 0x821C0518);
-  if (pool >= 0x10000) {
-    capacity = Load32(base, pool + 0x18);
-    const uint32_t alive = Load32(base, pool + 0x1C);
-    peak = std::max(peak, alive);
+  static uint32_t a_peak = 0, a_cap = 0, a_drawn = 0, a_full = 0;
+  static uint32_t b_peak = 0, b_cap = 0, b_full = 0, b_aux = 0, frames = 0;
+  const uint32_t pool_a = Load32(base, 0x821C0518);
+  if (pool_a >= 0x10000) {
+    a_cap = Load32(base, pool_a + 0x18);
+    const uint32_t alive = Load32(base, pool_a + 0x1C);
+    a_peak = std::max(a_peak, alive);
+    a_drawn = std::max(a_drawn, Load32(base, pool_a + 0x2C));
+    if (a_cap != 0 && alive >= a_cap) ++a_full;
     ++frames;
-    if (capacity != 0 && alive >= capacity) ++frames_full;
+  }
+  const uint32_t game_ref = Load32(base, 0x821D4438);
+  if (game_ref >= 0x10000) {
+    const uint32_t pool_b = Load32(base, game_ref - 0xA0 + 0x74);
+    if (pool_b >= 0x10000) {
+      b_cap = Load32(base, pool_b + 0x14);
+      const uint32_t alive = Load32(base, pool_b + 0x0C);
+      if (alive <= 0x100000) {
+        b_peak = std::max(b_peak, alive);
+        b_aux = std::max(b_aux, Load32(base, pool_b + 0x10));
+        if (b_cap != 0 && alive >= b_cap) ++b_full;
+      }
+    }
   }
   if (Clock::now() - window_start < std::chrono::seconds(10)) return;
-  if (peak > 0 && capacity > 0) {
-    REXLOG_INFO("[particles] last 10 s: peak {} of {} particles ({:.0f}%), pool full on {} of {} frames; "
-                "quality {:.2f}x",
-                peak, capacity, 100.0 * peak / capacity, frames_full, frames, quality);
+  if (a_peak > 0 || b_peak > 0) {
+    REXLOG_INFO("[particles] last 10 s: A peak {} of {} (drawn {}, full {} frames); "
+                "B peak {} of {} ({:.0f}%, aux {}, full {} frames); {} frames; quality {:.2f}x",
+                a_peak, a_cap, a_drawn, a_full, b_peak, b_cap,
+                b_cap ? 100.0 * b_peak / b_cap : 0.0, b_aux, b_full, frames, quality);
   }
   window_start = Clock::now();
-  peak = frames_full = frames = 0;
+  a_peak = a_drawn = a_full = b_peak = b_full = b_aux = frames = 0;
 }
 }  // namespace
 
