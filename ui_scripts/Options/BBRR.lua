@@ -9,6 +9,7 @@
 --   BBRR("bbrr.default", key)    -> default option number as a string
 --   BBRR("bbrr.set", key, n)     -> choose option n (applied immediately)
 --   BBRR("bbrr.save")            -> write the settings file
+--   BBRR("bbrr.count" / "bbrr.key" / "bbrr.choices") -> see BuildRows
 
 local function BBRR(command, key, value)
   local ok, result = pcall(gcinfo, command, key, value)
@@ -26,44 +27,25 @@ local function OptionNumber(command, key, count)
   return n
 end
 
--- One row per setting. "items" follow the game's spinner format: text id + value.
+-- The list of settings comes from the PC side, so new ones need no change here:
+--   BBRR("bbrr.count")          -> number of settings
+--   BBRR("bbrr.key", n)         -> key of setting n
+--   BBRR("bbrr.choices", key)   -> how many options it has
+-- Text ids follow a pattern: BBRR_T_<key> for the title, BBRR_C_<key>_<n> for option n.
 local function BuildRows()
   local rows = {}
-
-  rows[1] = {
-    key = "aspect",
-    title = UIText.BBRR_ASPECT,
-    items = {
-      { text = UIText.BBRR_AR_AUTO, value = 1 },
-      { text = UIText.BBRR_AR_169, value = 2 },
-      { text = UIText.BBRR_AR_219, value = 3 },
-      { text = UIText.BBRR_AR_329, value = 4 }
-    }
-  }
-
-  rows[2] = {
-    key = "layout",
-    title = UIText.BBRR_LAYOUT,
-    items = {
-      { text = UIText.BBRR_LAYOUT_EDGES, value = 1 },
-      { text = UIText.BBRR_LAYOUT_CENTRE, value = 2 }
-    }
-  }
-
-  local offsets = {}
-  for i = 1, 41 do
-    offsets[i] = { text = UIText["BBRR_MS_" .. i], value = i }
+  local count = tonumber(BBRR("bbrr.count")) or 0
+  for i = 1, count do
+    local key = BBRR("bbrr.key", i)
+    local choices = tonumber(BBRR("bbrr.choices", key)) or 0
+    local items = {}
+    for n = 1, choices do
+      items[n] = { text = UIText["BBRR_C_" .. key .. "_" .. n], value = n }
+    end
+    if key ~= nil and choices > 0 and UIText["BBRR_T_" .. key] ~= nil then
+      table.insert(rows, { key = key, title = UIText["BBRR_T_" .. key], items = items })
+    end
   end
-  rows[3] = { key = "audio_offset", title = UIText.BBRR_AUDIO_OFFSET, items = offsets }
-
-  rows[4] = {
-    key = "skip_intro",
-    title = UIText.BBRR_SKIP_INTRO,
-    items = {
-      { text = UIText.IDS_ON, value = 1 },
-      { text = UIText.IDS_OFF, value = 2 }
-    }
-  }
   return rows
 end
 
@@ -90,7 +72,7 @@ function Init()
   local spinner = {
     type = UIEnums.ButtonTypes.VARIABLE_SPINNER,
     x = 320,
-    y = 130,
+    y = 100,
     width = 384,
     height = 32,
     justify = UIEnums.Justify.JUSTIFY_CENTRE,
@@ -172,8 +154,35 @@ function Init()
     Buttons.SetSelection(GUI.spinner_menu_ID[i], current)
   end
 
+  -- Footnote under the rows (some settings only take effect the next time the game starts).
+  if UIText.BBRR_RESTART_NOTE ~= nil then
+    pcall(Buttons.AddButton, {
+      type = UIEnums.ButtonTypes.TEXT,
+      x = 320,
+      y = spinner.y + 4,
+      width = SCREEN_WIDTH,
+      height = UIGlobals.font_size.very_small,
+      justify = UIEnums.Justify.JUSTIFY_CENTRE,
+      colour = "255 255 255 255",
+      text = UIText.BBRR_RESTART_NOTE,
+      render_state = UIGlobals.font_render_state.new_filled_blue,
+      effects = {
+        {
+          when = UIEnums.EffectWhen.End,
+          type = UIEnums.EffectType.Colour,
+          from = "255 255 255 255",
+          to = "255 0 0 0",
+          duration = 0.1,
+          timer = 0
+        }
+      }
+    })
+  end
+
   GUI.current_selection = -1
-  SetSelection(1)
+  if GUI.num_items > 0 then
+    SetSelection(1)
+  end
 end
 
 function SetSelection(index)

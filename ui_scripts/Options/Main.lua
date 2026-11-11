@@ -21,7 +21,7 @@ function Init()
   }
   -- Only offer the entry when our strings made it into the game's text table.
   if UIText.BBRR_SETTINGS ~= nil then
-    table.insert(items, 2, { text = UIText.BBRR_SETTINGS, value = GUI.opt.bbrr })
+    table.insert(items, 4, { text = UIText.BBRR_SETTINGS, value = GUI.opt.bbrr })
   end
   GUI.menu_ID = SetupMenu(items, UIEnums.Justify.JUSTIFY_RIGHT, UIText.IDS_HELP_N_OPTIONS)
   RestoreMenuSelection(GUI.menu_ID)

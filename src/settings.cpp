@@ -20,36 +20,39 @@ namespace bbr {
 namespace {
 struct Choice {
   std::string value;  // cvar value
-  std::string label;  // text shown on the settings screen ("" = the screen supplies it)
-  std::string text_id;
+  std::string label;  // text shown on the settings screen
 };
 struct Setting {
-  std::string key;    // name used by the settings screen
+  std::string key;    // name used by the settings screen (letters, digits, underscore)
   std::string cvar;
-  std::string title_id, title;
+  std::string title;
   std::vector<Choice> choices;
   size_t default_choice;
 };
 
+// Order = order on the screen. The last four only take effect after a restart (the
+// screen says so in its footnote, BBRR_RESTART_NOTE) - keep them last.
 const std::vector<Setting>& Settings() {
   static const std::vector<Setting> settings = [] {
     std::vector<Setting> s;
-    s.push_back({"aspect", "aspect_ratio", "BBRR_ASPECT", "Aspect Ratio",
-                 {{"auto", "Match Window", "BBRR_AR_AUTO"},
-                  {"16:9", "16:9", "BBRR_AR_169"},
-                  {"21:9", "21:9", "BBRR_AR_219"},
-                  {"32:9", "32:9", "BBRR_AR_329"}},
-                 0});
-    s.push_back({"layout", "ui_anchor", "BBRR_LAYOUT", "Menu Layout",
-                 {{"edges", "Screen Edges", "BBRR_LAYOUT_EDGES"}, {"center", "Centred", "BBRR_LAYOUT_CENTRE"}},
-                 0});
-    Setting offset{"audio_offset", "audio_offset_ms", "BBRR_AUDIO_OFFSET", "Audio Offset", {}, 16};
+    Setting offset{"audio_offset", "audio_offset_ms", "Audio Offset", {}, 16};
     for (int i = 0; i < 41; ++i) {
       const int ms = -100 + i * 5;
-      offset.choices.push_back({std::to_string(ms), std::to_string(ms) + " ms", "BBRR_MS_" + std::to_string(i + 1)});
+      offset.choices.push_back({std::to_string(ms), std::to_string(ms) + " ms"});
     }
     s.push_back(offset);
-    s.push_back({"skip_intro", "skip_intro", "BBRR_SKIP_INTRO", "Skip Intro", {{"true", "", ""}, {"false", "", ""}}, 0});
+    s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
+    s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
+                 {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0});
+    s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
+    s.push_back({"vsync", "vsync", "VSync", {{"true", "On"}, {"false", "Off"}}, 0});
+    s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0});
+    s.push_back({"fps", "video_mode_refresh_rate", "Frame Rate",
+                 {{"60", "60"}, {"90", "90"}, {"120", "120"}, {"144", "144"}, {"165", "165"}, {"240", "240"}}, 0});
+    s.push_back({"resolution", "resolution_scale", "Resolution",
+                 {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1});
+    s.push_back({"antialiasing", "swap_post_effect", "Anti-Aliasing",
+                 {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0});
     return s;
   }();
   return settings;
@@ -112,8 +115,13 @@ void LoadSettings() {
   auto from_command_line = [](const std::string& cvar) {
     return rex::cvar::GetFlagSource(cvar) == rex::cvar::Source::kCommandLine;
   };
+  // --draw_resolution_scale_x/_y on the command line also count as choosing the resolution.
+  const bool custom_resolution = from_command_line("draw_resolution_scale_x") || from_command_line("draw_resolution_scale_y");
+  auto locked = [&](const std::string& cvar) {
+    return from_command_line(cvar) || (cvar == "resolution_scale" && custom_resolution);
+  };
   for (const Setting& s : Settings()) {
-    if (!from_command_line(s.cvar)) rex::cvar::SetFlagByName(s.cvar, s.choices[s.default_choice].value);
+    if (!locked(s.cvar)) rex::cvar::SetFlagByName(s.cvar, s.choices[s.default_choice].value);
   }
   std::ifstream in(FilePath());
   if (!in) return;
@@ -126,7 +134,7 @@ void LoadSettings() {
     const std::string cvar = Trim(line.substr(0, eq)), value = Trim(line.substr(eq + 1));
     bool known = false;
     for (const Setting& s : Settings()) known |= (s.cvar == cvar);
-    if (!known || from_command_line(cvar)) continue;
+    if (!known || locked(cvar)) continue;
     if (rex::cvar::SetFlagByName(cvar, value)) ++applied;
   }
   REXLOG_INFO("[settings] loaded {} setting(s) from {}", applied, FilePath().string());
@@ -142,8 +150,14 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     REXLOG_INFO("[settings] saved to {}", FilePath().string());
     return "ok";
   }
+  if (command == "bbrr.count") return std::to_string(Settings().size());
+  if (command == "bbrr.key") {
+    const long n = std::strtol(key.c_str(), nullptr, 10);
+    return (n >= 1 && size_t(n) <= Settings().size()) ? Settings()[size_t(n - 1)].key : "";
+  }
   const Setting* s = Find(key);
   if (!s) return "";
+  if (command == "bbrr.choices") return std::to_string(s->choices.size());
   if (command == "bbrr.get") return std::to_string(CurrentChoice(*s) + 1);
   if (command == "bbrr.default") return std::to_string(s->default_choice + 1);
   if (command == "bbrr.set") {
@@ -155,11 +169,12 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 }
 
 std::string SettingsStrings() {
-  std::string out = "BBRR_SETTINGS = BBRR Settings\n";
+  std::string out = "BBRR_SETTINGS = BBRR Settings\n"
+                    "BBRR_RESTART_NOTE = The last four settings apply after a restart\n";
   for (const Setting& s : Settings()) {
-    out += s.title_id + " = " + s.title + "\n";
-    for (const Choice& c : s.choices) {
-      if (!c.text_id.empty()) out += c.text_id + " = " + c.label + "\n";
+    out += "BBRR_T_" + s.key + " = " + s.title + "\n";
+    for (size_t i = 0; i < s.choices.size(); ++i) {
+      out += "BBRR_C_" + s.key + "_" + std::to_string(i + 1) + " = " + s.choices[i].label + "\n";
     }
   }
   return out;
