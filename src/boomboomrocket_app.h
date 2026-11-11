@@ -8,6 +8,7 @@
 
 #include "dlc.h"
 #include "frame_stats.h"
+#include "settings.h"
 #include "widescreen.h"
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -36,6 +37,8 @@ class BoomBoomRocketApp : public rex::ReXApp {
     // on the command line can't be told apart - use --license_mask=2 to test trial mode.
     if (rex::cvar::GetFlagByName("license_mask") == "0")
       rex::cvar::SetFlagByName("license_mask", "1");
+    // Saved settings from the in-game Revolution settings screen (command line wins).
+    bbr::LoadSettings();
     // Non-16:9 aspect ratios: stretch the 1280x720 image over the whole window
     // (the cameras are given the real aspect ratio in src/widescreen.cpp).
     if (bbr::WidescreenRequested()) {

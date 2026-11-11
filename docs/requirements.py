@@ -69,7 +69,7 @@ REQS = [
  ("R-411",4,"Particles","Particle quality/quantity scaling","P1","todo","M","Multiplier on firework Count with stable perf","R-302","Fireworks/*.config hold Count/Velocity per grade"),
  ("R-412",4,"Graphics","D3D9-level renderer replacement","P2","todo","XL","Statically linked D3D9 calls hooked to a native renderer (bypassing GPU emulation)","R-408","Long-term path for full fidelity"),
  ("R-413",4,"Textures","Texture dump & replacement packs","P2","todo","M","XPR2/DDS/TGA textures dumpable and overridable by hash","R-104",""),
- ("R-414",4,"UI","Graphics settings menu","P0","todo","M","In-app (ImGui) menu for all graphics options; saved to config","R-401",""),
+ ("R-414",4,"UI","In-game Revolution settings menu","P0","in_progress","L","'BBRR Settings' entry in the game's own Help & Options menu opens a settings screen in the game's style (spinner rows, A save / B cancel / X defaults); settings saved to a file and applied at start-up; home for the calibration screen","R-401","First version (untested): UI scripts are Lua 5.1 and can be replaced from ui_scripts/ (src/ui_mod.cpp); screen ui_scripts/Options/BBRR.lua with aspect ratio, menu layout, audio offset, skip intro; saved to settings.ini (src/settings.cpp). Still to add: resolution scale, frame rate, window mode, DLC, calibration"),
 
  ("R-501",5,"Achievements","Local achievements from SPA","P1","todo","M","12 achievements (200G) tracked and toasted; persisted","R-107","ReXGlue has an achievements XEX-to-TOML extractor"),
  ("R-502",5,"Leaderboards","Local leaderboards","P0","done","M","66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty","R-107","Verified 2026-11-10: scores show in song select and persist across restarts (src/leaderboards.cpp)"),

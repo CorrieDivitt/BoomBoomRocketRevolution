@@ -719,13 +719,13 @@
   "phase": 4,
   "phase_name": "Graphics & resolution",
   "category": "UI",
-  "title": "Graphics settings menu",
+  "title": "In-game Revolution settings menu",
   "priority": "P0",
-  "status": "todo",
-  "effort": "M",
-  "acceptance": "In-app (ImGui) menu for all graphics options; saved to config",
+  "status": "in_progress",
+  "effort": "L",
+  "acceptance": "'BBRR Settings' entry in the game's own Help & Options menu opens a settings screen in the game's style (spinner rows, A save / B cancel / X defaults); settings saved to a file and applied at start-up; home for the calibration screen",
   "depends_on": "R-401",
-  "notes": ""
+  "notes": "First version (untested): UI scripts are Lua 5.1 and can be replaced from ui_scripts/ (src/ui_mod.cpp); screen ui_scripts/Options/BBRR.lua with aspect ratio, menu layout, audio offset, skip intro; saved to settings.ini (src/settings.cpp). Still to add: resolution scale, frame rate, window mode, DLC, calibration"
  },
  {
   "id": "R-501",
