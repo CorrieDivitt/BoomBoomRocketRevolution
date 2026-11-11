@@ -76,6 +76,8 @@ REXCVAR_DEFINE_BOOL(hit_timing, true, "BBR",
 REXCVAR_DEFINE_BOOL(assist_tick, false, "BBR",
                     "Play a click at the exact moment of every rocket, placed in the music stream");
 
+REXCVAR_DEFINE_DOUBLE(assist_tick_volume, 2.5, "BBR", "Loudness of the assist tick (1 = as recorded). Range 0.1..8");
+
 REX_EXTERN(__imp__sub_82066700);
 REX_EXTERN(__imp__sub_8208D7E0);
 REX_EXTERN(__imp__sub_82064978);
@@ -241,7 +243,8 @@ std::deque<Ticked> g_ticked;
 // Hits waiting to be shown by the HUD script.
 struct Shown {
   uint32_t slot;
-  float x, y;
+  float x;
+  int grade;  // as the HUD's judgement text: 6 Perfect, 5 Awesome, 3 Good, 1 OK
 };
 std::mutex g_hit_mutex;
 std::deque<Shown> g_hits;
@@ -265,7 +268,7 @@ double AudioLag() {
   return lag;
 }
 
-void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds) {
+void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds, float accuracy) {
   const double ms = early_seconds * 1000.0;
   g_hit_stats.count++;
   g_hit_stats.sum += ms;
@@ -279,10 +282,10 @@ void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds) {
   }
   const uint32_t manager = g_text_manager.load(std::memory_order_relaxed);
   if (!REXCVAR_GET(hit_timing) || !manager) return;
-  float x = 0.0f, y = 0.0f;
+  float x = 0.0f;
   bool found = false;
   for (const ArrowPlace& a : g_arrows) {
-    if (a.rocket == rocket) { x = a.x; y = a.y; found = true; }
+    if (a.rocket == rocket) { x = a.x; found = true; }
   }
   if (!found) return;
   std::lock_guard<std::mutex> lock(g_hit_mutex);
@@ -291,11 +294,11 @@ void ReportHit(uint8_t* base, uint32_t rocket, double early_seconds) {
   std::snprintf(text, sizeof(text), "%+.2f", ms);
   std::memcpy(base + manager + slot * 256, text, std::strlen(text) + 1);
   // Screen position -> 640x480 layout units (the layout is 480 * aspect units wide,
-  // centred on x = 320). The number sits just to the right of the arrow.
+  // centred on x = 320). The HUD script puts the number just above the target line, in
+  // line with the arrow, in the colour of the judgement (same limits as the game).
   const double aspect = bbr::UiAspectRatio();
-  if (g_hits.size() < 16) {
-    g_hits.push_back({slot, float(320.0 + x * 240.0 * aspect + 34.0), float(240.0 - y * 240.0 - 8.0)});
-  }
+  const int grade = accuracy >= 0.95f ? 6 : accuracy > 0.8f ? 5 : accuracy > 0.4f ? 3 : 1;
+  if (g_hits.size() < 16) g_hits.push_back({slot, float(320.0 + x * 240.0 * aspect), grade});
 }
 
 struct Stats {
@@ -366,8 +369,9 @@ REX_HOOK_RAW(sub_82066700) {
     return;
   }
   double rocket_time;
-  if (LoadFloat(base, slot) > 0.0f && RocketTime(base, rocket, &rocket_time)) {
-    ReportHit(base, rocket, rocket_time - centre);
+  const float accuracy = LoadFloat(base, slot);
+  if (accuracy > 0.0f && RocketTime(base, rocket, &rocket_time)) {
+    ReportHit(base, rocket, rocket_time - centre, accuracy);
   }
 }
 
@@ -413,7 +417,7 @@ void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1) {
   for (const Ticked& t : g_ticked) together |= std::fabs(t.time - rocket_time) < 0.001;
   g_ticked.push_back({rocket, rocket_time});
   while (g_ticked.size() > 64) g_ticked.pop_front();
-  if (!together) bbr::ScheduleTick(wait);
+  if (!together) bbr::ScheduleTick(wait, REXCVAR_GET(assist_tick_volume));
 }
 
 std::string bbr::HitCommand(const std::string& command) {
@@ -424,7 +428,7 @@ std::string bbr::HitCommand(const std::string& command) {
     const Shown hit = g_hits.front();
     g_hits.pop_front();
     char text[64];
-    std::snprintf(text, sizeof(text), "%u,%.1f,%.1f", hit.slot, hit.x, hit.y);
+    std::snprintf(text, sizeof(text), "%u,%.1f,%d", hit.slot, hit.x, hit.grade);
     return text;
   }
   return "";

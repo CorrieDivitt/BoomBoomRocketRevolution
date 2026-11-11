@@ -12,3 +12,6 @@ the sound should start right at the beginning of the file with no silence before
 
 If a file is missing or cannot be read, the built-in click is used for that one.
 The files are read when the first test of a session starts.
+
+tick.wav (optional) replaces the assist tick heard during songs (BBRR Settings >
+Calibration > Assist Tick). Without it a bright built-in click is used.

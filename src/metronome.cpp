@@ -46,6 +46,7 @@ constexpr int kChannels = 6;
 struct Voice {
   const std::vector<float>* sound;
   int64_t start;  // sample index where it begins
+  float gain = 1.0f;
 };
 
 std::mutex g_mutex;
@@ -63,7 +64,7 @@ int64_t g_next_event = 0;    // next beat index to schedule
 int g_count_in = 4;          // beats before the first bar (all played with the lighter sound)
 int g_bar = 4;               // beats per bar
 std::vector<Voice> g_voices;
-std::vector<float> g_beat_sound, g_sub_sound;
+std::vector<float> g_beat_sound, g_sub_sound, g_tick_sound;
 bool g_sounds_loaded = false;
 
 double Seconds(Clock::duration d) { return std::chrono::duration<double>(d).count(); }
@@ -162,10 +163,16 @@ void LoadSounds() {
               g_sub_sound.empty() ? "built-in" : "subbeat.wav");
   if (g_beat_sound.empty()) g_beat_sound = BuiltInClick(1760.0, 0.06, 0.6);
   if (g_sub_sound.empty()) g_sub_sound = BuiltInClick(880.0, 0.04, 0.3);
+  // Assist tick: tick.wav if there is one, otherwise a bright, short click that stands
+  // out from music and fireworks.
+  if (!folder.empty()) g_tick_sound = LoadWav(folder / "tick.wav");
+  if (g_tick_sound.empty()) g_tick_sound = BuiltInClick(3200.0, 0.03, 0.9);
+
   // Keep them short so they never overlap the next click.
   const size_t limit = size_t(0.25 * kRate);
   if (g_beat_sound.size() > limit) g_beat_sound.resize(limit);
   if (g_sub_sound.size() > limit) g_sub_sound.resize(limit);
+  if (g_tick_sound.size() > limit) g_tick_sound.resize(limit);
 }
 
 // Called for every block on its way to the driver. `block` = 6 x 256 big-endian floats,
@@ -205,7 +212,7 @@ void OnAudioFrame(uint8_t* block) {
   for (auto it = g_voices.begin(); it != g_voices.end();) {
     const int64_t length = int64_t(it->sound->size());
     for (int64_t n = std::max(frame_start, it->start); n < std::min<int64_t>(frame_start + kFrame, it->start + length); ++n) {
-      mix[n - frame_start] += (*it->sound)[size_t(n - it->start)];
+      mix[n - frame_start] += (*it->sound)[size_t(n - it->start)] * it->gain;
     }
     it = (it->start + length <= frame_start + kFrame) ? g_voices.erase(it) : it + 1;
   }
@@ -218,7 +225,7 @@ void OnAudioFrame(uint8_t* block) {
       bits = __builtin_bswap32(bits);
       float sample;
       std::memcpy(&sample, &bits, 4);
-      sample += mix[i];
+      sample = std::clamp(sample + mix[i], -1.0f, 1.0f);
       std::memcpy(&bits, &sample, 4);
       bits = __builtin_bswap32(bits);
       std::memcpy(p, &bits, 4);
@@ -227,13 +234,13 @@ void OnAudioFrame(uint8_t* block) {
 }
 }  // namespace
 
-void ScheduleTick(double seconds_from_now) {
+void ScheduleTick(double seconds_from_now, double volume) {
   LoadSounds();
   std::lock_guard<std::mutex> lock(g_mutex);
   if (!g_anchor_valid || g_voices.size() > 64) return;
   const int64_t at = int64_t(std::llround(SamplesAt(Clock::now()) + seconds_from_now * kRate));
   if (at < g_samples) return;  // too late to place it
-  g_voices.push_back({&g_sub_sound, at});
+  g_voices.push_back({&g_tick_sound, at, float(std::clamp(volume, 0.1, 8.0))});
 }
 
 std::string MetronomeCommand(const std::string& command, const std::string& key, const std::string& value) {
