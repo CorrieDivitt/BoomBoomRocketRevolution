@@ -357,11 +357,11 @@
   "category": "Sync",
   "title": "Input latency offset setting (ms)",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "S",
   "acceptance": "Separate input offset shifts judgement windows only",
   "depends_on": "R-204",
-  "notes": "Input Offset in BBRR Settings (--input_offset_ms, -100..100): shifts the press span used by the judging function 0x82066700; calibration picture test suggests it. Needs play-testing."
+  "notes": "Done: Input Offset in BBRR Settings > Calibration (--input_offset_ms, -100..100) shifts the press span used by the judging function 0x82066700; auto calibration sets it with the audio offset. Play-tested 2026-11-10: arrows stay with the music, only judging moves."
  },
  {
   "id": "R-207",

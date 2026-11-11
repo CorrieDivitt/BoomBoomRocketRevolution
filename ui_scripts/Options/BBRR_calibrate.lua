@@ -201,7 +201,7 @@ local function Leave()
   BBRR("bbrr.metro.stop")
   Game.StartTitleMusic(1)
   GUI.finished = true
-  Screen.SetNextScreen("Options\\BBRR.lua")
+  Screen.SetNextScreen("Options\\BBRR_timing.lua")
 end
 
 -- Middle value and spread of the taps, or nil when there are too few.

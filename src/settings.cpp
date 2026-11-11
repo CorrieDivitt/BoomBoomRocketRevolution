@@ -85,10 +85,11 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:video", "audio_offset", "input_offset", "page:calibrate", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:video", "page:timing", "skip_intro", "layout"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
-      {"calibrate", "Calibration", {}},
+      {"calibrate", "Auto Calibration", {}},
+      {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset"}},
   };
   return pages;
 }
@@ -392,6 +393,9 @@ std::string SettingsStrings() {
                     "BBRR_CAL_TAP_M1 = -1 / 16\n"
                     "BBRR_CAL_RING = O\n"
                     "BBRR_EXIT_GAME = Exit Game\n"
+                    "BBRR_RESTART_SONG = Restart Song\n"
+                    "BBRR_REPLAY_SONG = Replay Song\n"
+                    "BBRR_RESTART_SONG_INFO = Are you sure you want to restart this song?  Doing so will mean your current score will not be saved.\n"
                     "BBRR_EXIT_GAME_INFO = Close Boom Boom Rocket and return to Windows.\n"
                     "BBRR_X_RESTART = ~~{X}~~ Restart\n"
                     "BBRR_B_LATER = Not now ~~{B}~~\n";
