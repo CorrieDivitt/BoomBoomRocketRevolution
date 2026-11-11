@@ -20,14 +20,15 @@ by the user unless marked otherwise.
 | Wide screens | Edge anchoring with a remembered layout per screen, so menus no longer jump after a transition |
 | DLC | Original packages install from the `DLC` folder; prototype songs renamed "<Title> II" |
 
-Not yet confirmed by the user: fail slow-down at high frame rates (1.67 s at any fps); the
-"Restart Song" / "Replay Song" wording actually showing; Windows Auto HDR; prototype title choice
-("II" or "(Prototype)"); first-note behaviour at speeds above 1x (built, the user moved on without
-commenting); the multiplayer song list (has length and BPM, no speed panel or buttons).
+Accepted as done on 2026-11-11 without a dedicated test (the user will raise them if testing shows
+problems): fail slow-down at high frame rates (1.67 s at any fps); the "Restart Song" / "Replay
+Song" wording; Windows Auto HDR; prototype titles stay "<Title> II"; first-note behaviour at speeds
+above 1x; the multiplayer song list (has length and BPM, no speed panel or buttons).
 
 ## Next up (the user's words: "the next phase of the plan")
-- R-807 offset suggestion on the results screen (requested; thresholds to settle when building).
-- Other modern rhythm-game features under Modifiers (R-801 research list, R-804 beat lines, R-805 practice tools).
+- R-807 offset suggestion on the results screen: built 2026-11-11 (see below), awaiting a test.
+- Other modern rhythm-game features under Modifiers (R-801 research list, R-804 beat lines).
+  R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).
 - Full playthrough of 30 charts (R-110) with the ultrawide layout pass (R-415).
 - Stretch: R-904 full-width gameplay, R-905 visualizer from Windows audio, R-906 custom charts / auto chart generation, R-903 VR.
@@ -74,8 +75,9 @@ string), not the key's name. Button icons are written `~~{LB}~~`, `~~{RB}~~`, `~
 string table. Lua x is in a 640-wide layout whose 320 is the screen centre: a 16:9 screen runs from
 about -106 to 746, and the song bars end at about 555. Font sizes: 18 / 24 / 32 / 48 (title). The
 screen title style is `new_piped_orange`. A script wraps a game screen by loading
-`orig:<same name>` and then overriding `Init` / `Update`. Stored string slots in use: 119 speed
-panel, 120-123 hit readout, 124/125 song bar texts, 126 results line, 127 speed notice.
+`orig:<same name>` and then overriding `Init` / `Update`. Stored string slots in use: 118 offset
+suggestion, 119 speed panel, 120-123 hit readout, 124/125 song bar texts, 126 results line, 127 speed
+notice. There are only 128 (0-127); the game uses low numbers per song, so new ones go below 118.
 
 **Edge anchoring.** Sides are decided per frame from quad positions, so a screen that is still
 arriving reads differently from the finished one (the main menu holds an in-between arrangement for
@@ -83,6 +85,12 @@ about 0.3 s; text with flying letters is "too wide to place"). The finished layo
 "<last script>|<widget count>" in `cache\ui_layout.txt`, learned only from what is still there 1.5 s
 after loading, and applied during arrival to wide items as well. Scripts can exempt a rectangle with
 `BBRR("bbrr.ui.keep", "x0,y0,x1,y1")`. The log has a line per layout change during arrival.
+
+**Offset suggestion (R-807).** `bbrr.hit.advice` (src/input_offset.cpp) writes STR118 when the
+song had 20+ hits, an average 15+ ms from zero and 70%+ of hits on that side; suggested Input
+Offset = current - average, rounded to 5 ms, within +-100 ms. Shown below the timing line (or in
+its place when Hit Timing is off) by ui_scripts/Ingame/LevelBreakdown.lua. Every results screen
+logs an `[input] offset advice` line, including why nothing was shown.
 
 **Timing.** The user's hits were steadily 36-44 ms late and the game's own frame timing agreed, so
 it was an offset, not jitter; raising Input Offset fixed it. Late hits: raise Input Offset (or Audio
@@ -98,4 +106,18 @@ Offset if notes look out of step with the music). Positive Audio Offset = notes 
 - Game code is hooked with `REX_HOOK_RAW(sub_X)` (works for virtual calls too, the function table
   uses the same symbol) and `[[midasm_hook]]` entries in `config/default.toml`; SDK changes live in
   `patches/rexglue-sdk/` and are applied by `scripts/patch-sdk.ps1`.
-- After changing `docs/requirements.py`, run it and refresh the dashboard's data file.
+- After changing `docs/requirements.py`, run it and refresh the dashboard's data file (below).
+
+## The requirements dashboard and its data file
+- **Dashboard:** the Claude artifact at https://claude.ai/artifact/4jmcgAaAJwoWTm14PHEFiH
+  (artifact id `1e44263b-9291-45d4-a988-91dc12c0e8da`), private to the project owner.
+- **Source of truth:** `docs/requirements.py` in the repo. Running `python3 docs/requirements.py`
+  rewrites `docs/requirements.csv` and `docs/requirements.json` beside it.
+- **The data file the dashboard reads:** `docs/requirements.csv`
+  (`F:\Boom Boom Rocket\docs\requirements.csv` on the PC), uploaded to the artifact as an asset.
+  The artifact's database document `datasets/requirements` points at the uploaded copy through its
+  `source.url` field (a `/_blob/<id>` address that changes with every upload).
+- **To refresh it:** run the script, upload the new `requirements.csv` to the artifact as an asset,
+  then update `datasets/requirements` so `source.url` is the new `/_blob/<id>` (and bump the
+  `edit` / `updated` times). The update needs the document's current version number; it was 38
+  after the last refresh on 2026-11-11, so read the document first to get the live value.
