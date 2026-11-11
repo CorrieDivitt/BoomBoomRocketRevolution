@@ -6,6 +6,7 @@
 
 #include <rex/rex_app.h>
 
+#include "dlc.h"
 #include "frame_stats.h"
 #include "widescreen.h"
 #include <rex/cvar.h>
@@ -47,6 +48,8 @@ class BoomBoomRocketApp : public rex::ReXApp {
   // void OnPostLoadXexImage() override {}
   // Feed the F3 debug overlay ("Guest: N FPS") from our per-frame hook.
   void OnPostSetup() override {
+    // Install the user's own DLC package files (see src/dlc.cpp) before the game looks for them.
+    bbr::InstallDlcPackages(runtime());
     SetGuestFrameStats(bbr::GetFrameStats);
     bbr::SetWindowAspectProvider([this]() -> double {
       auto* w = window();

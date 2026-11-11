@@ -17,6 +17,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/leaderboards.cpp
     src/song_clock.cpp
     src/widescreen.cpp
+    src/dlc.cpp
 )
 
 if(WIN32)

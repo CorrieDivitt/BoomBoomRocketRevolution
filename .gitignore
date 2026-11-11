@@ -1,5 +1,6 @@
 # --- Game data: never commit (users supply their own dump) ---
 /Game Files/
+/DLC/
 /assets
 /extracted/
 *.xex
