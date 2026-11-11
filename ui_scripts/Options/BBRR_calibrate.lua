@@ -40,7 +40,6 @@ local TRAVEL = 340        -- how far below the line a bar starts (below the bott
 local LEAD_BEATS = 2      -- a bar is on its way for this many beats, so two are in view
 local HIDDEN_Y = 900      -- where a bar waits when it has no beat to show
 local BAR_WIDTH, BAR_HEIGHT = 56, 10
-local HALF_WIDTH, HALF_HEIGHT = 18, 4  -- the small marker halfway between two beats (not pressed)
 
 local STATE_SOUND_INTRO, STATE_SOUND, STATE_PICTURE_INTRO, STATE_PICTURE, STATE_RESULT, STATE_FAILED = 1, 2, 3, 4, 5, 6
 
@@ -136,27 +135,12 @@ local function PlaceBars(position)
     end
     Buttons.ChangePosition(GUI.bar_ID[m], 320 - BAR_WIDTH / 2, y)
   end
-  -- The small markers sit halfway between two beats (half 0 is at beat 0.5) and move the
-  -- same way; they are only there to help keep time.
-  for m = 1, 2 do
-    local half = math.ceil(position - 0.5)
-    if half - math.floor(half / 2) * 2 ~= m - 1 then
-      half = half + 1
-    end
-    local y = HIDDEN_Y
-    if half >= 0 and half < COUNT_IN + TAPS - 1 then
-      y = LINE_Y - HALF_HEIGHT / 2 + TRAVEL * (half + 0.5 - position) / LEAD_BEATS
-    end
-    Buttons.ChangePosition(GUI.half_ID[m], 320 - HALF_WIDTH / 2, y)
-  end
 end
 
 local function ShowBars(visible)
   Buttons.SetActive(GUI.line_ID, visible)
   Buttons.SetActive(GUI.bar_ID[1], visible)
   Buttons.SetActive(GUI.bar_ID[2], visible)
-  Buttons.SetActive(GUI.half_ID[1], visible)
-  Buttons.SetActive(GUI.half_ID[2], visible)
 end
 
 local function SetState(state)
@@ -204,10 +188,6 @@ function Init()
   GUI.bar_ID = {
     AddBox(320 - BAR_WIDTH / 2, HIDDEN_Y, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255"),
     AddBox(320 - BAR_WIDTH / 2, HIDDEN_Y, BAR_WIDTH, BAR_HEIGHT, "255 254 52 255")
-  }
-  GUI.half_ID = {
-    AddBox(320 - HALF_WIDTH / 2, HIDDEN_Y, HALF_WIDTH, HALF_HEIGHT, "255 255 255 255"),
-    AddBox(320 - HALF_WIDTH / 2, HIDDEN_Y, HALF_WIDTH, HALF_HEIGHT, "255 255 255 255")
   }
   -- The menu music would drown out the clicks; it comes back when the screen is left.
   Game.StopTitleMusic()
