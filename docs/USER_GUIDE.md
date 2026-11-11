@@ -25,7 +25,7 @@ different folder.
 | | Window Mode | Fullscreen or Windowed; changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
-| | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then whole steps up to 25x; changes at once. Very high values are for testing: they cost frame rate, and once the game's particle system is full the busiest moments get thinner instead of denser |
+| | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then whole steps up to 25x; changes at once. Very high values are for testing: from about 10x the busiest moments reach the limit on sparks and get thinner instead of denser |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |
 | Calibration | Auto Calibration | Two short tap tests (sound, then picture) that set the two offsets below |
@@ -64,6 +64,7 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--skip_intro=false` | Show the start-up logos |
 | `--ui_mods=false` | Turn off every menu addition (BBRR Settings, hit timing, renamed texts) |
 | `--game_debug_log=true` | Write the game's own debug messages to the log |
+| `--particle_limit=<n>` | Most sparks alive at once (default 56000, up to the game's own 70000, where it has crashed) |
 | `--hdr_paper_white_nits=<n>` / `--hdr_peak_nits=<n>` | HDR: brightness of ordinary white (default 200) and of the brightest highlights (default: what the display reports) |
 
 ## Files

@@ -699,7 +699,7 @@
   "effort": "M",
   "acceptance": "Multiplier on firework Count with stable perf",
   "depends_on": "R-302",
-  "notes": "Particle Density in Video Settings (--particle_quality, 0.25x-25x multiplier, live): scales each firework's Count at config load and rewrites loaded configs when changed. Game stops making sparks at 70000 alive. 3x confirmed looking good; 10x crashed about 20 s into a song (2026-11-11), cause not yet known - spark logging added to find it."
+  "notes": "Particle Density in Video Settings (--particle_quality, 0.25x-25x multiplier, live): scales each firework's Count at config load and rewrites loaded configs when changed. Game stops making sparks at 70000 alive. 3x and 5x confirmed fine; 10x reaches the limit and crashed twice (2026-11-11). Port now stops adding sparks at 56000 (--particle_limit); untested."
  },
  {
   "id": "R-412",

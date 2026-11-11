@@ -15,6 +15,7 @@
 #include "widescreen.h"
 
 #include <rex/cvar.h>
+#include <rex/hook.h>
 #include <rex/logging.h>
 
 #include <algorithm>
@@ -26,6 +27,13 @@
 
 REXCVAR_DEFINE_DOUBLE(particle_quality, 1.0, "BBR",
                       "Particles per firework, as a multiple of the original (0.25 to 25)");
+
+REXCVAR_DEFINE_DOUBLE(particle_limit, 56000.0, "BBR",
+                      "Most sparks alive at once before fireworks stop adding more (1000 to 70000). "
+                      "The game's own limit is 70000, and it has crashed after running at that limit");
+
+REX_EXTERN(__imp__sub_820E5D10);
+REX_EXTERN(__imp__sub_820E5FB8);
 
 namespace {
 struct Block {
@@ -54,6 +62,26 @@ void Store32(uint8_t* base, uint32_t address, uint32_t v) {
   std::memcpy(base + address, &v, 4);
 }
 }  // namespace
+
+// The two functions that add an emitter's sparks for this frame (r3 = spark system,
+// sparks alive at +0x2814). The game only stops at 70000, the exact size of its vertex
+// buffers, and at 10x density it ran at that limit for under a minute before the GPU was
+// fed garbage and the game died. So stop adding sparks earlier (--particle_limit). One
+// call can still add a whole burst, which is why the default leaves a wide margin.
+namespace {
+bool SparkBudgetLeft(PPCContext& ctx, uint8_t* base) {
+  const double limit = std::clamp(REXCVAR_GET(particle_limit), 1000.0, 70000.0);
+  return ctx.r3.u32 < 0x10000 || Load32(base, ctx.r3.u32 + 0x2814) < uint32_t(limit);
+}
+}  // namespace
+
+REX_HOOK_RAW(sub_820E5D10) {
+  if (SparkBudgetLeft(ctx, base)) __imp__sub_820E5D10(ctx, base);
+}
+
+REX_HOOK_RAW(sub_820E5FB8) {
+  if (SparkBudgetLeft(ctx, base)) __imp__sub_820E5FB8(ctx, base);
+}
 
 // Mid-asm hook at 0x8206C7A4 (see config/default.toml): r3 = Count just read from the
 // file, r25 = the block it is about to be stored in.

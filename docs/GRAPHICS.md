@@ -46,8 +46,10 @@ Particle limits (traced 2026-11-11): sparks live in a system of their own that s
 ones at 70,000 alive; its vertex buffers are sized for exactly that. They are kept in blocks of 128,
 2,048 blocks at most. A firework's `Count` becomes the emitter's rate, so it scales the number of
 sparks directly. Two smaller pools (32,768 rockets and bursts, 16,384 trail segments) stay in the
-hundreds whatever the setting. At 10x density the game crashed about 20 seconds into a song; whether
-that is the spark limit or something else is not known yet. The log line `[particles] last ... s`
+hundreds whatever the setting. At 5x a busy song stays well under the limit; at 10x it reaches it within seconds. Running at
+the limit crashed the game twice, the second time after about 50 seconds with the GPU being handed
+garbage shaders, which points at memory being overwritten. The port therefore stops adding sparks
+at 56,000 (`--particle_limit`); whether that cures the crash is untested. The log line `[particles] last ... s`
 shows sparks and blocks against their limits.
 
 Not yet known (needs a look in a running game): the colour format of the game's render target and
