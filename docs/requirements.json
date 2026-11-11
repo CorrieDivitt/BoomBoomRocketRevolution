@@ -1076,7 +1076,7 @@
   "effort": "M",
   "acceptance": "Per-hit early/late indicator and end-of-song timing histogram / mean offset",
   "depends_on": "R-801,R-306",
-  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread, early and late counts. Results line untested as of 2026-11-11."
+  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11. Left: two-player results screen; optional histogram."
  },
  {
   "id": "R-804",
