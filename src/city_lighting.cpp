@@ -1,4 +1,12 @@
-// City lighting (R-410), first step: a probe. See city_lighting.h.
+// City lighting (R-410). See city_lighting.h.
+//
+// How it works (found with the probe below, 2026-11-12): the game keeps up to six firework
+// lights and gives all of them to its smoke shader, but the city's shaders - which do light
+// per pixel, falling off with the square of the distance - only ever get one. SDK patch 0011
+// (thirdparty GPU code, patches/rexglue-sdk/0011-city-lighting.patch) gives every city draw a
+// light of its own that stands in for all six as seen from that piece. This file only passes
+// the setting on (--city_lighting, BBRR Settings > Video Settings > City Lighting) and keeps
+// the probe that was used to find all this out (--city_light_probe, off by default).
 //
 // What is known so far:
 //   - the city is about 1,000 draws a frame (pairs listed in src/modifiers.cpp, No Background);
@@ -14,13 +22,18 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <unordered_set>
 
-REXCVAR_DEFINE_BOOL(city_light_probe, true, "BBR",
+REXCVAR_DEFINE_DOUBLE(city_lighting, 0.0, "BBR",
+                      "City Lighting: 0 = off (the game's own look); above 0, each piece of the city is lit by "
+                      "the fireworks near it, times this strength (1, 2, 4, 8 in the menu)");
+
+REXCVAR_DEFINE_BOOL(city_light_probe, false, "BBR",
                     "Development: log city draws, firework bursts and spark emitters once per run "
                     "(for the city lighting work); nothing on screen changes");
 
@@ -30,6 +43,7 @@ REX_EXTERN(__imp__sub_82075E18);
 namespace rex::graphics {
 void RequestDrawDump(uint32_t frames);  // SDK patch 0005
 void SetConstantWatch(uint64_t pixel_hash);  // SDK patch 0010
+void SetCityLighting(float strength);  // SDK patch 0011
 }  // namespace rex::graphics
 #endif
 
@@ -94,6 +108,16 @@ void bbr::CityLightProbeUpdate(uint8_t* base, bool song_on) {
   static bool was_on = false;
   static Clock::time_point since;
   static int dumps = 0;
+  {
+    // City Lighting: the GPU side does the work (SDK patch 0011); it only needs the strength.
+    static double sent = -1.0;
+    const double want = std::clamp(REXCVAR_GET(city_lighting), 0.0, 16.0);
+    if (want != sent) {
+      sent = want;
+      rex::graphics::SetCityLighting(float(want));
+      REXLOG_INFO("[city] City Lighting strength {}", want);
+    }
+  }
   static bool watching = false;
   if (REXCVAR_GET(city_light_probe) && !watching) {
     // The city's most used pixel shader: log its lighting constants whenever they change.

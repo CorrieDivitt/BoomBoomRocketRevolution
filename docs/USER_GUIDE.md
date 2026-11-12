@@ -29,6 +29,7 @@ different folder.
 | | Window Mode | Fullscreen or Windowed; changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
+| | City Lighting | Off (default), Low, Medium, High, Very High: buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
 | | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |

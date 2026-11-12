@@ -90,6 +90,9 @@ const std::vector<Setting>& Settings() {
                  {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
     s.push_back({"glow", "output_glow", "Glow",
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
+    // City lighting (src/city_lighting.cpp, SDK patch 0011): the value is a strength multiplier.
+    s.push_back({"citylight", "city_lighting", "City Lighting",
+                 {{"0", "Off"}, {"1", "Low"}, {"2", "Medium"}, {"4", "High"}, {"8", "Very High"}}, 0, "video"});
     // A multiplier on the original particle count: 0.25x steps below 1x, whole steps up to 5x.
     // (10x fills the game's spark system within seconds and has crashed it; 5x stays under half.)
     Setting particles{"particles", "particle_quality", "Particle Density",
@@ -139,7 +142,7 @@ const std::vector<Page>& Pages() {
       // Rows handled by src/profiles.cpp.
       {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
       {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
-      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
+      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "citylight", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
       {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},

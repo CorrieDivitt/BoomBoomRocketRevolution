@@ -1,0 +1,337 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -14,6 +14,7 @@
+ #include <cstdarg>
+ #include <cstdio>
+ #include <cstring>
++#include <unordered_map>
+ #include <unordered_set>
+ #include <sstream>
+ #include <utility>
+@@ -1898,9 +1899,13 @@
+   gamma_ramp_pwl_up_to_date_ = false;
+ }
+ 
++// Boom Boom Rocket Revolution (patch 0011): frames presented, for the city lighting.
++static uint64_t bbrr_frame = 0;
++
+ void D3D12CommandProcessor::IssueSwap(uint32_t frontbuffer_ptr, uint32_t frontbuffer_width,
+                                       uint32_t frontbuffer_height) {
+   rex::graphics::DumpFrameEnd();  // Boom Boom Rocket Revolution (patch 0005)
++  ++bbrr_frame;
+   SCOPE_profile_cpu_f("gpu");
+   vertex_buffers_in_sync_[0] = 0;
+   vertex_buffers_in_sync_[1] = 0;
+@@ -2451,6 +2456,250 @@
+ }
+ #undef BBRR_PUT
+ 
++// ---------------------------------------------------------------------------------------
++// Boom Boom Rocket Revolution (patch 0011): city lighting.
++//
++// The game keeps up to six firework lights and hands them to its smoke shader (vertex shader
++// BBFF...: positions in c8-c13, colour in c16-c21 with the strength in w). The city's pixel
++// shaders light per pixel, but only from one light: position c15, colour c16, strength c17.x,
++// falling off with the square of the distance. Here every city draw gets a light of its own
++// that stands in for all six as seen from that piece of the city, so pieces near a firework
++// take its colour and far ones stay dark. Off (strength 0) leaves the game's values alone.
++namespace {
++constexpr uint64_t kBbrrSmokeVertexShader = 0xBBFFC644A2E5B64Bull;
++constexpr uint64_t kBbrrCityPixelShaders[] = {0x238C407DFDDF25ECull, 0xC9D2A3BDADE621D6ull,
++                                              0x88B6CCE2F49DB155ull};
++struct BbrrLight {
++  float position[3];
++  float colour[3];
++  float strength;
++};
++BbrrLight bbrr_lights[6];
++uint32_t bbrr_light_count = 0;
++uint64_t bbrr_lights_frame = ~uint64_t(0);
++float bbrr_strength_scale = 0.0f;  // the game's c17.x per unit of light strength, once seen
++uint32_t bbrr_light_log_lines = 0;
++uint64_t bbrr_light_log_frame = 0;
++
++struct BbrrBox {
++  float lo[3];
++  float hi[3];
++  bool valid;
++};
++std::unordered_map<uint64_t, BbrrBox> bbrr_boxes;
++
++// Puts back the constants a draw was given once the draw has been issued.
++struct BbrrConstantGuard {
++  uint32_t* slots[8] = {};
++  uint32_t saved[8] = {};
++  int count = 0;
++  bool* up_to_date = nullptr;
++  void Set(uint32_t* slot, float value) {
++    if (count >= 8) return;
++    slots[count] = slot;
++    saved[count] = *slot;
++    std::memcpy(slot, &value, sizeof(float));
++    ++count;
++  }
++  ~BbrrConstantGuard() {
++    for (int i = 0; i < count; ++i) *slots[i] = saved[i];
++    if (count && up_to_date) *up_to_date = false;
++  }
++};
++
++void BbrrReadFloats(const RegisterFile& regs, uint32_t first_register, uint32_t constant, float out[4]) {
++  std::memcpy(out, &regs[first_register + (constant << 2)], 4 * sizeof(float));
++}
++
++// The box a draw's vertices fill (world space for the city), worked out once per mesh piece.
++const BbrrBox& BbrrDrawBox(const RegisterFile& regs, const memory::Memory& memory, const Shader& vertex_shader,
++                           bool indexed, uint32_t index_base, bool index_32bit, xenos::Endian index_endian,
++                           uint32_t index_count) {
++  const Shader::VertexBinding* binding = nullptr;
++  int32_t position_offset = 0;
++  for (const Shader::VertexBinding& b : vertex_shader.vertex_bindings()) {
++    for (const Shader::VertexBinding::Attribute& a : b.attributes) {
++      if (a.fetch_instr.attributes.data_format == xenos::VertexFormat::k_32_32_32_FLOAT) {
++        binding = &b;
++        position_offset = a.fetch_instr.attributes.offset * 4;
++        break;
++      }
++    }
++    if (binding) break;
++  }
++  uint32_t address = 0, size = 0, stride = 0;
++  xenos::Endian endian = xenos::Endian::kNone;
++  if (binding && binding->stride_words && position_offset >= 0) {
++    const xenos::xe_gpu_vertex_fetch_t fetch = regs.GetVertexFetch(binding->fetch_constant);
++    address = uint32_t(fetch.address) << 2;
++    size = uint32_t(fetch.size) << 2;
++    stride = binding->stride_words * 4;
++    endian = fetch.endian;
++  }
++  const uint32_t index_offset = regs.Get<reg::VGT_INDX_OFFSET>().indx_offset;
++  const uint64_t key = (uint64_t(address) << 32) ^ (uint64_t(index_base) * 0x9E3779B97F4A7C15ull) ^
++                       (uint64_t(index_count) << 20) ^ index_offset;
++  auto found = bbrr_boxes.find(key);
++  if (found != bbrr_boxes.end()) return found->second;
++  if (bbrr_boxes.size() > 20000) bbrr_boxes.clear();
++  BbrrBox box = {};
++  const uint8_t* vertices = stride ? memory.TranslatePhysical<const uint8_t*>(address) : nullptr;
++  const uint8_t* indices = indexed ? memory.TranslatePhysical<const uint8_t*>(index_base) : nullptr;
++  if (vertices && (endian == xenos::Endian::k8in32 || endian == xenos::Endian::kNone) && (!indexed || indices)) {
++    const bool swap = endian == xenos::Endian::k8in32;
++    const uint32_t step = std::max(uint32_t(1), index_count / 3000);
++    uint32_t used = 0;
++    for (uint32_t i = 0; i < index_count; i += step) {
++      uint32_t index = i;
++      if (indices) {
++        if (index_32bit) {
++          uint32_t raw;
++          std::memcpy(&raw, indices + size_t(i) * 4, 4);
++          index = index_endian == xenos::Endian::k8in32 ? BbrrSwap32(raw) : raw;
++        } else {
++          uint16_t raw;
++          std::memcpy(&raw, indices + size_t(i) * 2, 2);
++          index = index_endian == xenos::Endian::k8in16 ? uint32_t(uint16_t((raw >> 8) | (raw << 8))) : raw;
++        }
++      }
++      index = (index + index_offset) & 0xFFFFFFu;
++      const uint64_t offset = uint64_t(index) * stride + uint32_t(position_offset);
++      if (offset + 12 > size) continue;
++      float p[3];
++      bool finite = true;
++      for (int k = 0; k < 3; ++k) {
++        uint32_t raw;
++        std::memcpy(&raw, vertices + offset + size_t(k) * 4, 4);
++        if (swap) raw = BbrrSwap32(raw);
++        std::memcpy(&p[k], &raw, 4);
++        finite = finite && std::isfinite(p[k]);
++      }
++      if (!finite) continue;
++      for (int k = 0; k < 3; ++k) {
++        box.lo[k] = used ? std::min(box.lo[k], p[k]) : p[k];
++        box.hi[k] = used ? std::max(box.hi[k], p[k]) : p[k];
++      }
++      ++used;
++    }
++    box.valid = used >= 3;
++  }
++  return bbrr_boxes.emplace(key, box).first->second;
++}
++
++// The smoke draw comes before the city in a frame: note the lights it was given.
++void BbrrNoteLights(const RegisterFile& regs) {
++  bbrr_light_count = 0;
++  for (uint32_t k = 0; k < 6; ++k) {
++    float position[4], colour[4];
++    BbrrReadFloats(regs, XE_GPU_REG_SHADER_CONSTANT_000_X, 8 + k, position);
++    BbrrReadFloats(regs, XE_GPU_REG_SHADER_CONSTANT_000_X, 16 + k, colour);
++    const float sum = colour[0] + colour[1] + colour[2];
++    if (!(colour[3] > 0.0f) || !(sum > 0.0f) || !std::isfinite(sum) || !std::isfinite(colour[3]) ||
++        !std::isfinite(position[0] + position[1] + position[2])) {
++      continue;
++    }
++    BbrrLight& light = bbrr_lights[bbrr_light_count++];
++    std::memcpy(light.position, position, sizeof(light.position));
++    std::memcpy(light.colour, colour, sizeof(light.colour));
++    light.strength = colour[3];
++  }
++  bbrr_lights_frame = bbrr_frame;
++}
++
++// Gives a city draw its own light. Returns false when there is nothing to change.
++bool BbrrLightCityDraw(RegisterFile& regs, const BbrrBox& box, float strength, BbrrConstantGuard& guard) {
++  const uint32_t pixel_base = XE_GPU_REG_SHADER_CONSTANT_256_X;
++  float game_position[4], game_colour[4], game_strength[4];
++  BbrrReadFloats(regs, pixel_base, 15, game_position);
++  BbrrReadFloats(regs, pixel_base, 16, game_colour);
++  BbrrReadFloats(regs, pixel_base, 17, game_strength);
++
++  // How the game turns a light's strength into the city shader's c17.x: taken from the light
++  // the game itself chose for the city (the one at c15), whenever that can be seen.
++  for (uint32_t j = 0; j < bbrr_light_count; ++j) {
++    const BbrrLight& light = bbrr_lights[j];
++    const float dx = light.position[0] - game_position[0], dy = light.position[1] - game_position[1],
++                dz = light.position[2] - game_position[2];
++    if (dx * dx + dy * dy + dz * dz < 4.0f && game_strength[0] > 0.0f) {
++      bbrr_strength_scale = game_strength[0] / light.strength;
++      break;
++    }
++  }
++  if (bbrr_light_count == 0) return false;
++  // Until the game's own value has been seen, take strength as it is (the log line shows a
++  // scale of 0 while that is the case).
++  const float strength_scale = bbrr_strength_scale > 0.0f ? bbrr_strength_scale : 1.0f;
++
++  // The point of this piece nearest the brightest light.
++  uint32_t brightest = 0;
++  float brightest_value = -1.0f;
++  for (uint32_t j = 0; j < bbrr_light_count; ++j) {
++    const BbrrLight& light = bbrr_lights[j];
++    const float value = light.strength * (light.colour[0] + light.colour[1] + light.colour[2]);
++    if (value > brightest_value) {
++      brightest_value = value;
++      brightest = j;
++    }
++  }
++  float q[3];
++  for (int k = 0; k < 3; ++k) q[k] = std::clamp(bbrr_lights[brightest].position[k], box.lo[k], box.hi[k]);
++
++  // Light arriving at that point from every firework, and where it comes from on average.
++  const float kNearest = 150.0f * 150.0f;
++  float arriving[3] = {0, 0, 0}, from[3] = {0, 0, 0}, weight_sum = 0;
++  for (uint32_t j = 0; j < bbrr_light_count; ++j) {
++    const BbrrLight& light = bbrr_lights[j];
++    float d2 = 0;
++    for (int k = 0; k < 3; ++k) d2 += (q[k] - light.position[k]) * (q[k] - light.position[k]);
++    const float e = light.strength / std::max(d2, kNearest);
++    const float weight = e * (light.colour[0] + light.colour[1] + light.colour[2]);
++    for (int k = 0; k < 3; ++k) {
++      arriving[k] += e * light.colour[k];
++      from[k] += weight * light.position[k];
++    }
++    weight_sum += weight;
++  }
++  if (!(weight_sum > 0.0f) || !std::isfinite(weight_sum)) return false;
++  float d2 = 0;
++  for (int k = 0; k < 3; ++k) {
++    from[k] /= weight_sum;
++    d2 += (q[k] - from[k]) * (q[k] - from[k]);
++  }
++  d2 = std::max(d2, kNearest);
++  float colour[3];
++  for (int k = 0; k < 3; ++k) colour[k] = arriving[k] * d2;
++  const float out_strength = strength_scale * strength;
++  if (!std::isfinite(colour[0] + colour[1] + colour[2] + from[0] + from[1] + from[2])) return false;
++
++  for (int k = 0; k < 3; ++k) {
++    guard.Set(&regs[pixel_base + (15 << 2) + uint32_t(k)], from[k]);
++    guard.Set(&regs[pixel_base + (16 << 2) + uint32_t(k)], colour[k]);
++  }
++  guard.Set(&regs[pixel_base + (17 << 2)], out_strength);
++
++  if (bbrr_light_log_lines < 120 && bbrr_frame >= bbrr_light_log_frame) {
++    bbrr_light_log_frame = bbrr_frame + 120;
++    ++bbrr_light_log_lines;
++    char line[512];
++    std::snprintf(line, sizeof(line),
++                  "%u lights, first at (%.0f %.0f %.0f) colour (%.3g %.3g %.3g) strength %.4g | game: c15 (%.0f %.0f "
++                  "%.0f %.3g) c16 (%.3g %.3g %.3g %.3g) c17 (%.4g %.3g %.3g %.3g) | scale %.4g | this piece: light "
++                  "at (%.0f %.0f %.0f) colour (%.3g %.3g %.3g) strength %.4g",
++                  bbrr_light_count, double(bbrr_lights[0].position[0]), double(bbrr_lights[0].position[1]),
++                  double(bbrr_lights[0].position[2]), double(bbrr_lights[0].colour[0]),
++                  double(bbrr_lights[0].colour[1]), double(bbrr_lights[0].colour[2]),
++                  double(bbrr_lights[0].strength), double(game_position[0]), double(game_position[1]),
++                  double(game_position[2]), double(game_position[3]), double(game_colour[0]),
++                  double(game_colour[1]), double(game_colour[2]), double(game_colour[3]), double(game_strength[0]),
++                  double(game_strength[1]), double(game_strength[2]), double(game_strength[3]),
++                  double(bbrr_strength_scale), double(from[0]), double(from[1]), double(from[2]), double(colour[0]),
++                  double(colour[1]), double(colour[2]), double(out_strength));
++    REXLOG_INFO("[bbrr] city light: {}", line);
++  }
++  return true;
++}
++}  // namespace
++
+ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint32_t index_count,
+                                       IndexBufferInfo* index_buffer_info,
+                                       bool major_mode_explicit) {
+@@ -2525,6 +2774,31 @@
+   bool memexport_used = memexport_used_vertex || memexport_used_pixel;
+ 
+   // Boom Boom Rocket Revolution (patch 0009): details of each draw while the draw list is logged.
++  // Boom Boom Rocket Revolution (patch 0011): city lighting. The guard puts the game's own
++  // constants back when this draw has been issued.
++  BbrrConstantGuard bbrr_city_light;
++  {
++    const uint64_t bbrr_vs_hash = vertex_shader->ucode_data_hash();
++    if (bbrr_vs_hash == kBbrrSmokeVertexShader) BbrrNoteLights(regs);
++    const float bbrr_strength = rex::graphics::CityLighting();
++    if (bbrr_strength > 0.0f && pixel_shader && bbrr_lights_frame == bbrr_frame) {
++      const uint64_t bbrr_ps_hash = pixel_shader->ucode_data_hash();
++      bool bbrr_city = false;
++      for (uint64_t hash : kBbrrCityPixelShaders) bbrr_city = bbrr_city || hash == bbrr_ps_hash;
++      if (bbrr_city) {
++        const BbrrBox& bbrr_box = BbrrDrawBox(
++            regs, *memory_, *vertex_shader, index_buffer_info != nullptr,
++            index_buffer_info ? index_buffer_info->guest_base : 0,
++            index_buffer_info && index_buffer_info->format == xenos::IndexFormat::kInt32,
++            index_buffer_info ? index_buffer_info->endianness : xenos::Endian::kNone, index_count);
++        if (bbrr_box.valid && BbrrLightCityDraw(*register_file_, bbrr_box, bbrr_strength, bbrr_city_light)) {
++          bbrr_city_light.up_to_date = &cbuffer_binding_float_pixel_.up_to_date;
++          cbuffer_binding_float_pixel_.up_to_date = false;
++        }
++      }
++    }
++  }
++
+   if (pixel_shader && rex::graphics::ConstantWatch() == pixel_shader->ucode_data_hash()) {
+     BbrrWatchConstants(regs, pixel_shader->ucode_data_hash());
+   }
+diff --git a/src/ui/d3d12/d3d12_presenter.cpp b/src/ui/d3d12/d3d12_presenter.cpp
+--- a/src/ui/d3d12/d3d12_presenter.cpp
++++ b/src/ui/d3d12/d3d12_presenter.cpp
+@@ -2157,6 +2157,12 @@
+ namespace {
+ std::atomic<uint64_t> g_constant_watch{0};
+ }  // namespace
++namespace {
++std::atomic<float> g_city_lighting{0.0f};
++}  // namespace
++void SetCityLighting(float strength) { g_city_lighting.store(strength, std::memory_order_relaxed); }
++float CityLighting() { return g_city_lighting.load(std::memory_order_relaxed); }
++
+ void SetConstantWatch(uint64_t pixel_hash) { g_constant_watch.store(pixel_hash, std::memory_order_relaxed); }
+ uint64_t ConstantWatch() { return g_constant_watch.load(std::memory_order_relaxed); }
+ 
+diff --git a/include/rex/graphics/hidden_shaders.h b/include/rex/graphics/hidden_shaders.h
+--- a/include/rex/graphics/hidden_shaders.h
++++ b/include/rex/graphics/hidden_shaders.h
+@@ -25,4 +25,9 @@
+ // they change.
+ void SetConstantWatch(uint64_t pixel_hash);
+ uint64_t ConstantWatch();
++
++// Patch 0011: city lighting. 0 = off (the game's own single light); above 0, every piece of
++// the city is lit by all the fireworks near it, times this strength.
++void SetCityLighting(float strength);
++float CityLighting();
+ }  // namespace rex::graphics
