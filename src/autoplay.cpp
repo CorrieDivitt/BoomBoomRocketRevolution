@@ -140,6 +140,11 @@ std::string bbr::AutoplayCommand(const std::string& command) {
 REX_HOOK_RAW(sub_820E6E50) {
   const uint32_t user = ctx.r3.u32, state = ctx.r4.u32;
   __imp__sub_820E6E50(ctx, base);
+  if (ctx.r3.u32 == 0 && state >= 0x10000) {
+    uint16_t read;
+    std::memcpy(&read, base + state + 4, 2);
+    bbr::NoteGuestButtons(user, __builtin_bswap16(read));
+  }
   if (!REXCVAR_GET(autoplay) || user != 0 || state < 0x10000 || !g_song_on.load()) return;
   const Clock::time_point t = Clock::now();
   double now = 0;

@@ -174,6 +174,11 @@ function Init()
     duration = UIGlobals.screen_timers.default_end
   }
 
+  -- Long pages (Keyboard) put the rows closer together so they fit above the button hints.
+  if GUI.num_items > 8 then
+    spinner.height = math.floor(288 / GUI.num_items)
+  end
+
   local from_left = true
   for i = 1, GUI.num_items do
     local row = GUI.rows[i]

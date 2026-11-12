@@ -43,7 +43,11 @@ different folder.
 | | DDR Mode | Off (default) or On: a novelty mode like DDR. Arrows climb straight up in four lanes in the middle of the screen, sorted by button: Left (X), Down (A), Up (Y), Right (B). Two arrows of the same button on the same beat share a lane and overlap. Changes at once |
 | | Background | Default or Off: when Off, during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
 | | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. While the song plays your own A, B, X and Y presses are ignored (they work again in the pause menu). For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and earns no achievements; and once it has been used the game does not save its profile again until it is restarted |
-| (main page) | Visualizer Sensitivity | Low, Normal (default), High, Very High: how strongly the Visualizer reacts to the music playing on the PC (Single Player > Visualizer, with music playing in any app). The music's loudness is evened out first, so the PC's volume does not matter |
+| Keyboard | Use Keyboard | On (default) or Off: play with the keyboard. Default keys: W A S D are the face buttons where they sit on a pad (W = Y, A = X, S = A, D = B), arrow keys the d-pad, Enter also A, Backspace also B, Esc Start (pause), Q / E LB / RB (scroll speed), Space both triggers (Bonus Run), Tab Back |
+| | D-pad | Arrow Keys, Numpad 8 4 2 6 or I J K L |
+| | A, B, X, Y, LB, RB, Triggers, Start | Each row shows its key. Press A (S or Enter) on a row, then the new key: it becomes that button's only key and is taken off any other button. Esc cancels (except on the Start row). The keys are also in settings.ini |
+| | Reset Keys | A puts the default keys back |
+| | Visualizer Sensitivity | Low, Normal (default), High, Very High: how strongly the Visualizer reacts to the music playing on the PC (Single Player > Visualizer, with music playing in any app). The music's loudness is evened out first, so the PC's volume does not matter |
 | | Skip Intro | Skips the start-up logos |
 | | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 

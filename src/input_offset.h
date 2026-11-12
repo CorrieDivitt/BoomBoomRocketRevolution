@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 
 namespace bbr {
@@ -18,6 +19,8 @@ std::string HitCommand(const std::string& command);
 // Presses older than a quarter of a second are dropped, so ones made in a menu do not
 // turn up later in a song. Starts the controller thread if it is not running.
 int TakeShoulderSteps();
+// Buttons the game just read for a user (XINPUT bits, host order): LB / RB presses.
+void NoteGuestButtons(uint32_t user, uint16_t buttons);
 
 // The song time now (the clock the game judges and launches by), or false when no song is
 // running steadily (menus, pause).

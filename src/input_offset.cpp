@@ -188,14 +188,9 @@ void ControllerThread() {
       const uint16_t buttons = state.buttons & kWatched;
       if (buttons & ~previous[pad]) g_last_press.store(Now(), std::memory_order_relaxed);
       previous[pad] = buttons;
-      // LB (0x0100) / RB (0x0200): scroll speed down / up (src/modifiers.cpp).
-      const uint16_t shoulders = state.buttons & 0x0300;
-      const uint16_t pressed = shoulders & ~previous_shoulders[pad];
-      previous_shoulders[pad] = shoulders;
-      if (pressed) {
-        g_shoulder_steps.fetch_add(((pressed & 0x0200) ? 1 : 0) - ((pressed & 0x0100) ? 1 : 0));
-        g_shoulder_time.store(Now(), std::memory_order_relaxed);
-      }
+      // LB / RB are taken from the game's own controller read instead (NoteGuestButtons),
+      // which also sees the keyboard and non-XInput pads.
+      (void)previous_shoulders;
     }
     Sleep(1);
   }
@@ -502,6 +497,21 @@ bool bbr::SongTimeNow(double* out) {
   if (now - latest.host > 0.1) return false;  // song clock not running (menu, pause)
   *out = latest.time + (now - latest.host);
   return true;
+}
+
+// The game's controller read (src/autoplay.cpp hook on sub_820E6E50): LB (0x0100) / RB
+// (0x0200) presses step the scroll speed down / up (src/modifiers.cpp). Every source the game
+// sees counts: XInput and SDL pads and the keyboard (Q / E).
+void bbr::NoteGuestButtons(uint32_t user, uint16_t buttons) {
+  static uint16_t previous[4] = {};
+  if (user >= 4) return;
+  const uint16_t shoulders = buttons & 0x0300;
+  const uint16_t pressed = shoulders & ~previous[user];
+  previous[user] = shoulders;
+  if (pressed) {
+    g_shoulder_steps.fetch_add(((pressed & 0x0200) ? 1 : 0) - ((pressed & 0x0100) ? 1 : 0));
+    g_shoulder_time.store(Now(), std::memory_order_relaxed);
+  }
 }
 
 int bbr::TakeShoulderSteps() {

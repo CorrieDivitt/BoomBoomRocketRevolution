@@ -838,11 +838,11 @@
   "category": "Input",
   "title": "Keyboard support & rebinding",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Default 4-colour + D-pad mapping; full rebinding UI",
   "depends_on": "R-601",
-  "notes": ""
+  "notes": " 2026-11-12, built, untested: the SDK already emulates a pad from the keyboard (--mnk_mode, keybind_* cvars). The port turns it on by default (BBRR Settings > Keyboard) with its own keys: W A S D face buttons in pad positions, arrows d-pad, Enter = A too, Backspace = B too, Esc = Start, Tab = Back, Q / E = LB / RB, Space = both triggers, sticks unbound; saved in settings.ini. Rebinding page: next. Default keys and Q/E speed steps confirmed 2026-11-12 (LB/RB now read from the game's own controller read, NoteGuestButtons, so the keyboard and SDL pads count). Then, untested: Keyboard page (src/keyboard.cpp): Use Keyboard, D-pad (arrows / numpad / IJKL), one row per button showing its keys (STR92-99), A then a key rebinds (key taken off other buttons, Esc cancels, guest input held meanwhile), Reset Keys. Keyboard page confirmed 2026-11-12; Use Keyboard now only changes when the page is saved (switching it at once locked the keyboard out, and adding the keyboard device made a held pad press count twice)."
  },
  {
   "id": "R-603",

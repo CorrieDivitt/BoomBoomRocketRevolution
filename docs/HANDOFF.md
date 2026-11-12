@@ -52,6 +52,9 @@ above 1x; the multiplayer song list (has length and BPM, no speed panel or butto
   Visualizer fed by the PC's sound (src/visualizer.cpp: XMPCaptureOutput answered, WASAPI
   process loopback, Visualizer Sensitivity), both confirmed. Next candidates: keyboard (R-602),
   controllers (R-601), full playthrough (R-110).
+- Then keyboard (R-602, done): SDK keyboard emulation on by default with W A S D / arrows
+  (KeyboardDefaults in src/settings.cpp), Keyboard page with rebinding (src/keyboard.cpp),
+  LB/RB speed steps read from the game's own controller read (any pad, keyboard Q/E).
 - Other modern rhythm-game features under Modifiers (R-801 research list).
   R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).

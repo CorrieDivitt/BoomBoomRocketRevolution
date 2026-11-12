@@ -12,6 +12,7 @@
 #include "input_offset.h"
 #include "autoplay.h"
 #include "profiles.h"
+#include "keyboard.h"
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -110,6 +111,8 @@ const std::vector<Setting>& Settings() {
                  {{"true", "Default"}, {"false", "Off"}}, 0, "modifiers"});
     // Arrows in four lanes by button, like DDR (src/modifiers.cpp).
     s.push_back({"ddr_mode", "ddr_mode", "DDR Mode", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
+    // Keyboard as a controller (W A S D face buttons, arrow-key d-pad; see KeyboardDefaults).
+    s.push_back({"keyboard", "mnk_mode", "Use Keyboard", {{"false", "Off"}, {"true", "On"}}, 1, "keyboard"});
     // How strongly the Visualizer reacts to the PC's music (src/visualizer.cpp).
     s.push_back({"visualizer", "visualizer_sensitivity", "Visualizer Sensitivity",
                  {{"0.5", "Low"}, {"1", "Normal"}, {"2", "High"}, {"4", "Very High"}}, 1, "main"});
@@ -128,7 +131,11 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "visualizer", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "page:keyboard", "visualizer", "skip_intro", "layout"}},
+      // Rows other than "keyboard" handled by src/keyboard.cpp.
+      {"keyboard", "Keyboard", {"keyboard", "keyboard_dpad", "action:bind_a", "action:bind_b", "action:bind_x",
+                                "action:bind_y", "action:bind_lb", "action:bind_rb", "action:bind_triggers",
+                                "action:bind_start", "action:keys_reset"}},
       // Rows handled by src/profiles.cpp.
       {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
       {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
@@ -161,6 +168,35 @@ void SetAtBoot(const std::string& cvar, const std::string& value) {
 #else
   setenv(env.c_str(), value.c_str(), 1);
 #endif
+}
+
+// Keyboard (the SDK's keyboard-as-controller, --mnk_mode): the port's own default keys,
+// replacing the SDK's. Face buttons on W A S D in the same places as on the pad (W = Y, A = X,
+// S = A, D = B), d-pad on the arrow keys. Enter also confirms (A), Esc pauses (Start),
+// Backspace also goes back (B), Q / E are LB / RB (scroll speed), Space pulls both triggers
+// (Bonus Run). Sticks are not used by the game, so they get no keys. Saved in settings.ini
+// with the other settings, so they can be changed there (and later on a settings page).
+const std::vector<std::pair<std::string, std::string>>& KeyboardDefaults() {
+  static const std::vector<std::pair<std::string, std::string>> keys = {
+      {"keybind_a", "S,Return"},        {"keybind_b", "D,Backspace"},
+      {"keybind_x", "A"},               {"keybind_y", "W"},
+      {"keybind_dpad_up", "Up"},        {"keybind_dpad_down", "Down"},
+      {"keybind_dpad_left", "Left"},    {"keybind_dpad_right", "Right"},
+      {"keybind_left_shoulder", "Q"},   {"keybind_right_shoulder", "E"},
+      {"keybind_left_trigger", "Space"}, {"keybind_right_trigger", "Space"},
+      {"keybind_start", "Escape"},      {"keybind_back", "Tab"},
+      {"keybind_guide", ""},
+      {"keybind_lstick_up", ""},        {"keybind_lstick_down", ""},
+      {"keybind_lstick_left", ""},      {"keybind_lstick_right", ""},
+      {"keybind_lstick_press", ""},     {"keybind_rstick_up", ""},
+      {"keybind_rstick_down", ""},      {"keybind_rstick_left", ""},
+      {"keybind_rstick_right", ""},     {"keybind_rstick_press", ""},
+  };
+  return keys;
+}
+bool IsKeybind(const std::string& cvar) {
+  for (const auto& [name, keys] : KeyboardDefaults()) if (name == cvar) return true;
+  return false;
 }
 
 const Setting* Find(const std::string& key) {
@@ -302,6 +338,9 @@ void LoadSettings() {
     return from_command_line(cvar) || (cvar == "resolution_scale" && custom_resolution);
   };
   std::map<std::string, std::string> intended;  // what we asked for, per cvar
+  for (const auto& [cvar, keys] : KeyboardDefaults()) {
+    if (!locked(cvar)) SetAtBoot(cvar, keys);
+  }
   for (const Setting& s : Settings()) {
     if (!locked(s.cvar)) {
       SetAtBoot(s.cvar, s.choices[s.default_choice].value);
@@ -331,7 +370,7 @@ void LoadSettings() {
     const size_t eq = line.find('=');
     if (line.empty() || line[0] == '#' || eq == std::string::npos) continue;
     const std::string cvar = Trim(line.substr(0, eq)), value = Trim(line.substr(eq + 1));
-    bool known = false;
+    bool known = IsKeybind(cvar);
     for (const Setting& s : Settings()) known |= (s.cvar == cvar);
     if (!known || locked(cvar)) continue;
     SetAtBoot(cvar, value);
@@ -354,19 +393,28 @@ void ExitSoon() {
 #endif
 }
 
+int g_pending_keyboard = -1;  // Use Keyboard choice waiting for the page to be saved (0-based)
+
 std::string SettingsCommand(const std::string& command, const std::string& key, const std::string& value) {
   if (command == "bbrr.save") {
+    if (g_pending_keyboard >= 0) {
+      if (const Setting* k = Find("keyboard")) Apply(*k, size_t(g_pending_keyboard));
+      g_pending_keyboard = -1;
+    }
     std::error_code ec;
     std::filesystem::create_directories(FilePath().parent_path(), ec);
     std::ofstream out(FilePath(), std::ios::trunc);
     out << "# Boom Boom Rocket Revolution settings (written by the in-game settings screen)\n";
     for (const Setting& s : Settings()) out << s.cvar << " = " << rex::cvar::GetFlagByName(s.cvar) << "\n";
+    out << "# Keyboard keys (names as in the SDK's keybinds, several separated by commas, empty = none)\n";
+    for (const auto& [cvar, keys] : KeyboardDefaults()) out << cvar << " = " << rex::cvar::GetFlagByName(cvar) << "\n";
     REXLOG_INFO("[settings] saved to {}", FilePath().string());
     ProfilesCommand("bbrr.profiles.save", "", "");
     return "ok";
   }
   if (command == "bbrr.count" || command == "bbrr.key" || command == "bbrr.note") {
     if (command == "bbrr.count" && key == "profiles") ProfilesCommand("bbrr.profiles.show", "", "");
+    if (command == "bbrr.count" && key == "keyboard") KeyboardCommand("bbrr.keyboard.show", "", "");
     const Page* page = FindPage(key);
     if (!page) return command == "bbrr.key" ? "" : "0";
     if (command == "bbrr.count") return std::to_string(page->rows.size());
@@ -455,6 +503,17 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     RestartGame();
     return "ok";
   }
+  if (command == "bbrr.keys.reset") {
+    for (const auto& [cvar, keys] : KeyboardDefaults()) rex::cvar::SetFlagByName(cvar, keys);
+    SettingsCommand("bbrr.save", "", "");
+    REXLOG_INFO("[keyboard] default keys restored");
+    return "ok";
+  }
+  if ((command == "bbrr.action" && IsKeyboardAction(key)) ||
+      (IsKeyboardKey(key) && (command == "bbrr.choices" || command == "bbrr.get" || command == "bbrr.set" ||
+                              command == "bbrr.default" || command == "bbrr.label"))) {
+    return KeyboardCommand(command, key, value);
+  }
   if (command.rfind("bbrr.profiles.", 0) == 0 || command == "bbrr.action" ||
       (IsProfileKey(key) && (command == "bbrr.choices" || command == "bbrr.get" || command == "bbrr.set" ||
                              command == "bbrr.default" || command == "bbrr.label"))) {
@@ -464,6 +523,17 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
   const Setting* s = Find(key);
   if (!s) return "";
   if (command == "bbrr.choices") return std::to_string(s->choices.size());
+  // Use Keyboard only changes when the page is saved (A): turned off at once, the keyboard
+  // driving the menu would stop before it could be turned back on. (Switching it also adds or
+  // removes the keyboard as a device, which made the pad's held d-pad press count twice.)
+  if (s->cvar == "mnk_mode") {
+    if (command == "bbrr.get") return std::to_string(g_pending_keyboard >= 0 ? g_pending_keyboard + 1 : int(CurrentChoice(*s)) + 1);
+    if (command == "bbrr.set") {
+      const long n = std::strtol(value.c_str(), nullptr, 10);
+      if (n >= 1 && size_t(n) <= s->choices.size()) g_pending_keyboard = int(n - 1);
+      return "ok";
+    }
+  }
   if (command == "bbrr.get") return std::to_string(CurrentChoice(*s) + 1);
   if (command == "bbrr.default") return std::to_string(s->default_choice + 1);
   if (command == "bbrr.set") {
@@ -485,6 +555,20 @@ std::string SettingsStrings() {
                     "BBRR_T_action_new_profile = New Profile\n"
                     "BBRR_CREATE = Create\n"
                     "BBRR_NONE = None\n"
+                    "BBRR_RESET = Reset\n"
+                    "BBRR_DPAD_ARROWS = Arrow Keys\n"
+                    "BBRR_DPAD_NUMPAD = Numpad 8 4 2 6\n"
+                    "BBRR_DPAD_IJKL = I J K L\n"
+                    "BBRR_T_keyboard_dpad = D-pad\n"
+                    "BBRR_T_action_bind_a = A (green)\n"
+                    "BBRR_T_action_bind_b = B (red)\n"
+                    "BBRR_T_action_bind_x = X (blue)\n"
+                    "BBRR_T_action_bind_y = Y (yellow)\n"
+                    "BBRR_T_action_bind_lb = LB (speed down)\n"
+                    "BBRR_T_action_bind_rb = RB (speed up)\n"
+                    "BBRR_T_action_bind_triggers = Triggers (Bonus Run)\n"
+                    "BBRR_T_action_bind_start = Start (pause)\n"
+                    "BBRR_T_action_keys_reset = Reset Keys\n"
                     "BBRR_SPEED_LABEL = Scroll Speed\n"
                     "BBRR_SPEED_HINT = ~~{LB}~~ Change ~~{RB}~~\n"
                     "BBRR_BPM = BPM\n"
