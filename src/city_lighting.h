@@ -4,8 +4,9 @@
 namespace bbr {
 // City lighting (R-410), first step: finding out what there is to work with.
 // With --city_light_probe on, one run logs:
-//   - the details of every draw of one frame, 12 s and 25 s into the first song (SDK patch
-//     0009: shader constants and the box each draw's vertices fill);
+//   - the details of every draw of one frame, 12 s into the first song (SDK patches 0009 and
+//     0010: shader constants, vertex layout and box, and each shader's microcode as text);
+//   - the city shader's lighting constants whenever they change (SDK patch 0010);
 //   - the first firework bursts (sub_82075E18) and the first spark emitters with a spark each.
 // Nothing on screen changes.
 

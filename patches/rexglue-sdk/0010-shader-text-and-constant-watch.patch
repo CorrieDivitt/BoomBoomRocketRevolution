@@ -1,0 +1,138 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -14,6 +14,7 @@
+ #include <cstdarg>
+ #include <cstdio>
+ #include <cstring>
++#include <unordered_set>
+ #include <sstream>
+ #include <utility>
+ 
+@@ -2294,7 +2295,7 @@
+                               const Shader& vertex_shader, const Shader* pixel_shader, bool indexed,
+                               uint32_t index_base, bool index_32bit, xenos::Endian index_endian,
+                               uint32_t index_count) {
+-  char line[1536];
++  char line[2560];
+   int at = 0;
+   BBRR_PUT("vs %016llX ps %016llX n %u", static_cast<unsigned long long>(vertex_shader.ucode_data_hash()),
+            static_cast<unsigned long long>(pixel_shader ? pixel_shader->ucode_data_hash() : 0), index_count);
+@@ -2335,6 +2336,14 @@
+     }
+     if (binding) break;
+   }
++  // Patch 0010: every attribute as format@byte offset, per binding.
++  for (const Shader::VertexBinding& b : vertex_shader.vertex_bindings()) {
++    BBRR_PUT(" bind%d[", b.binding_index);
++    for (const Shader::VertexBinding::Attribute& a : b.attributes) {
++      BBRR_PUT("%u@%d ", uint32_t(a.fetch_instr.attributes.data_format), a.fetch_instr.attributes.offset * 4);
++    }
++    BBRR_PUT("]");
++  }
+   if (binding && binding->stride_words && position_offset >= 0) {
+     const xenos::xe_gpu_vertex_fetch_t fetch = regs.GetVertexFetch(binding->fetch_constant);
+     const uint32_t address = uint32_t(fetch.address) << 2;
+@@ -2381,6 +2390,16 @@
+         ++used;
+       }
+     }
++    if (vertices && stride <= 64 && size >= stride) {
++      // Patch 0010: the first vertex as stored (big-endian words).
++      BBRR_PUT(" v0[");
++      for (uint32_t w = 0; w < stride / 4; ++w) {
++        uint32_t raw;
++        std::memcpy(&raw, vertices + size_t(w) * 4, 4);
++        BBRR_PUT("%08X ", swap ? BbrrSwap32(raw) : raw);
++      }
++      BBRR_PUT("]");
++    }
+     BBRR_PUT(" vb %08X stride %u pos+%d end %u idx %s+%u used %u box (%.2f %.2f %.2f)-(%.2f %.2f %.2f)", address,
+              stride, position_offset, uint32_t(fetch.endian), indexed ? (index_32bit ? "32" : "16") : "none",
+              index_offset, used, double(lo[0]), double(lo[1]), double(lo[2]), double(hi[0]), double(hi[1]),
+@@ -2389,6 +2408,46 @@
+     BBRR_PUT(" no float3 position");
+   }
+   REXLOG_INFO("[bbrr] draw detail {}", line);
++
++  // Patch 0010: the microcode of each shader, once per run.
++  static std::unordered_set<uint64_t> disassembled;
++  for (int pass = 0; pass < 2; ++pass) {
++    const Shader* shader = pass == 0 ? &vertex_shader : pixel_shader;
++    if (!shader || !disassembled.insert(shader->ucode_data_hash()).second) continue;
++    REXLOG_INFO("[bbrr] shader {:016X} ({}):\n{}", shader->ucode_data_hash(), pass == 0 ? "vertex" : "pixel",
++                shader->ucode_disassembly());
++  }
++}
++
++// Patch 0010: log the lighting constants of one pixel shader whenever they change (the
++// position in c15 / c19 moves all the time, so only its fourth value counts as a change).
++static void BbrrWatchConstants(const RegisterFile& regs, uint64_t pixel_hash) {
++  static const uint32_t kWatched[] = {1, 5, 7, 11, 12, 15, 19};
++  static float last[rex::countof(kWatched)][4];
++  static uint32_t lines = 0;
++  static uint64_t draws = 0;
++  ++draws;
++  if (lines >= 800) return;
++  float now[rex::countof(kWatched)][4];
++  bool changed = false;
++  for (size_t i = 0; i < rex::countof(kWatched); ++i) {
++    std::memcpy(now[i], &regs[XE_GPU_REG_SHADER_CONSTANT_256_X + (kWatched[i] << 2)], sizeof(now[i]));
++    const bool position = kWatched[i] == 15 || kWatched[i] == 19;
++    for (int k = position ? 3 : 0; k < 4; ++k) {
++      if (std::memcmp(&now[i][k], &last[i][k], sizeof(float)) != 0) changed = true;
++    }
++  }
++  if (!changed) return;
++  std::memcpy(last, now, sizeof(last));
++  ++lines;
++  char line[768];
++  int at = 0;
++  for (size_t i = 0; i < rex::countof(kWatched); ++i) {
++    int n = std::snprintf(line + at, sizeof(line) - size_t(at), " c%u(%.4g %.4g %.4g %.4g)", kWatched[i],
++                          double(now[i][0]), double(now[i][1]), double(now[i][2]), double(now[i][3]));
++    if (n > 0) at = std::min(at + n, int(sizeof(line)) - 1);
++  }
++  REXLOG_INFO("[bbrr] watch {:016X} draw {}:{}", pixel_hash, draws, line);
+ }
+ #undef BBRR_PUT
+ 
+@@ -2466,6 +2525,9 @@
+   bool memexport_used = memexport_used_vertex || memexport_used_pixel;
+ 
+   // Boom Boom Rocket Revolution (patch 0009): details of each draw while the draw list is logged.
++  if (pixel_shader && rex::graphics::ConstantWatch() == pixel_shader->ucode_data_hash()) {
++    BbrrWatchConstants(regs, pixel_shader->ucode_data_hash());
++  }
+   if (rex::graphics::DrawDumpActive()) {
+     BbrrLogDrawDetail(regs, *memory_, *vertex_shader, pixel_shader, index_buffer_info != nullptr,
+                       index_buffer_info ? index_buffer_info->guest_base : 0,
+diff --git a/src/ui/d3d12/d3d12_presenter.cpp b/src/ui/d3d12/d3d12_presenter.cpp
+--- a/src/ui/d3d12/d3d12_presenter.cpp
++++ b/src/ui/d3d12/d3d12_presenter.cpp
+@@ -2154,6 +2154,12 @@
+   for (size_t i = 0; i < count; ++i) g_hidden_pairs.emplace_back(vertex_hashes[i], pixel_hashes[i]);
+ }
+ 
++namespace {
++std::atomic<uint64_t> g_constant_watch{0};
++}  // namespace
++void SetConstantWatch(uint64_t pixel_hash) { g_constant_watch.store(pixel_hash, std::memory_order_relaxed); }
++uint64_t ConstantWatch() { return g_constant_watch.load(std::memory_order_relaxed); }
++
+ void SetHiddenDrawsActive(bool active) { g_hidden_active.store(active, std::memory_order_relaxed); }
+ 
+ bool HiddenDrawsActive() { return g_hidden_active.load(std::memory_order_relaxed); }
+diff --git a/include/rex/graphics/hidden_shaders.h b/include/rex/graphics/hidden_shaders.h
+--- a/include/rex/graphics/hidden_shaders.h
++++ b/include/rex/graphics/hidden_shaders.h
+@@ -20,4 +20,9 @@
+ void DumpDraw(uint64_t vertex_hash, uint64_t pixel_hash, uint32_t primitive_type, uint32_t index_count,
+               bool pixel_shader_used);
+ void DumpFrameEnd();
++
++// Patch 0010: a pixel shader (by hash, 0 = none) whose lighting constants are logged whenever
++// they change.
++void SetConstantWatch(uint64_t pixel_hash);
++uint64_t ConstantWatch();
+ }  // namespace rex::graphics

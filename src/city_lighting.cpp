@@ -29,6 +29,7 @@ REX_EXTERN(__imp__sub_82075E18);
 #if defined(_WIN32)
 namespace rex::graphics {
 void RequestDrawDump(uint32_t frames);  // SDK patch 0005
+void SetConstantWatch(uint64_t pixel_hash);  // SDK patch 0010
 }  // namespace rex::graphics
 #endif
 
@@ -71,7 +72,7 @@ REX_HOOK_RAW(sub_82075E18) {
 void bbr::CityLightProbeEmit(uint8_t* base, uint32_t emitter) {
   static int logged = 0;
   static std::unordered_set<uint32_t> seen;
-  if (logged >= 40 || !REXCVAR_GET(city_light_probe) || emitter < 0x10000) return;
+  if (logged >= 6 || !REXCVAR_GET(city_light_probe) || emitter < 0x10000) return;
   const uint32_t settings = Load32(base, emitter + 36);
   if (settings < 0x10000) return;
   const uint32_t block = Load32(base, settings + 464);
@@ -93,16 +94,22 @@ void bbr::CityLightProbeUpdate(uint8_t* base, bool song_on) {
   static bool was_on = false;
   static Clock::time_point since;
   static int dumps = 0;
-  if (!REXCVAR_GET(city_light_probe) || dumps >= 2) return;
+  static bool watching = false;
+  if (REXCVAR_GET(city_light_probe) && !watching) {
+    // The city's most used pixel shader: log its lighting constants whenever they change.
+    watching = true;
+    rex::graphics::SetConstantWatch(0x238C407DFDDF25ECull);
+  }
+  if (!REXCVAR_GET(city_light_probe) || dumps >= 1) return;
   if (song_on != was_on) {
     was_on = song_on;
     since = Clock::now();
   }
   if (!song_on) return;
   const double seconds = std::chrono::duration<double>(Clock::now() - since).count();
-  if ((dumps == 0 && seconds > 12.0) || (dumps == 1 && seconds > 25.0)) {
+  if (seconds > 12.0) {
     ++dumps;
-    REXLOG_INFO("[city] probe: logging one frame of draws ({} of 2), {:.0f} s into the song", dumps, seconds);
+    REXLOG_INFO("[city] probe: logging one frame of draws, {:.0f} s into the song", seconds);
     rex::graphics::RequestDrawDump(1);
   }
 #else
