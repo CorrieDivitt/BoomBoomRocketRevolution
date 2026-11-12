@@ -968,7 +968,7 @@
   "category": "Release",
   "title": "Licensing decision for project code",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "LICENSE file chosen and compatible with ReXGlue (BSD-3) and FFmpeg terms",
   "depends_on": "",

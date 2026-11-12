@@ -34,3 +34,9 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 
 ## Credits
 ReXGlue SDK, Xenia, XenonRecomp/XenosRecomp, and the Xbox 360 preservation community. Boom Boom Rocket is © Electronic Arts; this project is not affiliated with or endorsed by EA, Bizarre Creations or Microsoft.
+
+## License
+The project's own code is under the [BSD 3-Clause License](LICENSE). Third-party software it uses
+(ReXGlue SDK, Xenia, FFmpeg, SDL and others) is listed with its licenses in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The game itself is not covered and is not
+included: you need your own copy of Boom Boom Rocket.
