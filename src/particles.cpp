@@ -46,10 +46,15 @@ std::mutex g_mutex;
 std::vector<Block> g_blocks;
 double g_applied = -1.0;
 
-double Quality() { return std::clamp(REXCVAR_GET(particle_quality), 0.25, 5.0); }
+// 0 = no sparks at all (see SparkBudgetLeft); otherwise 0.25x to 5x.
+double Quality() {
+  const double q = REXCVAR_GET(particle_quality);
+  return q <= 0.0 ? 0.0 : std::clamp(q, 0.25, 5.0);
+}
 
 uint32_t Scaled(uint32_t original, double quality) {
   if (original == 0) return 0;
+  if (quality <= 0.0) return original;  // counts stay as in the file; no sparks are added at all
   return uint32_t(std::clamp(std::lround(double(original) * quality), 1l, 20000l));
 }
 
@@ -72,6 +77,7 @@ void Store32(uint8_t* base, uint32_t address, uint32_t v) {
 // spark). 68000 was chosen in play: a full song at 5x held there without a crash.
 namespace {
 bool SparkBudgetLeft(PPCContext& ctx, uint8_t* base) {
+  if (Quality() <= 0.0) return false;  // Particle Density 0x: the fireworks make no sparks
   const double limit = std::clamp(REXCVAR_GET(particle_limit), 1000.0, 70000.0);
   return ctx.r3.u32 < 0x10000 || Load32(base, ctx.r3.u32 + 0x2814) < uint32_t(limit);
 }

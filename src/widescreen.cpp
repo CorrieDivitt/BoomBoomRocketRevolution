@@ -44,6 +44,7 @@
 #include "widescreen.h"
 #include "midasm_hooks.h"
 #include "modifiers.h"
+#include "autoplay.h"
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -549,6 +550,7 @@ void bbr::NoteUiScriptLoaded(const char* name) {
   if (!name) return;
   if (std::strncmp(name, "orig:", 5) == 0) name += 5;
   bbr::NoteScreenForNoBackground(name);
+  bbr::AutoplayNoteScreen(name);
   std::lock_guard<std::mutex> lock(g_screen_mutex);
   const bool popup = std::strncmp(name, "Popups\\", 7) == 0 || std::strncmp(name, "Popups/", 7) == 0;
   if (popup && g_under_signature.empty() && !g_last_signature.empty() &&

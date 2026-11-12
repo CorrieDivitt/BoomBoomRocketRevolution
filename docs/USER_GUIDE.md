@@ -25,7 +25,7 @@ different folder.
 | | Window Mode | Fullscreen or Windowed; changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
-| | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; changes at once |
+| | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |
 | Calibration | Auto Calibration | Two short tap tests (sound, then picture) that set the two offsets below |
@@ -34,8 +34,10 @@ different folder.
 | | Show Accuracy | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
 | | Assist Tick | Plays a click at the exact moment of every rocket |
 | Modifiers | Scroll Speed | 0.5x to 4x (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step, without pausing; the new speed shows briefly in the middle of the screen and is saved |
-| | Rocket Acceleration | On (default, the original): arrows speed up as they climb, like rockets. Off: they move at an even pace, which some players find easier to read. Changes at once, also during a song |
-| | No Background | Off (default) or On: during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
+| | Rocket Acceleration | Default (the game's own movement) or Static (arrows move at one even speed along their path the whole way up). Changes at once, also during a song |
+| | Horizontal Drift | Default (the original): arrows drift sideways towards where their firework will go off. Off: each arrow climbs straight up and stays in the screen column where it first appears, even when the camera swings, so none come in from the sides. Changes at once |
+| | Background | Default or Off: when Off, during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
+| | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and once it has been used the game does not save its profile again until it is restarted |
 | (main page) | Skip Intro | Skips the start-up logos |
 | | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 

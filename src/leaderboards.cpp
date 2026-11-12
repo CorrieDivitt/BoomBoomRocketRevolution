@@ -18,6 +18,8 @@
 //
 // Scores are saved to <user folder>/boomboomrocket/leaderboards.txt.
 
+#include "autoplay.h"
+
 #include <rex/filesystem.h>
 #include <rex/hook.h>
 #include <rex/logging.h>
@@ -327,6 +329,12 @@ using namespace bbr::lb;
 // XSessionWriteStats(hSession, xuid, numViews, pViews, pOverlapped)
 REX_HOOK_RAW(sub_8215FA28) {
   g_base = base;
+  if (bbr::AutoplayUsedThisSong()) {
+    // Autoplay was on at some point in this song: no score is kept (src/autoplay.cpp).
+    REXLOG_INFO("[leaderboards] score not saved: Autoplay was used in this song");
+    __imp__sub_8215FA28(ctx, base);
+    return;
+  }
   const uint64_t xuid = ctx.r4.u64;
   const uint32_t num_views = ctx.r5.u32, views = ctx.r6.u32;
   {

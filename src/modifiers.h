@@ -21,4 +21,9 @@ void UpdateNoBackground(uint8_t* base);
 // Called with the name of every UI script the game loads (see src/widescreen.cpp): tells No
 // Background when a song's screens (countdown, HUD) start and end.
 void NoteScreenForNoBackground(const char* name);
+
+// Called from the arrow icon hook with the icon's world position and the game's own clip
+// coordinates for it, to tell which way round the game applies its view matrix (needed by
+// Horizontal Drift).
+void NoteArrowProjection(const float position[3], const float clip[4]);
 }  // namespace bbr

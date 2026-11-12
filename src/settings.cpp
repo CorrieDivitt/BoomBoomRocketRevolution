@@ -10,6 +10,7 @@
 #include <thread>
 #include "metronome.h"
 #include "input_offset.h"
+#include "autoplay.h"
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -87,7 +88,7 @@ const std::vector<Setting>& Settings() {
     // A multiplier on the original particle count: 0.25x steps below 1x, whole steps up to 5x.
     // (10x fills the game's spark system within seconds and has crashed it; 5x stays under half.)
     Setting particles{"particles", "particle_quality", "Particle Density",
-                      {{"0.25", "0.25x"}, {"0.5", "0.5x"}, {"0.75", "0.75x"}}, 3, "video"};
+                      {{"0", "0x"}, {"0.25", "0.25x"}, {"0.5", "0.5x"}, {"0.75", "0.75x"}}, 4, "video"};
     for (int i = 1; i <= 5; ++i) {
       particles.choices.push_back({std::to_string(i), std::to_string(i) + "x"});
     }
@@ -99,9 +100,14 @@ const std::vector<Setting>& Settings() {
                  2, "modifiers"});
     // Arrows speed up as they climb (original) or move at an even pace (src/modifiers.cpp).
     s.push_back({"rocket_acceleration", "rocket_acceleration", "Rocket Acceleration",
-                 {{"true", "On"}, {"false", "Off"}}, 0, "modifiers"});
+                 {{"false", "Default"}, {"true", "Static"}}, 0, "modifiers"});
     // The city is not drawn during a song (src/modifiers.cpp).
-    s.push_back({"no_background", "no_background", "No Background", {{"false", "Off"}, {"true", "On"}}, 0,
+    // Arrows go straight up instead of drifting towards their firework (src/modifiers.cpp).
+    s.push_back({"horizontal_drift", "horizontal_drift", "Horizontal Drift",
+                 {{"true", "Default"}, {"false", "Off"}}, 0, "modifiers"});
+    // Every rocket hit at 0 ms; songs that used it save no score (src/autoplay.cpp).
+    s.push_back({"autoplay", "autoplay", "Autoplay", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
+    s.push_back({"no_background", "no_background", "Background", {{"false", "Default"}, {"true", "Off"}}, 0,
                  "modifiers"});
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
@@ -115,7 +121,7 @@ const std::vector<Setting>& Settings() {
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
       {"main", "BBRR Settings", {"page:video", "page:timing", "page:modifiers", "skip_intro", "layout"}},
-      {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "no_background"}},
+      {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "no_background", "autoplay"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
@@ -365,6 +371,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
   if (command.rfind("bbrr.metro.", 0) == 0) return MetronomeCommand(command, key, value);
   if (command.rfind("bbrr.hit.", 0) == 0) return HitCommand(command);
   if (command.rfind("bbrr.speed.", 0) == 0) return SpeedCommand(command);
+  if (command.rfind("bbrr.autoplay.", 0) == 0) return AutoplayCommand(command);
   if (command == "bbrr.ui.keep") {
     // key = "x0,y0,x1,y1": a rectangle whose contents must not follow a window edge.
     float r[4];

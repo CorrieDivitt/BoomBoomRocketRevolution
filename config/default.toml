@@ -75,6 +75,13 @@ address = 0x8206A418
 name = "BbrArrowEaseHook"
 registers = ["f30", "f31", "f11"]
 
+# Same function, where both branches meet again with the rocket's new position at r1+80
+# (x, y, z) just before it is written to the rocket (Horizontal Drift).
+[[midasm_hook]]
+address = 0x8206A4C8
+name = "BbrArrowDriftHook"
+registers = ["r31", "r1"]
+
 [[midasm_hook]]
 address = 0x8206A874
 name = "BbrArrowIconHook"

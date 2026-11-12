@@ -17,6 +17,10 @@ end
 local HEIGHT = 18
 local BOX_BOTTOM = 336  -- lower edge of the results box, in layout units
 local game_Init = Init
+local game_Update = Update
+-- Autoplay (src/autoplay.cpp): once it has been used in this run, the game's profile save is
+-- skipped, so no autoplayed score can reach the save file.
+local no_save = false
 
 -- One centred orange line below the results box, fading out with the screen.
 local function AddLine(y, text)
@@ -45,6 +49,10 @@ end
 
 function Init(...)
   game_Init(...)
+  no_save = BBRR("bbrr.autoplay.nosave") == "1"
+  if no_save and GUI ~= nil then
+    GUI.save_needed = false
+  end
   -- On a wide screen the results box, its labels and values and the Rating beside it stay
   -- together in the middle; only the button prompts below (about y = 420) follow the edges.
   BBRR("bbrr.ui.keep", "-300,0,940," .. (BOX_BOTTOM + 64))
@@ -58,4 +66,11 @@ function Init(...)
   if BBRR("bbrr.hit.advice") == "1" then
     AddLine(y, "STR118")
   end
+end
+
+function Update(...)
+  if no_save and GUI ~= nil then
+    GUI.save_needed = false
+  end
+  return game_Update(...)
 end

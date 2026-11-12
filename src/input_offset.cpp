@@ -32,6 +32,8 @@
 // affected; arrows and music are not.
 
 #include "input_offset.h"
+#include "autoplay.h"
+#include "modifiers.h"
 #include "metronome.h"
 #include "midasm_hooks.h"
 #include "widescreen.h"
@@ -404,7 +406,15 @@ REX_HOOK_RAW(sub_82066700) {
   StoreU32(base, slot, kUnjudged);
 
   double centre;
-  if (precise) {
+  double autoplay_time;
+  if (bbr::AutoplayOn() && bbr::AutoplayPressedFor(rocket) && RocketTime(base, rocket, &autoplay_time) &&
+      std::fabs(autoplay_time - 0.5 * (double(start) + double(end))) < 0.05) {
+    // Autoplay pressed for this rocket, which is due now: judge the press at exactly its
+    // time (0 ms). Rockets due later, and the player's own presses, are judged as usual.
+    centre = autoplay_time;
+    StoreFloat(base, kPressSpanEnd, float(centre + kHalfSpanSeconds));
+    StoreFloat(base, kPressSpanStart, float(centre - kHalfSpanSeconds));
+  } else if (precise) {
     centre = press_time - shift;
     StoreFloat(base, kPressSpanEnd, float(centre + kHalfSpanSeconds));
     StoreFloat(base, kPressSpanStart, float(centre - kHalfSpanSeconds));
@@ -422,6 +432,7 @@ REX_HOOK_RAW(sub_82066700) {
     StoreU32(base, slot, accuracy_before);  // nothing was judged
     return;
   }
+  bbr::AutoplayNoteJudged(base, rocket);
   double rocket_time;
   const float accuracy = LoadFloat(base, slot);
   if (accuracy > 0.0f && RocketTime(base, rocket, &rocket_time)) {
@@ -453,6 +464,13 @@ void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1) {
     }
     if (!place) place = &g_arrows[g_arrow_next++ % kArrows];
     *place = {rocket, LoadFloat(base, r1.u32 + 0x50) / w, LoadFloat(base, r1.u32 + 0x54) / w};
+    const float position[3] = {LoadFloat(base, r31.u32 + 12), LoadFloat(base, r31.u32 + 16),
+                               LoadFloat(base, r31.u32 + 20)};
+    const float clip[4] = {LoadFloat(base, r1.u32 + 0x50), LoadFloat(base, r1.u32 + 0x54),
+                           LoadFloat(base, r1.u32 + 0x58), w};
+    bbr::NoteArrowProjection(position, clip);
+    double due;
+    if (RocketTime(base, rocket, &due)) bbr::AutoplayNoteArrow(base, rocket, due);
   }
 
   // Assist tick: once the rocket's moment is close, place a click in the sound going

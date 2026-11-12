@@ -35,3 +35,8 @@ void BbrAudioFrameHook(PPCRegister& r4);
 // f30 = flown / flight, f31 = fraction across, f11 = fraction upwards.
 // Implemented in src/modifiers.cpp (Rocket Acceleration).
 void BbrArrowEaseHook(PPCRegister& f30, PPCRegister& f31, PPCRegister& f11);
+
+// Same function at 0x8206A4C8: r31 = arrow icon ([r31] = rocket, +32 path start), r1+80 =
+// the rocket's new position (x, y, z) about to be stored. Implemented in src/modifiers.cpp
+// (Horizontal Drift).
+void BbrArrowDriftHook(PPCRegister& r31, PPCRegister& r1);

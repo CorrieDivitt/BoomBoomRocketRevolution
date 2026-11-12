@@ -7,7 +7,7 @@ player sees). The requirements list (`requirements.py` -> csv/json and the dashb
 list; statuses there are current as of this note.
 
 ## Where things stand
-Everything below is built, pushed (GitHub `main` = `ae10659` plus this note) and confirmed in play
+Everything below is built, pushed (GitHub `main` = `fb76196`) and confirmed in play
 by the user unless marked otherwise.
 
 | Area | State |
@@ -34,6 +34,11 @@ above 1x; the multiplayer song list (has length and BPM, no speed panel or butto
   confirmed working) under Modifiers; Hit Timing renamed Show Accuracy; first-arrow fix at higher speeds (R-802); pause menu keeps its place under a
   dialogue (R-415). **No Background needs SDK patch 0005: run `scripts\patch-sdk.ps1` before
   `scripts\build.ps1`.**
+- Committed and pushed 2026-11-12 as `fb76196` (everything up to No Background). Next commit
+  (2026-11-12), all confirmed in play: Particle Density 0x; Horizontal Drift Default/Off (R-810,
+  reworked for camera swings, see below); Autoplay (R-811); Rocket Acceleration Default/Static;
+  No Background renamed Background (Default/Off).
+- Next: DDR mode (R-812) under Modifiers.
 - Other modern rhythm-game features under Modifiers (R-801 research list).
   R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).
@@ -106,8 +111,10 @@ grid cannot work: see "How arrows move".
 across and ((flown / flight)^1.5)^0.7 upwards (constants at `0x82000D38` = 1.5, `0x820008D0` = 0.7) - a
 rocket picking up speed. It tests byte `0x821A01C4` to skip the easing, but that byte is the top of a
 32-bit value used for something else (`0x8099FFF0` in the image): **never write it** (doing so made the
-easing flip unpredictably). Rocket Acceleration Off (R-809) uses a mid-asm hook at `0x8206A418`, where
-both branches meet, to set f31 = f11 = f30 (flown / flight). Each note's flight time is its own path
+easing flip unpredictably). Rocket Acceleration (R-809) uses a mid-asm hook at `0x8206A418`, where
+both branches meet, to set f31 = f11 = f30 (flown / flight) when it is set to **Static**; **Default** (the
+default) leaves the game's own movement. Named by what it does: on screen the original can look
+steady and the even pace like speeding up (the climb's perspective). Each note's flight time is its own path
 length over the song's rocket speed (zone and zoom distance differ), 3.2-5.7 s within one song.
 
 **Shader microcode in GPU memory vs the .xpu files.** Guest memory holds the microcode words in the
@@ -136,6 +143,23 @@ HUD (UiMultiTexture `87A9/3F1B`, UiFlorescence `DE79/8D93`). The sky, backdrop a
 default of `--no_background_draws` (`src/modifiers.cpp`). Confirmed working 2026-11-11. Switched on from the Get Ready countdown (screen scripts, `bbr::NoteScreenForNoBackground`) or while game state (`0x821A0578`+4) is 1 or 4. `patch-sdk.ps1`
 also cleans files that patches add, so 0005's new header does not block a fresh re-apply.
 
+**Horizontal Drift (R-810).** A rocket flies a straight 3D path from its launch point to its
+detonation point; `sub_8206A328` computes the new position (r1+80: x, y, z) and stores it in the
+rocket (+68..+76, movement since last frame at +80..+88) - trail, arrow and firework all follow the
+rocket. With the setting off, a mid-asm hook at `0x8206A4C8` solves x from the view matrix (game
+`0x821C1420` + `0x103B0`, four rows of 16 bytes; the one `sub_8206A600` draws the icons with) so the
+rocket stays in its launch point's screen column. Matrix order (p x M or M x p) is checked against
+the icons' own clip coordinates in `BbrArrowIconHook` before first use.
+
+**Autoplay (R-811).** `src/autoplay.cpp`. The controller read is `sub_820E6E50` (user, XINPUT_STATE*,
+a wrapper for XamInputGetState; buttons at state+4); the press-to-rocket match in `sub_82066700`
+compares a press's +16/+20/+24 with the rocket's bytes 0 / 8 (button) / 11 (player). Rocket byte 8 is
+0/2/4/6 (byte 1 the matching bit); arrow colour = button and the game lists colours Green, Red,
+Blue, Yellow, so byte 8 / 2 -> A, B, X, Y. The game reads the pad ~190 times a second (more than
+once a frame), so a button is held 35 ms, then up 30 ms before it can go down again. Judging is centred on the rocket's
+time only for a rocket Autoplay pressed and that is due now (within 50 ms). Score blocks:
+`src/leaderboards.cpp` (XSessionWriteStats) and `LevelBreakdown.lua` (`GUI.save_needed`).
+
 **Popups over menus.** A `Popups\*` script adds its widgets after the covered screen's; while it is
 up, the covered screen's items keep that screen's finished sides (`g_under_signature`).
 
@@ -155,6 +179,9 @@ it was an offset, not jitter; raising Input Offset fixed it. Late hits: raise In
 Offset if notes look out of step with the music). Positive Audio Offset = notes arrive later.
 
 ## How the work is done
+- Pushing: the shell that sees `F:\Boom Boom Rocket` has no GitHub credentials. Commit there, make a
+  bundle (`git bundle create out\x.bundle origin/main..main`), stage it, and push from a clone in the
+  session workspace (attached with push access).
 - Code is edited in the Linux sandbox that sees `F:\Boom Boom Rocket`; it cannot run Windows
   builds. The user builds with `powershell -ExecutionPolicy Bypass -File scripts\build.ps1` and
   tests; the log is `boomboomrocket.log` in the project folder and is the main source of evidence.
@@ -177,5 +204,12 @@ Offset if notes look out of step with the music). Positive Audio Offset = notes 
   `source.url` field (a `/_blob/<id>` address that changes with every upload).
 - **To refresh it:** run the script, upload the new `requirements.csv` to the artifact as an asset,
   then update `datasets/requirements` so `source.url` is the new `/_blob/<id>` (and bump the
-  `edit` / `updated` times). The update needs the document's current version number; it was 46
+  `edit` / `updated` times). The update needs the document's current version number; it was 51
   after the last refresh on 2026-11-11, so read the document first to get the live value.
+
+**Horizontal Drift Off (R-810).** Mid-asm hook at 0x8206A4C8 (`BbrArrowDriftHook`, rocket's new
+position at r1+80..88; icon at r31: +0 rocket, +32 path start, +44 firework point). The rocket keeps
+the firework's x and z, then is slid along the camera's left-right direction (the gradient of clip
+x, from the view matrix at game + 0x103B0, order checked by `NoteArrowProjection`) to the screen
+column it first appeared in, kept per icon. Do not solve world x for a screen column: when the
+camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-11-12).

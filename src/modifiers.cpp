@@ -35,6 +35,7 @@
 // arrow still begins part of the way up - there is nothing earlier to show.
 
 #include "input_offset.h"
+#include "autoplay.h"
 #include "modifiers.h"
 #include "settings.h"
 #include "widescreen.h"
@@ -66,8 +67,12 @@ REXCVAR_DEFINE_DOUBLE(scroll_speed, 1.0, "BBR",
                       "further apart; timing against the music is unchanged (0.25 to 8)");
 REXCVAR_DEFINE_BOOL(scroll_speed_buttons, true, "BBR",
                     "LB / RB lower / raise the scroll speed during a song");
-REXCVAR_DEFINE_BOOL(rocket_acceleration, true, "BBR",
-                    "Arrows speed up as they climb, like rockets (the original). Off: they move at an even pace");
+REXCVAR_DEFINE_BOOL(rocket_acceleration, false, "BBR",
+                    "Rocket Acceleration: false = Default (the game's own movement), true = Static (arrows move at "
+                    "one even speed along their path)");
+REXCVAR_DEFINE_BOOL(horizontal_drift, true, "BBR",
+                    "Arrows drift sideways towards where their firework goes off (the original). Off: they go "
+                    "straight up from where they start");
 REXCVAR_DEFINE_BOOL(no_background, false, "BBR",
                     "Hide the city during a song: arrows and fireworks on black, for practice without distractions");
 
@@ -370,7 +375,9 @@ void bbr::UpdateNoBackground(uint8_t* base) {
     REXLOG_INFO("[modifiers] No Background: {} draw kinds to skip", pair_count);
   }
   const uint32_t state = Load32(base, 0x821A0578 + 4);  // 1 playing, 4 failing, 2 game over, 3 finished
-  const bool hide = REXCVAR_GET(no_background) && (g_song_screens.load() || state == 1 || state == 4);
+  const bool song_on = g_song_screens.load() || state == 1 || state == 4;
+  bbr::AutoplayUpdate(base, song_on);
+  const bool hide = REXCVAR_GET(no_background) && song_on;
   static bool hiding = false;
   static bool dumped = false;
   static auto hiding_since = std::chrono::steady_clock::now();
@@ -517,8 +524,117 @@ REX_HOOK_RAW(sub_8206A328) {
 // f30 = flown / flight. With the setting off both become f30: an even pace along the path.
 // (The game has a byte it tests to skip the easing, 0x821A01C4, but it is the top byte of a
 // value the game uses for something else - it must not be written.)
+//
+// The settings screen calls the two values Default (the game's own movement) and Static (the
+// even pace). Named by what the option does rather than how it looks: on screen the original
+// movement can look steady and the even pace like speeding up, because of the climb's perspective.
 void BbrArrowEaseHook(PPCRegister& f30, PPCRegister& f31, PPCRegister& f11) {
-  if (REXCVAR_GET(rocket_acceleration)) return;
+  if (!REXCVAR_GET(rocket_acceleration)) return;
   f31.f64 = f30.f64;
   f11.f64 = f30.f64;
+}
+
+// Horizontal Drift (--horizontal_drift). A rocket flies a straight 3D path from its launch
+// point to where its firework goes off, so on screen it drifts sideways as it climbs. With the
+// setting off, the rocket keeps the x and z of its firework point and only its height follows
+// the path, then is slid along the camera's left-right direction so it stays in the screen
+// column it first appeared in, even through camera swings (see BbrArrowDriftHook). The view
+// matrix is the game's own (rows at game + 0x103B0..0x103E0); NoteArrowProjection checks
+// whether it is applied as p x M or M x p before it is used.
+namespace {
+constexpr uint32_t kViewMatrix = 0x821C1420 + 0x103B0;
+std::atomic<int> g_matrix_rows_ok{0}, g_matrix_cols_ok{0};
+std::atomic<int> g_matrix_order{0};  // 0 not known yet, 1 p x M (rows), 2 M x p (columns)
+
+void LoadMatrix(uint8_t* base, float m[4][4]) {
+  for (int r = 0; r < 4; ++r)
+    for (int c = 0; c < 4; ++c) m[r][c] = LoadFloat(base, kViewMatrix + r * 16 + c * 4);
+}
+// Element (i, j) of the matrix as used: clip_j = sum_i p_i * E(i, j), p = (x, y, z, 1).
+float E(const float m[4][4], int order, int i, int j) { return order == 1 ? m[i][j] : m[j][i]; }
+}  // namespace
+
+void bbr::NoteArrowProjection(const float position[3], const float clip[4]) {
+  if (g_matrix_order.load() != 0) return;
+  uint8_t* base = bbr::GuestBase();
+  if (!base || !(std::fabs(clip[3]) > 1e-4f)) return;
+  float m[4][4];
+  LoadMatrix(base, m);
+  const float p[4] = {position[0], position[1], position[2], 1.0f};
+  for (int order = 1; order <= 2; ++order) {
+    float x = 0, w = 0;
+    for (int i = 0; i < 4; ++i) x += p[i] * E(m, order, i, 0), w += p[i] * E(m, order, i, 3);
+    const bool ok = std::fabs(w) > 1e-4f && std::fabs(x / w - clip[0] / clip[3]) < 0.01f;
+    if (ok) (order == 1 ? g_matrix_rows_ok : g_matrix_cols_ok).fetch_add(1);
+  }
+  const int rows = g_matrix_rows_ok.load(), cols = g_matrix_cols_ok.load();
+  if (rows + cols >= 30) {
+    const int order = rows >= cols ? 1 : 2;
+    g_matrix_order.store(order);
+    REXLOG_INFO("[modifiers] arrow view matrix applied as {} ({} vs {} matches); Horizontal Drift can work",
+                order == 1 ? "p x M" : "M x p", rows, cols);
+  }
+}
+
+namespace {
+struct DriftColumn {
+  float start[3];  // the path's start (icon +32), to tell a new flight in the same icon slot
+  float column;    // screen x / w where the rocket was first drawn this flight
+};
+std::mutex g_drift_mutex;
+std::unordered_map<uint32_t, DriftColumn> g_drift_columns;  // by arrow icon
+}  // namespace
+
+void BbrArrowDriftHook(PPCRegister& r31, PPCRegister& r1) {
+  if (REXCVAR_GET(horizontal_drift)) return;
+  uint8_t* base = bbr::GuestBase();
+  if (!base || r31.u32 < 0x10000) return;
+  // 1. In the world: keep the x and z of the firework point (icon +44 / +52); only the height
+  //    follows the game's path, so the rocket climbs straight up into the spot it would hit.
+  const float ex = LoadFloat(base, r31.u32 + 44), ez = LoadFloat(base, r31.u32 + 52);
+  if (!std::isfinite(ex) || !std::isfinite(ez)) return;
+  float p[3] = {ex, LoadFloat(base, r1.u32 + 84), ez};
+  // 2. On screen: a camera swing would still carry it sideways, so hold the screen column it
+  //    was first drawn in by sliding it along the camera's own left-right direction (the
+  //    gradient of clip x). Unlike solving for world x, that direction always moves the rocket
+  //    across the screen, so the step stays small however the camera turns.
+  const int order = g_matrix_order.load();
+  if (order != 0) {
+    float m[4][4];
+    LoadMatrix(base, m);
+    auto clip = [&](const float* q, float& x, float& w) {
+      x = E(m, order, 3, 0) + q[0] * E(m, order, 0, 0) + q[1] * E(m, order, 1, 0) + q[2] * E(m, order, 2, 0);
+      w = E(m, order, 3, 3) + q[0] * E(m, order, 0, 3) + q[1] * E(m, order, 1, 3) + q[2] * E(m, order, 2, 3);
+    };
+    float cx, cw;
+    clip(p, cx, cw);
+    if (cw > 1e-4f) {
+      const float sx = LoadFloat(base, r31.u32 + 32), sy = LoadFloat(base, r31.u32 + 36), sz = LoadFloat(base, r31.u32 + 40);
+      float column;
+      {
+        std::lock_guard<std::mutex> lock(g_drift_mutex);
+        if (g_drift_columns.size() > 4096) g_drift_columns.clear();
+        DriftColumn& d = g_drift_columns[r31.u32];
+        if (d.start[0] != sx || d.start[1] != sy || d.start[2] != sz)
+          d = {{sx, sy, sz}, std::clamp(cx / cw, -0.95f, 0.95f)};
+        column = d.column;
+      }
+      const float r[3] = {E(m, order, 0, 0), E(m, order, 1, 0), E(m, order, 2, 0)};
+      const float rr = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+      const float rw = r[0] * E(m, order, 0, 3) + r[1] * E(m, order, 1, 3) + r[2] * E(m, order, 2, 3);
+      const float denom = rr - column * rw;
+      if (rr > 1e-12f && denom > 0.25f * rr) {
+        const float t = (column * cw - cx) / denom;
+        float q[3] = {p[0] + t * r[0], p[1] + t * r[1], p[2] + t * r[2]};
+        float qx, qw;
+        clip(q, qx, qw);
+        if (std::isfinite(t) && qw > 1e-4f && std::fabs(qx / qw - column) < 0.05f) {
+          p[0] = q[0], p[1] = q[1], p[2] = q[2];
+        }
+      }
+    }
+  }
+  StoreFloat(base, r1.u32 + 80, p[0]);
+  StoreFloat(base, r1.u32 + 84, p[1]);
+  StoreFloat(base, r1.u32 + 88, p[2]);
 }
