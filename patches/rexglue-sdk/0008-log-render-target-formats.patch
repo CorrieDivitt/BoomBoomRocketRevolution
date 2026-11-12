@@ -1,0 +1,43 @@
+diff --git a/src/graphics/pipeline/render_target/cache.cpp b/src/graphics/pipeline/render_target/cache.cpp
+--- a/src/graphics/pipeline/render_target/cache.cpp
++++ b/src/graphics/pipeline/render_target/cache.cpp
+@@ -481,6 +481,17 @@
+       if (is_64bpp) {
+         rts_are_64bpp |= uint32_t(1) << rt_bit_index;
+       }
++      {
++        // [bbrr] One log line per distinct colour target setup the game uses (format and
++        // multisampling), for the true HDR and anti-aliasing work.
++        static std::unordered_set<uint32_t> bbrr_seen_targets;
++        uint32_t bbrr_key = (i << 16) | (uint32_t(color_format) << 8) | uint32_t(msaa_samples);
++        if (bbrr_seen_targets.insert(bbrr_key).second) {
++          REXLOG_INFO("[bbrr] render target {}: format {} ({}), {}x MSAA, pitch {}", i,
++                      xenos::GetColorRenderTargetFormatName(color_format), uint32_t(color_format),
++                      uint32_t(1) << uint32_t(msaa_samples), pitch_pixels);
++        }
++      }
+       xenos::ColorRenderTargetFormat color_resource_format;
+       if (interlock_barrier_only) {
+         // Only changes in mapping between coordinates and addresses are
+diff --git a/src/graphics/util/draw.cpp b/src/graphics/util/draw.cpp
+--- a/src/graphics/util/draw.cpp
++++ b/src/graphics/util/draw.cpp
+@@ -921,6 +921,18 @@
+     dest_format = DepthRenderTargetToTextureFormat(rb_depth_info.depth_format);
+   } else {
+     dest_format = xenos::TextureFormat(rb_copy_dest_info.copy_dest_format);
++    {
++      // [bbrr] One log line per distinct copy of the picture to a texture (resolve), for the
++      // true HDR and anti-aliasing work.
++      static uint64_t bbrr_seen_resolves = 0;
++      uint32_t bbrr_bit = (uint32_t(dest_format) & 63);
++      if (!(bbrr_seen_resolves & (uint64_t(1) << bbrr_bit))) {
++        bbrr_seen_resolves |= uint64_t(1) << bbrr_bit;
++        REXLOG_INFO("[bbrr] resolve to texture format {} ({}) from a {}x MSAA surface",
++                    FormatInfo::Get(dest_format)->name, uint32_t(dest_format),
++                    uint32_t(1) << uint32_t(rb_surface_info.msaa_samples));
++      }
++    }
+     // For development feedback - not much known about these formats currently.
+     xenos::TextureFormat dest_closest_format;
+     switch (dest_format) {

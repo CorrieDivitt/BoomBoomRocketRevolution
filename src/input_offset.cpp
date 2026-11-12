@@ -282,7 +282,7 @@ constexpr uint32_t kAdviceSlot = 118;   // stored string that carries the offset
 constexpr int kAdviceMinHits = 20;
 constexpr double kAdviceMinAverageMs = 15.0;
 constexpr double kAdviceMinShare = 0.70;
-constexpr double kOffsetStepMs = 5.0, kOffsetLimitMs = 100.0;
+constexpr double kOffsetLimitMs = 100.0;
 
 // How far the music that is heard trails the song clock (same sum as src/song_clock.cpp).
 double AudioLag() {
@@ -543,7 +543,7 @@ std::string bbr::HitCommand(const std::string& command) {
   }
   if (command == "bbrr.hit.advice") {
     // Results screen: if the song's hits were clearly early or clearly late, write a
-    // suggested Input Offset into its stored string. Shown whether Show Accuracy is on or not.
+    // suggestion (which way to move Input Offset) into its stored string. Shown whether Show Accuracy is on or not.
     SongStats song;
     {
       std::lock_guard<std::mutex> lock(g_song_mutex);
@@ -559,17 +559,18 @@ std::string bbr::HitCommand(const std::string& command) {
                   share * 100.0, late ? "late" : "early");
       return "0";
     }
-    // Late hits: raise Input Offset by about the average; early hits: lower it.
+    // Late hits: raise Input Offset; early hits: lower it. Only the direction is given, not a
+    // target number: one song's average is too rough to aim at, and players settle on a value
+    // over several songs.
     const double now_ms = REXCVAR_GET(input_offset_ms);
-    double want = std::round((now_ms - mean) / kOffsetStepMs) * kOffsetStepMs;
-    want = std::clamp(want, -kOffsetLimitMs, kOffsetLimitMs);
+    const bool at_limit = late ? now_ms >= kOffsetLimitMs : now_ms <= -kOffsetLimitMs;
     char text[160];
-    if (std::fabs(want - now_ms) < 1.0) {
-      std::snprintf(text, sizeof(text), "Mostly %s (avg %+.0f ms). Input Offset is already at its %+.0f ms limit",
-                    late ? "late" : "early", mean, now_ms);
+    if (at_limit) {
+      std::snprintf(text, sizeof(text), "Mostly %s. Input Offset is already at its %+.0f ms limit",
+                    late ? "late" : "early", now_ms);
     } else {
-      std::snprintf(text, sizeof(text), "Mostly %s (avg %+.0f ms). Try Input Offset %+.0f ms (Current setting %+.0f ms)",
-                    late ? "late" : "early", mean, want, now_ms);
+      std::snprintf(text, sizeof(text), "Mostly %s. Try %s Input Offset a little (currently %+.0f ms)",
+                    late ? "late" : "early", late ? "raising" : "lowering", now_ms);
     }
     std::memcpy(base + kTextManager + kAdviceSlot * 256, text, std::strlen(text) + 1);
     REXLOG_INFO("[input] offset advice over {} hits ({:.0f}% {}): {}", song.count, share * 100.0,

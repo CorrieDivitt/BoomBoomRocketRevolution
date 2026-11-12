@@ -7,7 +7,7 @@ namespace bbr {
 //   "bbrr.hit.enabled" -> "1" when --hit_timing is on
 //   "bbrr.hit.summary" -> "1" after writing the finished song's timing line (average, spread,
 //                         early and late counts) into stored string STR126; "0" if none
-//   "bbrr.hit.advice"  -> "1" after writing a suggested Input Offset into stored string STR118
+//   "bbrr.hit.advice"  -> "1" after writing which way to move Input Offset into stored string STR118
 //                         (song clearly early or late: 20+ hits, average 15+ ms off, 70%+
 //                         on one side); "0" if no suggestion. Works with Show Accuracy off too
 //   "bbrr.hit.poll"    -> "" or "slot,x,grade" for the next hit not yet shown: the text is

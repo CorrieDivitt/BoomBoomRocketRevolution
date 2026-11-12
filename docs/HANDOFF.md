@@ -27,7 +27,7 @@ above 1x; the multiplayer song list (has length and BPM, no speed panel or butto
 
 ## Next up (the user's words: "the next phase of the plan")
 - R-807 offset suggestion on the results screen: built 2026-11-11 and seen working (see below);
-  wording now "(Current setting +20 ms)".
+  wording now "Mostly early. Try lowering Input Offset a little (currently +15 ms)".
 - Widescreen fixes built 2026-11-11, untested: shipped layouts (`ui_scripts/ui_layout.txt`) so
   first visits (pause menu) no longer snap late; hit readout band and results screen kept centred.
 - Built 2026-11-11 (later): Rocket Acceleration (R-809, seen working) and No Background (R-808,
@@ -185,8 +185,9 @@ song start by sliding its start point along the straight path (`0x820687C0`: sta
 same end whose path passes through start' (any note kind). Log: `[modifiers] first note at ...`.
 
 **Offset suggestion (R-807).** `bbrr.hit.advice` (src/input_offset.cpp) writes STR118 when the
-song had 20+ hits, an average 15+ ms from zero and 70%+ of hits on that side; suggested Input
-Offset = current - average, rounded to 5 ms, within +-100 ms. Shown below the timing line (or in
+song had 20+ hits, an average 15+ ms from zero and 70%+ of hits on that side; it says which way to
+move Input Offset (raise for late, lower for early) and the current setting, no target number
+(changed 2026-11-12: one song is too rough to aim at a value). Shown below the timing line (or in
 its place when Hit Timing is off) by ui_scripts/Ingame/LevelBreakdown.lua. Every results screen
 logs an `[input] offset advice` line, including why nothing was shown.
 
