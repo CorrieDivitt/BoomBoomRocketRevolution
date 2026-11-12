@@ -1,0 +1,158 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2661,6 +2661,8 @@
+ // to about 0.125).
+ constexpr float kBbrrCeiling = 1.5f;
+ constexpr float kBbrrWhite = 0.35f;
++// The nearest the light is allowed to a piece it lights (see BbrrLightCityDraw).
++constexpr float kBbrrStandOff = 350.0f;
+ // Time spent on city lighting, to report what it costs.
+ uint64_t bbrr_light_nanoseconds = 0;
+ uint32_t bbrr_light_draws = 0;
+@@ -2749,33 +2751,75 @@
+   const BbrrFrameLight& f = bbrr_frame_light;
+   if (!f.valid) return false;
+ 
+-  float q[3], extent = 0;
++  float q[3], d2 = 0;
+   for (int k = 0; k < 3; ++k) {
+-    q[k] = std::clamp(f.centre[k], box.lo[k], box.hi[k]);
+-    extent = std::max(extent, box.hi[k] - box.lo[k]);
++    q[k] = std::clamp(f.centre[k], box.lo[k], box.hi[k]);  // the point of the piece's box nearest the light
++    d2 += (f.centre[k] - q[k]) * (f.centre[k] - q[k]);
+   }
+-  float to_light[3], d2 = 0;
++  // The top setting (Acid Trip) is left uncapped on purpose; everything below is about not
++  // washing surfaces out.
++  const bool capped = strength < 16.0f;
++  // A block of buildings or the ground: too wide for its box to say where its surfaces are.
++  const bool huge = std::max(box.hi[0] - box.lo[0], box.hi[2] - box.lo[2]) > 3000.0f;
++
++  // The shader's light grows without limit as a surface gets close to it, so a firework (or
++  // a rising rocket) next to a tower burns a white patch into it. The light cannot be capped
++  // per pixel, but it can be kept at arm's length: for this piece only, it is moved back
++  // until it is at least kBbrrStandOff from the piece's box. Nothing in the box can then be
++  // nearer than that, so the brightest point of the piece is the box's nearest point, and
++  // that is given no more than the ceiling.
++  float position[3] = {f.centre[0], f.centre[1], f.centre[2]};
++  if (capped && !huge && d2 < kBbrrStandOff * kBbrrStandOff) {
++    if (d2 > 1.0f) {
++      const float d = std::sqrt(d2);
++      for (int k = 0; k < 3; ++k) position[k] = q[k] + (f.centre[k] - q[k]) / d * kBbrrStandOff;
++    } else {
++      // The light is inside the box: leave through the nearest side, or the top.
++      int axis = 1;
++      bool upper = true;
++      float gap = box.hi[1] - f.centre[1];
++      for (int k = 0; k < 3; k += 2) {
++        if (f.centre[k] - box.lo[k] < gap) {
++          gap = f.centre[k] - box.lo[k];
++          axis = k;
++          upper = false;
++        }
++        if (box.hi[k] - f.centre[k] < gap) {
++          gap = box.hi[k] - f.centre[k];
++          axis = k;
++          upper = true;
++        }
++      }
++      q[axis] = upper ? box.hi[axis] : box.lo[axis];
++      position[axis] = upper ? box.hi[axis] + kBbrrStandOff : box.lo[axis] - kBbrrStandOff;
++    }
++  }
++  float to_light[3], l2 = 0;
+   for (int k = 0; k < 3; ++k) {
+-    to_light[k] = f.centre[k] - q[k];
+-    d2 += to_light[k] * to_light[k];
++    to_light[k] = position[k] - q[k];
++    l2 += to_light[k] * to_light[k];
+   }
++  l2 = std::max(l2, kBbrrNearest);
++
+   float colour[3];
+-  // For the ceiling below: how near the piece comes to the light, and how far the whole
+-  // piece may be dimmed for the sake of its nearest part.
+-  float nearest2 = d2, least_ease = 0.0f;
+-  if (extent > 1500.0f) {
++  if (huge) {
++    // The plain total, from the shared centre. The ceiling goes by sampled vertices, and the
++    // whole piece is never dimmed by more than half for one close wall.
+     for (int k = 0; k < 3; ++k) colour[k] = f.total[k];
+-    // A large piece (a block of buildings, the ground): its box says little about where its
+-    // surfaces are - the light is often inside the box - so go by its sampled vertices, and
+-    // never dim the whole piece by more than half for one close wall.
+-    nearest2 = 1e30f;
+-    for (uint32_t i = 0; i < box.sample_count; ++i) {
+-      float s2 = 0;
+-      for (int k = 0; k < 3; ++k) s2 += (box.samples[i][k] - f.centre[k]) * (box.samples[i][k] - f.centre[k]);
+-      nearest2 = std::min(nearest2, s2);
++    if (capped) {
++      float nearest2 = 1e30f;
++      for (uint32_t i = 0; i < box.sample_count; ++i) {
++        float s2 = 0;
++        for (int k = 0; k < 3; ++k) s2 += (box.samples[i][k] - f.centre[k]) * (box.samples[i][k] - f.centre[k]);
++        nearest2 = std::min(nearest2, s2);
++      }
++      const float brightest = std::max(colour[0], std::max(colour[1], colour[2])) * kBbrrStrengthUnit * strength /
++                              std::max(nearest2, kBbrrNearest);
++      const float ease = std::max(0.5f, 1.0f / (1.0f + brightest / kBbrrCeiling));
++      for (int k = 0; k < 3; ++k) colour[k] *= ease;
+     }
+-    least_ease = 0.5f;
+   } else {
++    // The light that really arrives at the nearest point, from every firework.
+     float arriving[3] = {0, 0, 0};
+     for (uint32_t j = 0; j < f.count; ++j) {
+       const BbrrLight& light = f.lights[j];
+@@ -2784,37 +2828,31 @@
+       const float e = light.strength / std::max(dj2, kBbrrNearest);
+       for (int k = 0; k < 3; ++k) arriving[k] += e * light.colour[k];
+     }
+-    const float scale = std::max(d2, kBbrrNearest);
+-    for (int k = 0; k < 3; ++k) colour[k] = arriving[k] * scale;
+     // Which way the piece faces, when it is a flat face.
+     const float flatness =
+         std::sqrt(box.normal[0] * box.normal[0] + box.normal[1] * box.normal[1] + box.normal[2] * box.normal[2]);
+-    if (flatness > 0.6f && d2 > 1.0f) {
+-      const float distance = std::sqrt(d2);
++    if (flatness > 0.6f) {
+       const float facing = (box.normal[0] * to_light[0] + box.normal[1] * to_light[1] + box.normal[2] * to_light[2]) /
+-                           (flatness * distance);
++                           (flatness * std::sqrt(l2));
+       const float factor = 0.45f + 1.25f * std::max(facing, 0.0f);  // 0.45 facing away ... 1.7 facing it
+       const float blend = std::min((flatness - 0.6f) / 0.3f, 1.0f);
+-      for (int k = 0; k < 3; ++k) colour[k] *= 1.0f + (factor - 1.0f) * blend;
++      for (int k = 0; k < 3; ++k) arriving[k] *= 1.0f + (factor - 1.0f) * blend;
+     }
+-  }
+-  // A ceiling on how bright the nearest point of a piece gets, so a firework close to a wall
+-  // does not wash it out to one flat colour: the light is eased off as it nears the ceiling
+-  // (half the ceiling is reached where the uncapped light would equal it). The top setting
+-  // (Acid Trip) is left uncapped on purpose.
+-  if (strength < 16.0f) {
+-    const float brightest = std::max(colour[0], std::max(colour[1], colour[2])) * kBbrrStrengthUnit * strength /
+-                            std::max(nearest2, kBbrrNearest);
+-    if (brightest > 0.0f) {
+-      const float ease = std::max(least_ease, 1.0f / (1.0f + brightest / kBbrrCeiling));
+-      for (int k = 0; k < 3; ++k) colour[k] *= ease;
++    // The ceiling: the light is eased off as it nears it (half the ceiling is reached where
++    // the uncapped light would equal it).
++    float ease = 1.0f;
++    if (capped) {
++      const float brightest = std::max(arriving[0], std::max(arriving[1], arriving[2])) * kBbrrStrengthUnit * strength;
++      ease = 1.0f / (1.0f + brightest / kBbrrCeiling);
+     }
++    // The shader divides by the square of the distance to the light; undo that at the nearest point.
++    for (int k = 0; k < 3; ++k) colour[k] = arriving[k] * ease * l2;
+   }
+-  if (!std::isfinite(colour[0] + colour[1] + colour[2])) return false;
++  if (!std::isfinite(colour[0] + colour[1] + colour[2] + position[0] + position[1] + position[2])) return false;
+ 
+   const uint32_t pixel_base = XE_GPU_REG_SHADER_CONSTANT_256_X;
+   for (int k = 0; k < 3; ++k) {
+-    guard.Set(&regs[pixel_base + (15 << 2) + uint32_t(k)], f.centre[k]);
++    guard.Set(&regs[pixel_base + (15 << 2) + uint32_t(k)], position[k]);
+     guard.Set(&regs[pixel_base + (16 << 2) + uint32_t(k)], colour[k]);
+   }
+   guard.Set(&regs[pixel_base + (17 << 2)], kBbrrStrengthUnit * strength);
