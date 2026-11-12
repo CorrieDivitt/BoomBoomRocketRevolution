@@ -35,6 +35,13 @@ REXCVAR_DEFINE_DOUBLE(city_lighting, 0.0, "BBR",
                       "the fireworks near it, times this strength (1, 2, 4, 8, 32 in the menu; 1 = a firework at "
                       "full strength lights the city as brightly as the game's own flash at its peak)");
 
+// Read by the GPU side (SDK patch 0016) once a frame.
+REXCVAR_DEFINE_DOUBLE(city_light_ceiling, 0.7, "BBR",
+                      "City Lighting: the most light a surface is given (1 = shown at the full brightness of its "
+                      "texture; the unlit city is about 0.125). Not applied at the top setting");
+REXCVAR_DEFINE_DOUBLE(city_light_standoff, 350.0, "BBR",
+                      "City Lighting: the nearest the light is allowed to a piece it lights, in world units");
+
 REXCVAR_DEFINE_BOOL(city_light_probe, false, "BBR",
                     "Development: log city draws, firework bursts and spark emitters once per run "
                     "(for the city lighting work); nothing on screen changes");
