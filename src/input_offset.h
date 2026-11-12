@@ -6,6 +6,9 @@ namespace bbr {
 //   "bbrr.hit.enabled" -> "1" when --hit_timing is on
 //   "bbrr.hit.summary" -> "1" after writing the finished song's timing line (average, spread,
 //                         early and late counts) into stored string STR126; "0" if none
+//   "bbrr.hit.advice"  -> "1" after writing a suggested Input Offset into stored string STR118
+//                         (song clearly early or late: 20+ hits, average 15+ ms off, 70%+
+//                         on one side); "0" if no suggestion. Works with Show Accuracy off too
 //   "bbrr.hit.poll"    -> "" or "slot,x,grade" for the next hit not yet shown: the text is
 //                         in stored string STR<slot>, x is a 640x480 layout coordinate,
 //                         grade is the judgement (6 Perfect, 5 Awesome, 3 Good, 1 OK)
@@ -15,4 +18,8 @@ std::string HitCommand(const std::string& command);
 // Presses older than a quarter of a second are dropped, so ones made in a menu do not
 // turn up later in a song. Starts the controller thread if it is not running.
 int TakeShoulderSteps();
+
+// The song time now (the clock the game judges and launches by), or false when no song is
+// running steadily (menus, pause).
+bool SongTimeNow(double* out);
 }  // namespace bbr

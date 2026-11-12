@@ -12,7 +12,7 @@ by the user unless marked otherwise.
 
 | Area | State |
 |---|---|
-| Timing | Song clock smoothing, audio/input offsets, auto calibration, 1 kHz timestamped input, hit timing readout (plain orange, 40 px above the line: position locked), results-screen timing line, assist tick |
+| Timing | Song clock smoothing, audio/input offsets, auto calibration, 1 kHz timestamped input, hit timing readout (setting "Show Accuracy", plain orange, 40 px above the line: position locked), results-screen timing line, assist tick |
 | Menus | BBRR Settings with Video Settings, Calibration, Modifiers pages; live window mode, FXAA, glow, HDR, particle density (only Resolution needs a restart) |
 | Graphics | Bloom with HUD mask, live HDR output (SDK patch 0004), Particle Density 0.25x-5x (locked), spark limit 68,000 (locked) |
 | Modifiers | Scroll Speed 0.5x-4x, changes live; RB / LB step it during a song and on the song select screen |
@@ -26,8 +26,15 @@ Song" wording; Windows Auto HDR; prototype titles stay "<Title> II"; first-note 
 above 1x; the multiplayer song list (has length and BPM, no speed panel or buttons).
 
 ## Next up (the user's words: "the next phase of the plan")
-- R-807 offset suggestion on the results screen: built 2026-11-11 (see below), awaiting a test.
-- Other modern rhythm-game features under Modifiers (R-801 research list, R-804 beat lines).
+- R-807 offset suggestion on the results screen: built 2026-11-11 and seen working (see below);
+  wording now "(Current setting +20 ms)".
+- Widescreen fixes built 2026-11-11, untested: shipped layouts (`ui_scripts/ui_layout.txt`) so
+  first visits (pause menu) no longer snap late; hit readout band and results screen kept centred.
+- Built 2026-11-11 (later): Rocket Acceleration (R-809, seen working) and No Background (R-808,
+  confirmed working) under Modifiers; Hit Timing renamed Show Accuracy; first-arrow fix at higher speeds (R-802); pause menu keeps its place under a
+  dialogue (R-415). **No Background needs SDK patch 0005: run `scripts\patch-sdk.ps1` before
+  `scripts\build.ps1`.**
+- Other modern rhythm-game features under Modifiers (R-801 research list).
   R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).
 - Full playthrough of 30 charts (R-110) with the ultrawide layout pass (R-415).
@@ -85,6 +92,57 @@ about 0.3 s; text with flying letters is "too wide to place"). The finished layo
 "<last script>|<widget count>" in `cache\ui_layout.txt`, learned only from what is still there 1.5 s
 after loading, and applied during arrival to wide items as well. Scripts can exempt a rectangle with
 `BBRR("bbrr.ui.keep", "x0,y0,x1,y1")`. The log has a line per layout change during arrival.
+Kept so far: song select headings and speed panel, the HUD hit readout band (it sits over the
+arrows, which never move), and the results screen above y = 400 (box, labels, values, Rating).
+The port ships finished layouts in `ui_scripts/ui_layout.txt` (copied from the user's
+`cache\ui_layout.txt` on 2026-11-11, 30 screens); the player's own cache is read after it and
+wins. After the full playthrough (R-415), copy the cache over it again so every screen ships.
+
+**Beat guides (R-804, dropped).** Measure lines on the beat grid, then a bar through every arrow
+(Timing Bars), were built and removed on 2026-11-11 - the user did not want either. Why lines on a
+grid cannot work: see "How arrows move".
+
+**How arrows move.** `sub_8206A328` places an arrow at start + (end - start) x u with u = (flown / flight)^1.5
+across and ((flown / flight)^1.5)^0.7 upwards (constants at `0x82000D38` = 1.5, `0x820008D0` = 0.7) - a
+rocket picking up speed. It tests byte `0x821A01C4` to skip the easing, but that byte is the top of a
+32-bit value used for something else (`0x8099FFF0` in the image): **never write it** (doing so made the
+easing flip unpredictably). Rocket Acceleration Off (R-809) uses a mid-asm hook at `0x8206A418`, where
+both branches meet, to set f31 = f11 = f30 (flown / flight). Each note's flight time is its own path
+length over the song's rocket speed (zone and zoom distance differ), 3.2-5.7 s within one song.
+
+**Shader microcode in GPU memory vs the .xpu files.** Guest memory holds the microcode words in the
+file's byte order; the emulator's `Shader::ucode_dwords()` are host-endian, i.e. those bytes read
+big-endian. D3D renumbers some registers when a shader is created: PointSprite, UiFlorescence and
+UiMultiTexture match their files exactly, TextureModDiffuse (city, `9567C79307ACC6F5`) on 10 of 12
+words. The shader cache `Documents\boomboomrocket\cache\shaders\shareable\5841086A.xsh` (header 8 bytes,
+then per shader: u64 hash, u32 dword count | type << 31, dwords in guest byte order) is handy for
+checking this offline.
+
+**No Background (R-808) and SDK patch 0005.** `rex/graphics/hidden_shaders.h`: the port gives the GPU
+side a list of (vertex shader hash, pixel shader hash) pairs, 0 = any, and while hiding is on
+`IssueDraw` skips matching draws. The same patch logs a draw list on request (`RequestDrawDump`,
+frames delimited in `IssueSwap`): the port asks for two frames the first time No Background is on in
+a song. The GPU backend is a separate DLL (`rexgpu-xenos.dll`) whose symbols the game cannot link
+to, so anything the game and the GPU code share must live in rexruntime (which exports
+everything): the registry is in `src/ui/d3d12/d3d12_presenter.cpp`, next to the glow mask.
+Matching by shader file failed: the city's shader in memory matches none of the game's files, and
+`9567C79307ACC6F5` (SimpleShaders.fxobj, generic textured) is the arrows' (with vertex shader
+`436FD4BB733B0BD5`). The draw list of one frame (2026-11-11), in order: clears (`0A6D/2E37`), sky
+(`0C88/0AA0`), backdrop (`BBFF/9567`), city mesh pass 1 (`C837/2B08`, `6773/88B6` between), point
+sprites, city mesh pass 2 (`04F2/C9D2`), city details (`D1ED/238C`, ~1000 draws), sky dome (`04F2/B36F`, also drawn before the city) and
+water quad (`B90D/FB9F`) - added after the first test still showed the sky -, sparks
+(`63B4/4B1E`), glow passes (`1121/...` rectangles), fireworks (`1DB9/C471`), arrows (`436F/9567`),
+HUD (UiMultiTexture `87A9/3F1B`, UiFlorescence `DE79/8D93`). The sky, backdrop and city pairs are the
+default of `--no_background_draws` (`src/modifiers.cpp`). Confirmed working 2026-11-11. Switched on from the Get Ready countdown (screen scripts, `bbr::NoteScreenForNoBackground`) or while game state (`0x821A0578`+4) is 1 or 4. `patch-sdk.ps1`
+also cleans files that patches add, so 0005's new header does not block a fresh re-apply.
+
+**Popups over menus.** A `Popups\*` script adds its widgets after the covered screen's; while it is
+up, the covered screen's items keep that screen's finished sides (`g_under_signature`).
+
+**First notes at higher scroll speed.** The game shortens a note whose launch would fall before the
+song start by sliding its start point along the straight path (`0x820687C0`: start' = end -
+(end - start) x shortened / full). The fix restores start and flight from a full-length note with the
+same end whose path passes through start' (any note kind). Log: `[modifiers] first note at ...`.
 
 **Offset suggestion (R-807).** `bbrr.hit.advice` (src/input_offset.cpp) writes STR118 when the
 song had 20+ hits, an average 15+ ms from zero and 70%+ of hits on that side; suggested Input
@@ -119,5 +177,5 @@ Offset if notes look out of step with the music). Positive Audio Offset = notes 
   `source.url` field (a `/_blob/<id>` address that changes with every upload).
 - **To refresh it:** run the script, upload the new `requirements.csv` to the artifact as an asset,
   then update `datasets/requirements` so `source.url` is the new `/_blob/<id>` (and bump the
-  `edit` / `updated` times). The update needs the document's current version number; it was 38
+  `edit` / `updated` times). The update needs the document's current version number; it was 46
   after the last refresh on 2026-11-11, so read the document first to get the live value.

@@ -270,7 +270,7 @@
   "effort": "M",
   "acceptance": "Unreleased prototype packs (Boom Rocket Test 2, early Rock Pack build) load with proper song/pack names, their own unlock icons or sensible placeholders, correct leaderboards, and every listed track, chart and model verified in play",
   "depends_on": "R-111",
-  "notes": "Analysed 2026-11-11 (docs/DLC_PROTOTYPES.md): Test 2 = second set of charts for five shipped songs (4 music files byte-identical, 1 re-encode); loads after automatic repairs and now has real titles. Early Rock Pack = retail pack with differently packed music, not needed. Left: unlock icons, local-only scores, final titles."
+  "notes": "Analysed 2026-11-11 (docs/DLC_PROTOTYPES.md): Test 2 = second set of charts for five shipped songs (4 music files byte-identical, 1 re-encode); loads after automatic repairs and now has real titles. Early Rock Pack = retail pack with differently packed music, not needed. Titles: '<Title> II' (accepted 2026-11-11 pending issues in testing). Left: unlock icons, local-only scores."
  },
  {
   "id": "R-113",
@@ -478,7 +478,7 @@
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, fix untested). Particle/camera code still needs a visual check; replay test not built."
+  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built."
  },
  {
   "id": "R-303",
@@ -569,7 +569,7 @@
   "effort": "M",
   "acceptance": "During the full playtest, every menu and HUD screen is checked at 21:9 and 32:9 with both Menu Layout options (Screen Edges and Centred): side elements follow the window edges, nothing splits from its group or pops during animations; fixes via grouping rules or per-screen overrides (--ui_anchor_debug log)",
   "depends_on": "R-402,R-110",
-  "notes": "2026-11-11: menus were drawn in their 16:9 place for a moment after a transition and then jumped to the edge; the finished layout of each screen is remembered (cache/ui_layout.txt) and used for the first 1.5 s after a screen loads. First attempt failed (it learned an in-between arrangement the main menu holds for ~0.3 s); second attempt only learns what is still there after 1.5 s; third also places items that are spread out while arriving (flying text). Confirmed fixed in play 2026-11-11. Standing rule from the user: test menu changes with both Menu Layout options. Song-select headings and speed panel are kept with the list instead of following the edges. Edge anchoring works on most menus but not all (user test 2026-11-10); do with the full playtest"
+  "notes": "2026-11-11: menus were drawn in their 16:9 place for a moment after a transition and then jumped to the edge; the finished layout of each screen is remembered (cache/ui_layout.txt) and used for the first 1.5 s after a screen loads. First attempt failed (it learned an in-between arrangement the main menu holds for ~0.3 s); second attempt only learns what is still there after 1.5 s; third also places items that are spread out while arriving (flying text). Confirmed fixed in play 2026-11-11. Standing rule from the user: test menu changes with both Menu Layout options. Song-select headings and speed panel are kept with the list instead of following the edges. Edge anchoring works on most menus but not all (user test 2026-11-10); do with the full playtest 2026-11-11 (2): pause menu snapped late on its first visit (nothing learned yet); hit timing numbers jumped to the window edges when the arrow was in the outer third; results screen split apart (labels and Rating sent to the edges). Fixes, untested: finished layouts now ship in ui_scripts/ui_layout.txt (30 screens from the user's cache) so first visits are right; HUD readout band and results area kept centred via bbrr.ui.keep. 2026-11-11 (3): pause menu items lost their edge place while a dialogue (End Song?) was open over it; while a Popups script is up, the covered screen now keeps its finished layout. Untested."
  },
  {
   "id": "R-416",
@@ -582,7 +582,7 @@
   "effort": "S",
   "acceptance": "Each song bar shows the track length (m:ss) right-aligned inside the bar",
   "depends_on": "R-414",
-  "notes": "Done 2026-11-11: drawn by a hook in the engine's menu renderer (src/song_length.cpp), length read from the chart's SongLength line. Design approved, then changed on request the same day: length left-aligned and smaller, tempo (BPM x scroll speed) right-aligned; new layout untested. Songs whose chart is not a loose file show no length."
+  "notes": "Done 2026-11-11: drawn by a hook in the engine's menu renderer (src/song_length.cpp), length read from the chart's SongLength line. Design approved, then changed on request the same day: length left-aligned and smaller, tempo (BPM x scroll speed) right-aligned; new layout accepted 2026-11-11 pending issues in testing; the multiplayer song list shows length and BPM but no speed panel or buttons (accepted 2026-11-11 pending issues in testing). Songs whose chart is not a loose file show no length."
  },
  {
   "id": "R-403",
@@ -673,7 +673,7 @@
   "effort": "L",
   "acceptance": "Optional HDR pipeline with bloom; off = original look",
   "depends_on": "R-408",
-  "notes": "SDK patch 0004: Glow and HDR settings in Video Settings, both live. Glow = quarter-size bloom (bright pass, three blurs) that leaves out the HUD via a mask built from the UI quad list; HDR = scRGB swap chain with highlights expanded. Both confirmed looking good in play 2026-11-11. Next: true HDR rendering (float render target). See docs/GRAPHICS.md."
+  "notes": "SDK patch 0004: Glow and HDR settings in Video Settings, both live. Glow = quarter-size bloom (bright pass, three blurs) that leaves out the HUD via a mask built from the UI quad list; HDR = scRGB swap chain with highlights expanded. Both confirmed looking good in play 2026-11-11. Windows Auto HDR accepted 2026-11-11 pending issues in testing. Next: true HDR rendering (float render target). See docs/GRAPHICS.md."
  },
  {
   "id": "R-410",
@@ -1007,16 +1007,16 @@
   "category": "Feature",
   "title": "Offset suggestion on the results screen",
   "priority": "P2",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "S",
   "acceptance": "When a song ends with a clearly one-sided result (most presses early, or most late, and an average well away from zero), the results screen suggests which way and roughly how far to move Input Offset; nothing is shown for a balanced result or too few hits",
   "depends_on": "R-806",
-  "notes": "Requested 2026-11-11 after raising Input Offset by about 40 ms fixed a steady -36 to -44 ms late pattern. Thresholds to settle when building (for example 20+ hits, average beyond 15 ms, 70% on one side). Left out of R-806 at first on purpose."
+  "notes": "Requested 2026-11-11 after raising Input Offset by about 40 ms fixed a steady -36 to -44 ms late pattern. Thresholds to settle when building (for example 20+ hits, average beyond 15 ms, 70% on one side). Left out of R-806 at first on purpose. Built 2026-11-11, shown working in a screenshot the same day (avg +26 ms early at +20 -> try -5): bbrr.hit.advice in src/input_offset.cpp writes STR118 for ui_scripts/Ingame/LevelBreakdown.lua when 20+ hits, average 15+ ms off and 70%+ on that side; suggests current offset - average, rounded to 5 ms, within +-100 ms; shown even with Hit Timing off; one [input] offset advice log line per results screen. Wording changed on request: '(Current setting +20 ms)' instead of '(now +20 ms)'."
  },
  {
   "id": "R-901",
   "phase": 9,
-  "phase_name": "Accessibility (stretch)",
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Accessibility",
   "title": "Reduce background/camera motion option",
   "priority": "P2",
@@ -1029,7 +1029,7 @@
  {
   "id": "R-902",
   "phase": 9,
-  "phase_name": "Accessibility (stretch)",
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Research",
   "title": "Accessibility review",
   "priority": "P2",
@@ -1042,7 +1042,7 @@
  {
   "id": "R-903",
   "phase": 9,
-  "phase_name": "Accessibility (stretch)",
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
   "title": "VR support",
   "priority": "P2",
@@ -1055,7 +1055,7 @@
  {
   "id": "R-904",
   "phase": 9,
-  "phase_name": "Accessibility (stretch)",
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
   "title": "Gameplay across the full screen width",
   "priority": "P2",
@@ -1068,7 +1068,7 @@
  {
   "id": "R-905",
   "phase": 9,
-  "phase_name": "Accessibility (stretch)",
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
   "title": "Visualizer driven by audio playing in Windows",
   "priority": "P2",
@@ -1081,7 +1081,7 @@
  {
   "id": "R-906",
   "phase": 9,
-  "phase_name": "Accessibility (stretch)",
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
   "title": "Custom charts and automatic chart generation",
   "priority": "P2",
@@ -1115,7 +1115,7 @@
   "effort": "M",
   "acceptance": "Adjustable approach speed independent of song tempo; judging unchanged",
   "depends_on": "R-801",
-  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Confirmed working in play 2026-11-11. Now also live: RB / LB step it up / down during a song (notes not yet launched are retimed, arrows in the air are repositioned every frame; hooks on sub_82064C50 and sub_8206A328), with a brief on-screen notice. First live build launched new arrows late (fixed: the rewritten launch time must be before 'now'); fix untested. Song select screen: speed panel right of the list with LB / RB, and each bar shows BPM x speed (right) and length (left, smaller font); mid-song change and bar layout confirmed in play 2026-11-11. Follow-ups, untested: first notes of a song get their full path back when the speed allows (the game builds them part-way up); panel moved right with LB / RB icons (confirmed in a screenshot); 'Length' and 'BPM' headings level with the screen title."
+  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Confirmed working in play 2026-11-11. Now also live: RB / LB step it up / down during a song (notes not yet launched are retimed, arrows in the air are repositioned every frame; hooks on sub_82064C50 and sub_8206A328), with a brief on-screen notice. First live build launched new arrows late (fixed: the rewritten launch time must be before 'now'); fix accepted 2026-11-11 pending issues in testing. Song select screen: speed panel right of the list with LB / RB, and each bar shows BPM x speed (right) and length (left, smaller font); mid-song change and bar layout confirmed in play 2026-11-11. Follow-ups (accepted 2026-11-11 pending issues in testing): first notes of a song get their full path back when the speed allows (the game builds them part-way up); panel moved right with LB / RB icons (confirmed in a screenshot); 'Length' and 'BPM' headings level with the screen title. 2026-11-11 (2): first arrow of a song still appeared late at higher speeds (log: its flight stayed at the shortened 1.6 s). The full path is now taken from any full-length note with the same end whose path runs through the shortened start (the old rule also required the same note kind, which first notes rarely share); each attempt is logged. Untested. 2026-11-11 (3): still 'no full path found' for the first notes (each note has its own end). Second way added: the full start is where the line from the end through the shortened start meets the plane of the songs' launch points (the start coordinate that varies least), flight = path length / the song's rocket speed. Untested."
  },
  {
   "id": "R-803",
@@ -1128,25 +1128,51 @@
   "effort": "M",
   "acceptance": "Per-hit early/late indicator and end-of-song timing histogram / mean offset",
   "depends_on": "R-801,R-306",
-  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11; readout raised to 40 px above the target line so fireworks do not bury it, position locked in. Left: two-player results screen; optional histogram."
+  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11; readout raised to 40 px above the target line so fireworks do not bury it, position locked in. Left: two-player results screen; optional histogram. Setting renamed 'Show Accuracy' (was 'Hit Timing') 2026-11-11; cvar still --hit_timing."
  },
  {
   "id": "R-804",
-  "phase": 8,
-  "phase_name": "Modern rhythm features",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
-  "title": "Measure and beat lines",
+  "title": "Beat guides (measure lines / timing bars) - dropped",
   "priority": "P2",
   "status": "todo",
   "effort": "M",
-  "acceptance": "Optional beat/measure guide lines derived from SongBPM/SongOffset",
+  "acceptance": "Not planned: kept only as a record of what was tried",
   "depends_on": "R-801",
-  "notes": ""
+  "notes": "Dropped 2026-11-11 at the user's request. Tried: measure lines on the beat grid (cannot follow arrows: every note has its own flight time, 3.2-5.7 s in one song, and arrows ease along their paths, so arrows on one beat are only level at the target line), then a bar through every arrow (Timing Bars), which the user did not like. Code removed."
+ },
+ {
+  "id": "R-808",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "No Background (practice)",
+  "priority": "P2",
+  "status": "in_progress",
+  "effort": "S",
+  "acceptance": "Modifiers option that blacks out the city behind the playfield during a song; arrows, fireworks and HUD unchanged",
+  "depends_on": "R-801",
+  "notes": "Built 2026-11-11, untested: --no_background. SDK patch 0005 lets the port hide pixel shaders by the shader file they come from; the city is the only thing drawn with TextureModDiffuse.xpu, so its draws are skipped while game state is playing/failing. Street lights and smoke are point sprites and stay. The same SDK hook is a first step towards shader replacement by hash (R-408). 2026-11-11 first test: did nothing (log: city shader registered, never matched). The microcode in GPU memory has every word in the opposite byte order to the .xpu file and D3D renumbers a few registers when the shader is created (city: 10 of 12 words equal, hash 9567C79307ACC6F5). Matching is now 80% of words equal, in the right byte order; checked offline against the shader cache: only the city shader matches. Untested in game. 2026-11-11 (2): still no effect. The shader cache stores microcode in guest byte order, which is the file's byte order; the emulator's host dwords are those bytes read big-endian. The previous fix compared the wrong way round. Now: file words read big-endian, 80% of words equal (city 10 of 12, checked offline in the same terms). Untested. 2026-11-11 (3): the third build hid the arrows instead of the city: 9567C79307ACC6F5 is a generic textured shader from SimpleShaders.fxobj (12 of 12 words), used by the arrows; the city's shader matches none of the game's shader files. Approach changed: patch 0005 now hides draws by (vertex, pixel) shader hash pair, and the first time No Background is on in a song it logs every draw of two frames ('[bbrr] draw list ...') to identify the city's draws. Until those are filled in (kCityDraws in src/modifiers.cpp) the setting has no visible effect. 2026-11-11 (4): draw list read (two frames, ~1,500 draws each). Hidden now: sky 0C88/0AA0, backdrop BBFF/9567, city mesh passes C837/2B08 and 04F2/C9D2 with 6773/88B6, city details D1ED/238C; frames start with clears, so the space behind stays black. Arrows (436F/9567), fireworks (PointSprite 1DB9/C471, points 63B4/4B1E), glow passes and HUD untouched. List overridable with --no_background_draws. Untested. 2026-11-11 (5): city gone in play, sky still faintly visible; added sky dome 04F2/B36F and water quad B90D/FB9F to the list. Confirmed working in play 2026-11-11 (city, sky and water gone). Then: hidden from the Get Ready countdown on (screen scripts Ingame\\GetReady / Hud start a song; LevelComplete, LevelBreakdown, GameOver, RetryMenu, HighScore, FireworkUnlocked, PostGame or Main\\ end it), not only once the song plays; untested."
+ },
+ {
+  "id": "R-809",
+  "phase": 8,
+  "phase_name": "Modern rhythm features",
+  "category": "Feature",
+  "title": "Rocket Acceleration setting",
+  "priority": "P2",
+  "status": "in_progress",
+  "effort": "S",
+  "acceptance": "Modifiers > Rocket Acceleration On (original: arrows speed up as they climb) / Off (even pace)",
+  "depends_on": "R-801",
+  "notes": "Built 2026-11-11, untested: --rocket_acceleration. sub_8206A328 eases arrows with (flown/flight)^1.5 across and ^1.05 upwards; a mid-asm hook at 0x8206A418 (where the eased and linear branches meet) sets both fractions to flown/flight when off. The game's own test byte 0x821A01C4 must not be written: it is the top byte of a value used elsewhere (0x8099FFF0 in the image) - writing it in the first attempt made acceleration flip unpredictably. Seen working 2026-11-11 (hard to tell by eye). The setting is read every frame, so it applies mid-song: arrows in the air move to their even-pace position at once (mostly a small sideways shift)."
  },
  {
   "id": "R-805",
-  "phase": 8,
-  "phase_name": "Modern rhythm features",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
   "title": "Practice tools (section loop, slow-down)",
   "priority": "P2",
@@ -1154,6 +1180,6 @@
   "effort": "L",
   "acceptance": "Loop a section and play at 50-100% speed with pitch-corrected audio",
   "depends_on": "R-801,R-203",
-  "notes": "Game embeds SoundTouch time-stretch library - may support tempo change already"
+  "notes": "Moved to post-1.0 stretch goals 2026-11-11 (may be done after v1.0). Game embeds SoundTouch time-stretch library - may support tempo change already"
  }
 ]

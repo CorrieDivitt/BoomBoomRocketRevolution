@@ -30,16 +30,18 @@
 // by the game with a shortened flight and a starting point part of the way up its path
 // (0x820687C0), so that it is already in the air when the song begins. At a higher speed
 // such a note often has time for its whole path, so the full path is put back first: the
-// starting point and flight time are taken from another note of the same kind that ends
-// at the same place. If even the faster flight does not fit before the song starts, the
+// starting point and flight time are taken from a full-length note on the same lane (same
+// end, and a path that runs through the shortened note's starting point). If even the faster flight does not fit before the song starts, the
 // arrow still begins part of the way up - there is nothing earlier to show.
 
 #include "input_offset.h"
 #include "modifiers.h"
 #include "settings.h"
 #include "widescreen.h"
+#include "midasm_hooks.h"
 
 #include <rex/cvar.h>
+#include <rex/filesystem.h>
 #include <rex/hook.h>
 #include <rex/logging.h>
 
@@ -48,15 +50,35 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <mutex>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 REXCVAR_DEFINE_DOUBLE(scroll_speed, 1.0, "BBR",
                       "Scroll speed multiplier: arrows travel this many times faster and are spaced "
                       "further apart; timing against the music is unchanged (0.25 to 8)");
 REXCVAR_DEFINE_BOOL(scroll_speed_buttons, true, "BBR",
                     "LB / RB lower / raise the scroll speed during a song");
+REXCVAR_DEFINE_BOOL(rocket_acceleration, true, "BBR",
+                    "Arrows speed up as they climb, like rockets (the original). Off: they move at an even pace");
+REXCVAR_DEFINE_BOOL(no_background, false, "BBR",
+                    "Hide the city during a song: arrows and fireworks on black, for practice without distractions");
+
+#if defined(_WIN32)
+// SDK patch 0005 (patches/rexglue-sdk, rex/graphics/hidden_shaders.h).
+namespace rex::graphics {
+void SetHiddenDraws(const uint64_t* vertex_hashes, const uint64_t* pixel_hashes, size_t count);
+void SetHiddenDrawsActive(bool active);
+void RequestDrawDump(uint32_t frames);
+}  // namespace rex::graphics
+#endif
 
 REX_EXTERN(__imp__sub_82065E70);
 REX_EXTERN(__imp__sub_82065958);
@@ -105,6 +127,11 @@ std::unordered_map<uint32_t, Note> g_notes;  // by note address
 thread_local uint32_t t_new_note = 0;
 thread_local bool t_building = false;
 std::atomic<bool> g_notice{false};
+// Flight times of the notes built for the song being played (full-length ones only), for
+// the measure lines. A build more than a second after the previous one starts a new song.
+std::vector<double> g_song_flights;
+std::vector<uint32_t> g_song_notes;  // addresses of the notes built for the song being played
+std::chrono::steady_clock::time_point g_last_build{};
 double g_logged_speed = -1.0;
 
 double Speed() { return std::clamp(REXCVAR_GET(scroll_speed), 0.25, 8.0); }
@@ -123,27 +150,120 @@ bool Lookup(uint8_t* base, uint32_t note, Note* out) {
   *out = it->second;
   return true;
 }
-// Gives a shortened first note its whole path back, from a note of the same kind that
-// ends at the same place. Only for a note that has not been launched.
+// The song's usual flight time at 1x (median of its full-length notes); 0 if none built yet.
+// Call with g_mutex held.
+double BaseFlightLocked() {
+  if (g_song_flights.empty()) return 0.0;
+  std::vector<double> flights = g_song_flights;
+  std::nth_element(flights.begin(), flights.begin() + flights.size() / 2, flights.end());
+  return flights[flights.size() / 2];
+}
+
+
+// Gives a shortened first note its whole path back. The game shortens it by sliding the
+// starting point in a straight line towards the end (0x820687C0), so any full-length note
+// that ends at the same place and whose path runs through this starting point is on the
+// same lane: take its starting point and flight time. (An earlier version also asked for
+// the same note kind at +0x3C; first notes are often a different kind, so it never matched.)
+// Only for a note that has not been launched.
 void RestoreFullPath(uint8_t* base, uint32_t note) {
   std::lock_guard<std::mutex> lock(g_mutex);
   auto it = g_notes.find(note);
   if (it == g_notes.end() || !it->second.shortened) return;
   Note& mine = it->second;
   mine.shortened = false;  // one attempt
+  const Note* best = nullptr;
   for (const auto& [address, other] : g_notes) {
-    if (other.shortened || address == note || other.kind != mine.kind || !(other.flight > mine.flight)) continue;
+    if (other.shortened || address == note || !(other.flight > mine.flight + 0.01)) continue;
     bool same_end = true;
-    for (int i = 0; i < 3; ++i) same_end &= std::fabs(other.end[i] - mine.end[i]) < 1e-3f;
+    for (int i = 0; i < 3; ++i) same_end &= std::fabs(other.end[i] - mine.end[i]) < 1e-2f;
     if (!same_end) continue;
+    // Does this note's starting point lie on the other's path (end -> start)?
+    double full[3], part[3], full_len = 0, part_len = 0, dot = 0;
     for (int i = 0; i < 3; ++i) {
-      mine.start[i] = other.start[i];
-      StoreFloat(base, note + 0x20 + 4 * i, other.start[i]);
+      full[i] = double(other.start[i]) - other.end[i];
+      part[i] = double(mine.start[i]) - mine.end[i];
+      full_len += full[i] * full[i];
+      part_len += part[i] * part[i];
+      dot += full[i] * part[i];
     }
-    mine.flight = other.flight;
-    mine.changed = true;
+    if (full_len < 1e-9 || part_len < 1e-12) continue;
+    const double cosine = dot / std::sqrt(full_len * part_len);
+    if (cosine < 0.999 || part_len > full_len) continue;
+    if (!best || other.flight < best->flight) best = &other;  // the most usual full path
+  }
+  if (!best) {
+    // Notes rarely share an end (each has its own zone and zoom distance). Second way: all
+    // rockets start from the launch area, so the full-length notes' starting points share
+    // one coordinate (the axis on which they vary least). The full path starts where the
+    // line from the end through this note's shortened start reaches that plane, and the
+    // song's rockets all fly at one speed (path length / flight time).
+    std::vector<const Note*> full;
+    for (uint32_t address : g_song_notes) {
+      auto o = g_notes.find(address);
+      if (o != g_notes.end() && !o->second.shortened && address != note && o->second.flight > 0.05)
+        full.push_back(&o->second);
+    }
+    if (full.size() >= 8) {
+      int axis = -1;
+      double plane = 0.0, spread_best = 1e30, typical_length = 0.0;
+      std::vector<double> speeds;
+      for (const Note* n : full) {
+        double len = 0;
+        for (int i = 0; i < 3; ++i) len += double(n->end[i] - n->start[i]) * double(n->end[i] - n->start[i]);
+        len = std::sqrt(len);
+        typical_length += len / full.size();
+        speeds.push_back(len / n->flight);
+      }
+      for (int a = 0; a < 3; ++a) {
+        std::vector<double> v;
+        for (const Note* n : full) v.push_back(n->start[a]);
+        std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
+        const double median = v[v.size() / 2];
+        double spread = 0;
+        for (double x : v) spread += std::fabs(x - median) / v.size();
+        if (spread < spread_best) spread_best = spread, axis = a, plane = median;
+      }
+      std::nth_element(speeds.begin(), speeds.begin() + speeds.size() / 2, speeds.end());
+      const double speed = speeds[speeds.size() / 2];
+      const double from_end = double(mine.start[axis]) - mine.end[axis];
+      const double t = std::fabs(from_end) > 1e-6 ? (plane - mine.end[axis]) / from_end : 0.0;
+      if (axis >= 0 && spread_best < 0.02 * typical_length && t > 1.0 && t < 50.0 && speed > 1e-6) {
+        float start[3];
+        double len = 0;
+        for (int i = 0; i < 3; ++i) {
+          start[i] = float(mine.end[i] + (double(mine.start[i]) - mine.end[i]) * t);
+          len += (double(start[i]) - mine.end[i]) * (double(start[i]) - mine.end[i]);
+        }
+        const double flight = std::sqrt(len) / speed;
+        REXLOG_INFO("[modifiers] first note at {:.3f} s: full path rebuilt from the launch plane (axis {}), "
+                    "flight {:.3f} s -> {:.3f} s",
+                    mine.arrival, axis, mine.flight, flight);
+        for (int i = 0; i < 3; ++i) {
+          mine.start[i] = start[i];
+          StoreFloat(base, note + 0x20 + 4 * i, start[i]);
+        }
+        mine.flight = flight;
+        mine.changed = true;
+        return;
+      }
+      REXLOG_INFO("[modifiers] first note at {:.3f} s (flight {:.3f} s): no full path found (launch plane spread "
+                  "{:.3f} of path length {:.3f}, t {:.2f}), left as built",
+                  mine.arrival, mine.flight, spread_best, typical_length, t);
+      return;
+    }
+    REXLOG_INFO("[modifiers] first note at {:.3f} s (flight {:.3f} s, kind {:08X}): no full path found, left as built",
+                mine.arrival, mine.flight, mine.kind);
     return;
   }
+  REXLOG_INFO("[modifiers] first note at {:.3f} s: full path restored, flight {:.3f} s -> {:.3f} s", mine.arrival,
+              mine.flight, best->flight);
+  for (int i = 0; i < 3; ++i) {
+    mine.start[i] = best->start[i];
+    StoreFloat(base, note + 0x20 + 4 * i, best->start[i]);
+  }
+  mine.flight = best->flight;
+  mine.changed = true;
 }
 
 void MarkChanged(uint32_t note) {
@@ -178,6 +298,102 @@ void HandleButtons(uint8_t* base) {
   g_notice.store(true);
 }
 }  // namespace
+
+// No Background (--no_background): while a song is being played (game state 1 playing,
+// 4 failing) the draws that make up the city and the sky behind it are skipped. The game
+// clears the picture at the start of every frame (constant-colour rectangles, pixel shader
+// 2E372EA28CC404B7), so what is left behind the arrows, fireworks and HUD is black. Menus keep
+// their city.
+//
+// Which draws those are was read from a draw list of one frame during a song (2026-11-11), in
+// drawing order: clears; sky (0C88/0AA0, one rectangle); distant backdrop (BBFF/9567, one
+// rectangle list); the city mesh in two passes (C837/2B08 and 04F2/C9D2, ~175 draws each,
+// 600k+ indices) with 6773/88B6 in between; city details (D1ED/238C, ~1000 small draws); then
+// sky dome (04F2/B36F, 132 triangles, drawn before and after the city) and water quad
+// (B90D/FB9F) - these two added after the first test still showed the sky; then
+// fireworks, glow passes, the arrows (436F/9567 - same pixel shader as the backdrop, which is
+// why hiding by pixel shader alone took the arrows away) and the HUD. Pairs are
+// "vertex:pixel" shader hashes as the GPU emulation hashes the microcode; --no_background_draws
+// replaces the list without a rebuild ("0" in either place = any shader). The GPU side can log
+// a frame's draws again: the first time No Background is on in a run it logs two frames.
+REXCVAR_DEFINE_STRING(no_background_draws,
+                      "0C8863F526958F13:0AA01D3D0F524EAA,BBFFC644A2E5B64B:9567C79307ACC6F5,"
+                      "C837C4CC9C032EC1:2B0852B5C96C9374,6773CFEB0ADA028C:88B6CCE2F49DB155,"
+                      "04F226D9D2055B0F:C9D2A3BDADE621D6,D1EDFDE33AE1C2FF:238C407DFDDF25EC,"
+                      "04F226D9D2055B0F:B36FF56DF18B9D4E,B90D917BD878F162:FB9F9B10B8537018",
+                      "BBR",
+                      "Draws No Background skips: comma-separated vertex:pixel shader hash pairs (hex, 0 = any)");
+
+// A song "is on" from its Get Ready countdown until a screen that ends it, so the city goes
+// before the countdown rather than with a jump when the first note starts. Pause, the
+// settings pages and popups opened during a song do not end it.
+namespace {
+std::atomic<bool> g_song_screens{false};
+bool StartsWith(const char* name, const char* prefix) { return std::strncmp(name, prefix, std::strlen(prefix)) == 0; }
+}  // namespace
+
+void bbr::NoteScreenForNoBackground(const char* name) {
+  if (!name) return;
+  if (StartsWith(name, "Ingame\\GetReady") || StartsWith(name, "Ingame\\Hud")) {
+    g_song_screens.store(true);
+  } else if (StartsWith(name, "Ingame\\LevelComplete") || StartsWith(name, "Ingame\\LevelBreakdown") ||
+             StartsWith(name, "Ingame\\GameOver") || StartsWith(name, "Ingame\\RetryMenu") ||
+             StartsWith(name, "Ingame\\HighScore") || StartsWith(name, "Ingame\\FireworkUnlocked") ||
+             StartsWith(name, "Ingame\\PostGame") || StartsWith(name, "Main\\")) {
+    g_song_screens.store(false);
+  }
+}
+
+void bbr::UpdateNoBackground(uint8_t* base) {
+#if defined(_WIN32)
+  // (Re)read the list whenever it changes.
+  static std::string applied = "\x01";
+  static size_t pair_count = 0;
+  const std::string list = REXCVAR_GET(no_background_draws);
+  if (list != applied) {
+    applied = list;
+    std::vector<uint64_t> vs, ps;
+    size_t at = 0;
+    while (at <= list.size()) {
+      size_t comma = list.find(',', at);
+      if (comma == std::string::npos) comma = list.size();
+      const std::string item = list.substr(at, comma - at);
+      const size_t colon = item.find(':');
+      if (colon != std::string::npos) {
+        vs.push_back(std::strtoull(item.substr(0, colon).c_str(), nullptr, 16));
+        ps.push_back(std::strtoull(item.substr(colon + 1).c_str(), nullptr, 16));
+      }
+      at = comma + 1;
+    }
+    rex::graphics::SetHiddenDraws(vs.data(), ps.data(), vs.size());
+    pair_count = vs.size();
+    REXLOG_INFO("[modifiers] No Background: {} draw kinds to skip", pair_count);
+  }
+  const uint32_t state = Load32(base, 0x821A0578 + 4);  // 1 playing, 4 failing, 2 game over, 3 finished
+  const bool hide = REXCVAR_GET(no_background) && (g_song_screens.load() || state == 1 || state == 4);
+  static bool hiding = false;
+  static bool dumped = false;
+  static auto hiding_since = std::chrono::steady_clock::now();
+  if (hide != hiding) {
+    hiding = hide;
+    hiding_since = std::chrono::steady_clock::now();
+    REXLOG_INFO("[modifiers] No Background: city {}", hide ? "hidden" : "shown");
+  }
+  // Once per run, a few seconds into a song: log the draws (to check or adjust the list).
+  if (hide && !dumped && std::chrono::steady_clock::now() - hiding_since > std::chrono::seconds(4)) {
+    dumped = true;
+    rex::graphics::RequestDrawDump(2);
+  }
+  rex::graphics::SetHiddenDrawsActive(hide && pair_count > 0);
+#else
+  (void)base;
+#endif
+}
+
+double bbr::TypicalFlight() {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return BaseFlightLocked() / Speed();
+}
 
 std::string bbr::SpeedCommand(const std::string& command) {
   if (command == "bbrr.speed.poll") return g_notice.exchange(false) ? "1" : "";
@@ -221,6 +437,11 @@ REX_HOOK_RAW(sub_82065E70) {
   std::lock_guard<std::mutex> lock(g_mutex);
   if (g_notes.size() > 20000) g_notes.clear();  // left over from many songs ago
   g_notes[t_new_note] = entry;
+  const auto now = std::chrono::steady_clock::now();
+  if (now - g_last_build > std::chrono::seconds(1)) g_song_flights.clear(), g_song_notes.clear();
+  if (g_song_notes.size() < 8000) g_song_notes.push_back(t_new_note);
+  g_last_build = now;
+  if (!entry.shortened && g_song_flights.size() < 4000) g_song_flights.push_back(flight);
 }
 
 // A note's per-frame check, before it is launched.
@@ -288,4 +509,16 @@ REX_HOOK_RAW(sub_8206A328) {
     }
   }
   __imp__sub_8206A328(ctx, base);
+}
+
+// Rocket Acceleration (--rocket_acceleration). sub_8206A328 places an arrow at
+// start + (end - start) x u, where for the original rocket feel u = (flown / flight)^1.5 across
+// (f31) and ((flown / flight)^1.5)^0.7 upwards (f11); both branches meet at 0x8206A418 with
+// f30 = flown / flight. With the setting off both become f30: an even pace along the path.
+// (The game has a byte it tests to skip the easing, 0x821A01C4, but it is the top byte of a
+// value the game uses for something else - it must not be written.)
+void BbrArrowEaseHook(PPCRegister& f30, PPCRegister& f31, PPCRegister& f11) {
+  if (REXCVAR_GET(rocket_acceleration)) return;
+  f31.f64 = f30.f64;
+  f11.f64 = f30.f64;
 }

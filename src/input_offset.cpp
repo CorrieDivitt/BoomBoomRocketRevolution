@@ -278,6 +278,14 @@ struct SongStats {
 } g_song_stats;
 std::mutex g_song_mutex;
 constexpr uint32_t kSummarySlot = 126;  // stored string that carries the results line
+constexpr uint32_t kAdviceSlot = 118;   // stored string that carries the offset suggestion
+
+// When a suggestion is worth showing (R-807): enough hits, a clearly one-sided result and an
+// average well away from zero. The Input Offset menu goes from -100 to +100 ms in 5 ms steps.
+constexpr int kAdviceMinHits = 20;
+constexpr double kAdviceMinAverageMs = 15.0;
+constexpr double kAdviceMinShare = 0.70;
+constexpr double kOffsetStepMs = 5.0, kOffsetLimitMs = 100.0;
 
 // How far the music that is heard trails the song clock (same sum as src/song_clock.cpp).
 double AudioLag() {
@@ -469,6 +477,15 @@ void BbrArrowIconHook(PPCRegister& r31, PPCRegister& r1) {
   if (!together) bbr::ScheduleTick(wait, REXCVAR_GET(assist_tick_volume));
 }
 
+bool bbr::SongTimeNow(double* out) {
+  if (g_anchor_count == 0) return false;
+  const Anchor& latest = g_anchors[(g_anchor_count - 1) % kAnchors];
+  const double now = Now();
+  if (now - latest.host > 0.1) return false;  // song clock not running (menu, pause)
+  *out = latest.time + (now - latest.host);
+  return true;
+}
+
 int bbr::TakeShoulderSteps() {
   StartControllerThread();
   const int steps = g_shoulder_steps.exchange(0);
@@ -494,6 +511,41 @@ std::string bbr::HitCommand(const std::string& command) {
                   song.early, song.late);
     std::memcpy(base + kTextManager + kSummarySlot * 256, text, std::strlen(text) + 1);
     REXLOG_INFO("[input] song summary over {} hits: {}", song.count, text);
+    return "1";
+  }
+  if (command == "bbrr.hit.advice") {
+    // Results screen: if the song's hits were clearly early or clearly late, write a
+    // suggested Input Offset into its stored string. Shown whether Show Accuracy is on or not.
+    SongStats song;
+    {
+      std::lock_guard<std::mutex> lock(g_song_mutex);
+      song = g_song_stats;
+    }
+    uint8_t* base = bbr::GuestBase();
+    if (!base || song.count == 0) return "0";
+    const double mean = song.sum / song.count;  // + early, - late
+    const bool late = mean < 0.0;
+    const double share = double(late ? song.late : song.early) / song.count;
+    if (song.count < kAdviceMinHits || std::fabs(mean) < kAdviceMinAverageMs || share < kAdviceMinShare) {
+      REXLOG_INFO("[input] offset advice: none ({} hits, avg {:+.1f} ms, {:.0f}% {})", song.count, mean,
+                  share * 100.0, late ? "late" : "early");
+      return "0";
+    }
+    // Late hits: raise Input Offset by about the average; early hits: lower it.
+    const double now_ms = REXCVAR_GET(input_offset_ms);
+    double want = std::round((now_ms - mean) / kOffsetStepMs) * kOffsetStepMs;
+    want = std::clamp(want, -kOffsetLimitMs, kOffsetLimitMs);
+    char text[160];
+    if (std::fabs(want - now_ms) < 1.0) {
+      std::snprintf(text, sizeof(text), "Mostly %s (avg %+.0f ms). Input Offset is already at its %+.0f ms limit",
+                    late ? "late" : "early", mean, now_ms);
+    } else {
+      std::snprintf(text, sizeof(text), "Mostly %s (avg %+.0f ms). Try Input Offset %+.0f ms (Current setting %+.0f ms)",
+                    late ? "late" : "early", mean, want, now_ms);
+    }
+    std::memcpy(base + kTextManager + kAdviceSlot * 256, text, std::strlen(text) + 1);
+    REXLOG_INFO("[input] offset advice over {} hits ({:.0f}% {}): {}", song.count, share * 100.0,
+                late ? "late" : "early", text);
     return "1";
   }
   if (command == "bbrr.hit.poll") {

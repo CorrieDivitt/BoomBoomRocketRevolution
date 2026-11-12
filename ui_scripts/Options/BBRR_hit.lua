@@ -69,6 +69,9 @@ function Init(...)
   if not enabled then
     return
   end
+  -- The numbers sit over the arrows, which do not move with the window edges: on a wide
+  -- screen keep the band they are drawn in where it is (the whole width, just their height).
+  BBRR("bbrr.ui.keep", "-1000," .. (SHOWN_Y - 4) .. ",1640," .. (SHOWN_Y + HEIGHT + 4))
   for grade, style in pairs(GradeStyles()) do
     ids[grade] = {}
     for i = 1, SLOTS do

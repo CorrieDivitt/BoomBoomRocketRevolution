@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 
 namespace bbr {
@@ -18,4 +19,7 @@ void NoteUiScriptLoaded(const char* name);
 // For UI scripts: everything inside this rectangle (menu layout units) stays where it is
 // instead of following a window edge. Forgotten when the next script is loaded.
 void KeepUiCentred(float x0, float y0, float x1, float y1);
+// The ui_scripts folder the replacement scripts come from (src/ui_mod.cpp); empty if none.
+// Its ui_layout.txt holds the finished layouts shipped with the port (see AnchorUi).
+std::filesystem::path UiScriptsFolder();
 }  // namespace bbr

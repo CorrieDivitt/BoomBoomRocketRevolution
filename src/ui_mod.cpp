@@ -100,6 +100,11 @@ fs::path ScriptsFolder() {
   return cached;
 }
 
+}  // namespace
+
+std::filesystem::path bbr::UiScriptsFolder() { return ScriptsFolder(); }
+
+namespace {
 std::atomic<bool> g_strings_pending{false};
 std::atomic<uint32_t> g_strings_loc{0}, g_strings_lua{0};
 

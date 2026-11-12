@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 
 namespace bbr {
@@ -9,4 +10,15 @@ namespace bbr {
 //   "bbrr.speed.step" -> applies any LB / RB presses, writes the speed ("1.5x") into
 //                        stored string STR119 and returns "1" when that text changed
 std::string SpeedCommand(const std::string& command);
+
+// How long an arrow of the song being played takes from its launch point to the target line
+// at the current scroll speed, in seconds (the usual flight of the song's notes divided by
+// the multiplier); 0 when no song has been built yet. Used by the measure lines.
+double TypicalFlight();
+
+// Called once per UI update: hides or shows the city for the No Background modifier.
+void UpdateNoBackground(uint8_t* base);
+// Called with the name of every UI script the game loads (see src/widescreen.cpp): tells No
+// Background when a song's screens (countdown, HUD) start and end.
+void NoteScreenForNoBackground(const char* name);
 }  // namespace bbr

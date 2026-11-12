@@ -68,6 +68,13 @@ address = 0x8206A844
 name = "BbrArrowAspectHook"
 registers = ["f0"]
 
+# Arrow placement (sub_8206A328): eased (rocket) and linear branches meet here with
+# f30 = flown/flight, f31 = fraction across, f11 = fraction upwards (Rocket Acceleration).
+[[midasm_hook]]
+address = 0x8206A418
+name = "BbrArrowEaseHook"
+registers = ["f30", "f31", "f11"]
+
 [[midasm_hook]]
 address = 0x8206A874
 name = "BbrArrowIconHook"

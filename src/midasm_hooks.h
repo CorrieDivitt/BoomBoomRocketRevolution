@@ -30,3 +30,8 @@ void BbrParticleCountHook(PPCRegister& r3, PPCRegister& r25);
 // Audio block about to go to the driver (sub_8213E448 at 0x8213E490): r4 = 6 x 256 floats.
 // Implemented in src/metronome.cpp.
 void BbrAudioFrameHook(PPCRegister& r4);
+
+// Arrow placement (sub_8206A328) at 0x8206A418, where the eased and linear branches meet:
+// f30 = flown / flight, f31 = fraction across, f11 = fraction upwards.
+// Implemented in src/modifiers.cpp (Rocket Acceleration).
+void BbrArrowEaseHook(PPCRegister& f30, PPCRegister& f31, PPCRegister& f11);

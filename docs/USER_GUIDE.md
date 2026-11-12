@@ -31,9 +31,11 @@ different folder.
 | Calibration | Auto Calibration | Two short tap tests (sound, then picture) that set the two offsets below |
 | | Audio Offset | Moves the notes against the music. Positive = notes arrive later |
 | | Input Offset | Moves how presses are judged. Positive = presses count as made earlier |
-| | Hit Timing | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
+| | Show Accuracy | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
 | | Assist Tick | Plays a click at the exact moment of every rocket |
 | Modifiers | Scroll Speed | 0.5x to 4x (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step, without pausing; the new speed shows briefly in the middle of the screen and is saved |
+| | Rocket Acceleration | On (default, the original): arrows speed up as they climb, like rockets. Off: they move at an even pace, which some players find easier to read. Changes at once, also during a song |
+| | No Background | Off (default) or On: during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
 | (main page) | Skip Intro | Skips the start-up logos |
 | | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 
@@ -42,7 +44,7 @@ The frame rate follows your display automatically; there is nothing to set.
 ### Getting the timing right
 1. Run **Auto Calibration** once. Tap A on every beat of the sound test, then every time a bar
    reaches the line in the picture test.
-2. Play a song with **Hit Timing** on. If the numbers are mostly negative you are being judged
+2. Play a song with **Show Accuracy** on. If the numbers are mostly negative you are being judged
    late: raise Input Offset. Mostly positive: lower it.
 3. If the rockets look out of step with the music itself, change Audio Offset instead.
 
@@ -70,6 +72,7 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--game_debug_log=true` | Write the game's own debug messages to the log |
 | `--scroll_speed=<n>` | Scroll speed multiplier, any value from 0.25 to 8 |
 | `--scroll_speed_buttons=false` | LB / RB do not change the scroll speed |
+| `--no_background_draws=<list>` | Which draws No Background skips (vertex:pixel shader hash pairs); only needed if something is hidden that should not be, or the other way round |
 | `--hdr_paper_white_nits=<n>` / `--hdr_peak_nits=<n>` | HDR: brightness of ordinary white (default 200) and of the brightest highlights (default: what the display reports) |
 
 ## Files

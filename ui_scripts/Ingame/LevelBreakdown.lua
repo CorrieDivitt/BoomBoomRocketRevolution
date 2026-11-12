@@ -1,7 +1,8 @@
 -- Boom Boom Rocket Revolution: the game's own results screen plus one line about timing:
 -- the song's average hit timing, its spread, and how many hits were early and late.
 -- The PC side (src/input_offset.cpp) keeps the numbers and writes the line into stored
--- string STR126 when asked; it answers "0" when Hit Timing is off or nothing was hit.
+-- string STR126 when asked; it answers "0" when Show Accuracy is off or nothing was hit.
+-- Below it, when the hits were clearly early or late, a suggested Input Offset (STR118).
 
 System.LoadLuaScript("orig:Ingame\\LevelBreakdown.lua")
 
@@ -17,21 +18,17 @@ local HEIGHT = 18
 local BOX_BOTTOM = 336  -- lower edge of the results box, in layout units
 local game_Init = Init
 
-function Init(...)
-  game_Init(...)
-  if BBRR("bbrr.hit.summary") ~= "1" then
-    return
-  end
-  -- Centred, just below the results box (the box ends at about y = 336).
+-- One centred orange line below the results box, fading out with the screen.
+local function AddLine(y, text)
   Buttons.AddButton({
     type = UIEnums.ButtonTypes.TEXT,
     x = 320,
-    y = BOX_BOTTOM + 8,
+    y = y,
     width = SCREEN_WIDTH,
     height = HEIGHT,
     justify = UIEnums.Justify.JUSTIFY_CENTRE,
     colour = "255 255 255 255",
-    text = "STR126",
+    text = text,
     render_state = UIGlobals.font_render_state.new_filled_orange,
     effects = {
       {
@@ -44,4 +41,21 @@ function Init(...)
       }
     }
   })
+end
+
+function Init(...)
+  game_Init(...)
+  -- On a wide screen the results box, its labels and values and the Rating beside it stay
+  -- together in the middle; only the button prompts below (about y = 420) follow the edges.
+  BBRR("bbrr.ui.keep", "-300,0,940," .. (BOX_BOTTOM + 64))
+  local y = BOX_BOTTOM + 8
+  -- Timing line (average, spread, early, late): only with Show Accuracy on.
+  if BBRR("bbrr.hit.summary") == "1" then
+    AddLine(y, "STR126")
+    y = y + HEIGHT + 4
+  end
+  -- Offset suggestion (R-807): only when the song's hits were clearly early or late.
+  if BBRR("bbrr.hit.advice") == "1" then
+    AddLine(y, "STR118")
+  end
 end

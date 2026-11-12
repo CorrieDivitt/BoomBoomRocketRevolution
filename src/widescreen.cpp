@@ -28,12 +28,22 @@
 // about a third of a second), so only an arrangement that is still there after that time
 // counts as finished.
 //
+// The port ships the finished layouts of the screens learned so far in ui_scripts/ui_layout.txt
+// (same format), so a screen is right on its very first visit too; what the player's game
+// learns itself (cache/ui_layout.txt) is read after it and wins.
+//
+// A popup (Popups\*.lua, e.g. "End song?" over the pause menu) adds its widgets after those
+// of the screen it covers. Its panel can touch that screen's side items, which then get
+// grouped with it and drawn centred until it closes. So while a popup is up, the covered
+// screen's items keep the sides of that screen's finished layout.
+//
 // Things a UI script adds beside a centred part of a screen (the headings and the speed
 // panel around the song list) would otherwise be taken for edge items; the script names
 // the rectangle they are in and they are left alone (bbr::KeepUiCentred).
 
 #include "widescreen.h"
 #include "midasm_hooks.h"
+#include "modifiers.h"
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -268,6 +278,7 @@ std::vector<Rect> g_keep;                     // rectangles whose contents stay 
 std::map<std::string, Sides> g_layouts;       // finished layout by "<script>|<widgets>"
 bool g_layouts_loaded = false;
 std::string g_last_signature;
+std::string g_under_signature;  // while a popup is up: the screen underneath it
 Sides g_last_sides;
 int g_same_frames = 0;
 
@@ -275,10 +286,8 @@ std::filesystem::path LayoutFile() {
   return rex::filesystem::GetUserFolder() / "boomboomrocket" / "cache" / "ui_layout.txt";
 }
 
-void LoadLayouts() {
-  if (g_layouts_loaded) return;
-  g_layouts_loaded = true;
-  std::ifstream in(LayoutFile());
+void ReadLayouts(const std::filesystem::path& file) {
+  std::ifstream in(file);
   std::string line;
   while (std::getline(in, line)) {
     const size_t tab = line.find('\t');
@@ -294,6 +303,16 @@ void LoadLayouts() {
     }
     if (!sides.empty() && g_layouts.size() < 2000) g_layouts[line.substr(0, tab)] = sides;
   }
+}
+
+void LoadLayouts() {
+  if (g_layouts_loaded) return;
+  g_layouts_loaded = true;
+  const std::filesystem::path shipped = bbr::UiScriptsFolder();
+  if (!shipped.empty()) ReadLayouts(shipped / "ui_layout.txt");
+  const size_t shipped_count = g_layouts.size();
+  ReadLayouts(LayoutFile());
+  REXLOG_INFO("[ui] {} screen layouts known ({} shipped with the port)", g_layouts.size(), shipped_count);
 }
 
 void SaveLayouts() {
@@ -454,6 +473,26 @@ void AnchorUi(uint8_t* base) {
       SaveLayouts();
     }
   }
+  // Popup: the covered screen's items stay where that screen had them.
+  std::string under;
+  {
+    std::lock_guard<std::mutex> lock(g_screen_mutex);
+    under = g_under_signature;
+  }
+  if (!under.empty()) {
+    const auto it = g_layouts.find(under);
+    if (it != g_layouts.end()) {
+      for (size_t k = 0; k < items.size(); ++k) {
+        if (fixed[k]) continue;
+        for (const auto& [id, side] : it->second) {
+          if (id == ids[k]) {
+            side_of[k] = side;
+            break;
+          }
+        }
+      }
+    }
+  }
   bool remembered = false;
   if (since_load < kArrival) {
     const auto it = g_layouts.find(signature);
@@ -461,8 +500,13 @@ void AnchorUi(uint8_t* base) {
       remembered = true;
       // Also for items that are too wide to be grouped right now: a text whose letters
       // are still flying in is spread over the screen, and is exactly what would jump.
+      const auto covered = under.empty() ? g_layouts.end() : g_layouts.find(under);
       for (size_t k = 0; k < items.size(); ++k) {
         if (fixed[k]) continue;
+        if (covered != g_layouts.end() &&
+            std::any_of(covered->second.begin(), covered->second.end(),
+                        [&](const std::pair<uint32_t, int>& e) { return e.first == ids[k]; }))
+          continue;  // belongs to the covered screen: already placed above
         for (const auto& [id, side] : it->second) {
           if (id == ids[k]) {
             side_of[k] = side;
@@ -504,14 +548,26 @@ void AnchorUi(uint8_t* base) {
 void bbr::NoteUiScriptLoaded(const char* name) {
   if (!name) return;
   if (std::strncmp(name, "orig:", 5) == 0) name += 5;
+  bbr::NoteScreenForNoBackground(name);
   std::lock_guard<std::mutex> lock(g_screen_mutex);
+  const bool popup = std::strncmp(name, "Popups\\", 7) == 0 || std::strncmp(name, "Popups/", 7) == 0;
+  if (popup && g_under_signature.empty() && !g_last_signature.empty() &&
+      g_last_signature.rfind("Popups", 0) != 0) {
+    g_under_signature = g_last_signature;
+    REXLOG_INFO("[ui] popup {} over {}: that screen's items keep their places", name, g_under_signature);
+  } else if (!popup) {
+    g_under_signature.clear();
+  }
   g_screen_name = name;
   g_screen_loaded_at = SteadyClock::now();
-  g_keep.clear();
+  if (!popup) g_keep.clear();  // the covered screen's kept areas stay kept
 }
 
 void bbr::KeepUiCentred(float x0, float y0, float x1, float y1) {
   std::lock_guard<std::mutex> lock(g_screen_mutex);
+  for (const Rect& r : g_keep) {
+    if (r.x0 == x0 && r.y0 == y0 && r.x1 == x1 && r.y1 == y1) return;  // already kept
+  }
   if (g_keep.size() < 16) g_keep.push_back({x0, y0, x1, y1});
 }
 
@@ -584,5 +640,6 @@ REX_HOOK_RAW(sub_820A1A98) {
   __imp__sub_820A1A98(ctx, base);
   AnchorUi(base);
   BuildGlowMask(base);
+  bbr::UpdateNoBackground(base);
   g_marks.clear();
 }

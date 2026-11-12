@@ -1,0 +1,147 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -23,6 +23,7 @@
+ #include <rex/graphics/d3d12/graphics_system.h>
+ #include <rex/graphics/d3d12/shader.h>
+ #include <rex/graphics/flags.h>
++#include <rex/graphics/hidden_shaders.h>
+ #include <rex/graphics/registers.h>
+ #include <rex/graphics/util/draw.h>
+ #include <rex/graphics/xenos.h>
+@@ -1896,6 +1897,7 @@
+ 
+ void D3D12CommandProcessor::IssueSwap(uint32_t frontbuffer_ptr, uint32_t frontbuffer_width,
+                                       uint32_t frontbuffer_height) {
++  rex::graphics::DumpFrameEnd();  // Boom Boom Rocket Revolution (patch 0005)
+   SCOPE_profile_cpu_f("gpu");
+   vertex_buffers_in_sync_[0] = 0;
+   vertex_buffers_in_sync_[1] = 0;
+@@ -2298,6 +2300,20 @@
+   pipeline_cache_->AnalyzeShaderUcode(*vertex_shader);
+   bool memexport_used_vertex = vertex_shader->memexport_eM_written() != 0;
+ 
++  // Boom Boom Rocket Revolution (patch 0005): the draw-list dump, and No Background - skip
++  // draws the port has asked to hide, so the picture stays black behind everything else.
++  if (rex::graphics::DrawDumpActive() || rex::graphics::HiddenDrawsActive()) {
++    const Shader* ps_check = active_pixel_shader();
++    const uint64_t vs_hash = vertex_shader->ucode_data_hash();
++    const uint64_t ps_hash = ps_check ? ps_check->ucode_data_hash() : 0;
++    if (rex::graphics::DrawDumpActive()) {
++      rex::graphics::DumpDraw(vs_hash, ps_hash, uint32_t(primitive_type), index_count, ps_check != nullptr);
++    }
++    if (rex::graphics::HiddenDrawsActive() && rex::graphics::IsDrawHidden(vs_hash, ps_hash)) {
++      return true;
++    }
++  }
++
+   // Pixel shader analysis.
+   bool primitive_polygonal = draw_util::IsPrimitivePolygonal(regs);
+   bool is_rasterization_done = draw_util::IsRasterizationPotentiallyDone(regs, primitive_polygonal);
+diff --git a/src/ui/d3d12/d3d12_presenter.cpp b/src/ui/d3d12/d3d12_presenter.cpp
+--- a/src/ui/d3d12/d3d12_presenter.cpp
++++ b/src/ui/d3d12/d3d12_presenter.cpp
+@@ -10,6 +10,9 @@
+  */
+ 
+ #include <algorithm>
++#include <cstdint>
++#include <unordered_map>
++#include <atomic>
+ #include <climits>
+ #include <cmath>
+ #include <cstring>
+@@ -2121,3 +2124,65 @@
+ }
+ 
+ }  // namespace rex::ui::d3d12
++
++// ---------------------------------------------------------------------------------------
++// Boom Boom Rocket Revolution: hidden draws and the draw-list dump
++// (rex/graphics/hidden_shaders.h). Kept here, in rexruntime, so both the game and the GPU
++// plugin reach the same state.
++namespace rex::graphics {
++namespace {
++std::mutex g_hidden_mutex;
++std::vector<std::pair<uint64_t, uint64_t>> g_hidden_pairs;
++std::atomic<bool> g_hidden_active{false};
++std::atomic<uint32_t> g_dump_frames{0};
++uint32_t g_dump_draw = 0;
++uint32_t g_dump_frame = 0;
++}  // namespace
++
++void SetHiddenDraws(const uint64_t* vertex_hashes, const uint64_t* pixel_hashes, size_t count) {
++  std::lock_guard<std::mutex> lock(g_hidden_mutex);
++  g_hidden_pairs.clear();
++  for (size_t i = 0; i < count; ++i) g_hidden_pairs.emplace_back(vertex_hashes[i], pixel_hashes[i]);
++}
++
++void SetHiddenDrawsActive(bool active) { g_hidden_active.store(active, std::memory_order_relaxed); }
++
++bool HiddenDrawsActive() { return g_hidden_active.load(std::memory_order_relaxed); }
++
++bool IsDrawHidden(uint64_t vertex_hash, uint64_t pixel_hash) {
++  std::lock_guard<std::mutex> lock(g_hidden_mutex);
++  for (const auto& [vs, ps] : g_hidden_pairs) {
++    if ((vs == 0 || vs == vertex_hash) && (ps == 0 || ps == pixel_hash)) return true;
++  }
++  return false;
++}
++
++void RequestDrawDump(uint32_t frames) {
++  std::lock_guard<std::mutex> lock(g_hidden_mutex);
++  g_dump_draw = 0;
++  g_dump_frame = 0;
++  g_dump_frames.store(frames, std::memory_order_relaxed);
++  REXLOG_INFO("[bbrr] draw list: logging the next {} frames", frames);
++}
++
++bool DrawDumpActive() { return g_dump_frames.load(std::memory_order_relaxed) != 0; }
++
++void DumpDraw(uint64_t vertex_hash, uint64_t pixel_hash, uint32_t primitive_type, uint32_t index_count,
++              bool pixel_shader_used) {
++  std::lock_guard<std::mutex> lock(g_hidden_mutex);
++  if (g_dump_frames.load(std::memory_order_relaxed) == 0) return;
++  REXLOG_INFO("[bbrr] draw list frame {} draw {:3}: vs {:016X} ps {:016X}{} primitive {} indices {}", g_dump_frame,
++              g_dump_draw++, vertex_hash, pixel_hash, pixel_shader_used ? "" : " (not used)", primitive_type,
++              index_count);
++}
++
++void DumpFrameEnd() {
++  std::lock_guard<std::mutex> lock(g_hidden_mutex);
++  const uint32_t left = g_dump_frames.load(std::memory_order_relaxed);
++  if (left == 0) return;
++  REXLOG_INFO("[bbrr] draw list frame {} ends after {} draws", g_dump_frame, g_dump_draw);
++  ++g_dump_frame;
++  g_dump_draw = 0;
++  g_dump_frames.store(left - 1, std::memory_order_relaxed);
++}
++}  // namespace rex::graphics
+diff --git a/include/rex/graphics/hidden_shaders.h b/include/rex/graphics/hidden_shaders.h
+new file mode 100644
+--- /dev/null
++++ b/include/rex/graphics/hidden_shaders.h
+@@ -0,0 +1,23 @@
++#pragma once
++// Boom Boom Rocket Revolution (patch 0005): hiding draws by shader, and a draw-list dump to
++// find out which draws are which.
++// Defined in src/ui/d3d12/d3d12_presenter.cpp, which is part of rexruntime, so the game and
++// the GPU plugin (a separate DLL linked against rexruntime) share one copy.
++#include <cstddef>
++#include <cstdint>
++
++namespace rex::graphics {
++// Draws to skip while hiding is active: pairs of (vertex shader hash, pixel shader hash) as
++// the GPU emulation hashes the microcode; 0 in either place matches any shader.
++void SetHiddenDraws(const uint64_t* vertex_hashes, const uint64_t* pixel_hashes, size_t count);
++void SetHiddenDrawsActive(bool active);
++bool HiddenDrawsActive();
++bool IsDrawHidden(uint64_t vertex_hash, uint64_t pixel_hash);
++
++// Logs every draw of the next `frames` frames (shaders, primitive type, index count).
++void RequestDrawDump(uint32_t frames);
++bool DrawDumpActive();
++void DumpDraw(uint64_t vertex_hash, uint64_t pixel_hash, uint32_t primitive_type, uint32_t index_count,
++              bool pixel_shader_used);
++void DumpFrameEnd();
++}  // namespace rex::graphics

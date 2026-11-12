@@ -28,6 +28,8 @@ if ($patches.Count -gt 0) {
   if ($applied) { Write-Host "SDK patches already applied ($($patches.Count))" }
   else {
     Run "Restoring the SDK sources" { git -C $Sdk checkout -- src include }
+    # ...and remove files that patches add (checkout leaves untracked files alone).
+    git -C $Sdk clean -fq -- src include
     foreach ($p in $patches) {
       Run "Applying $($p.Name)" { git -C $Sdk apply --ignore-whitespace $p.FullName }
       Write-Host "applied: $($p.Name)"
