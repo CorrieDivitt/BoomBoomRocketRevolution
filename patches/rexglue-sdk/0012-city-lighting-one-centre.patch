@@ -1,0 +1,284 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2477,13 +2477,13 @@
+ BbrrLight bbrr_lights[6];
+ uint32_t bbrr_light_count = 0;
+ uint64_t bbrr_lights_frame = ~uint64_t(0);
+-float bbrr_strength_scale = 0.0f;  // the game's c17.x per unit of light strength, once seen
+ uint32_t bbrr_light_log_lines = 0;
+ uint64_t bbrr_light_log_frame = 0;
+ 
+ struct BbrrBox {
+   float lo[3];
+   float hi[3];
++  float normal[3];  // the average of its vertex normals: near unit length for a flat face
+   bool valid;
+ };
+ std::unordered_map<uint64_t, BbrrBox> bbrr_boxes;
+@@ -2527,6 +2527,16 @@
+     }
+     if (binding) break;
+   }
++  int32_t normal_offset = -1;
++  if (binding) {
++    for (const Shader::VertexBinding::Attribute& a : binding->attributes) {
++      if (a.fetch_instr.attributes.data_format == xenos::VertexFormat::k_10_11_11 &&
++          a.fetch_instr.attributes.is_signed) {
++        normal_offset = a.fetch_instr.attributes.offset * 4;
++        break;
++      }
++    }
++  }
+   uint32_t address = 0, size = 0, stride = 0;
+   xenos::Endian endian = xenos::Endian::kNone;
+   if (binding && binding->stride_words && position_offset >= 0) {
+@@ -2580,8 +2590,26 @@
+         box.hi[k] = used ? std::max(box.hi[k], p[k]) : p[k];
+       }
+       ++used;
++      if (normal_offset >= 0 && uint64_t(index) * stride + uint32_t(normal_offset) + 4 <= size) {
++        // Packed normal: x and y in 11 bits each, z in 10, all signed.
++        uint32_t raw;
++        std::memcpy(&raw, vertices + uint64_t(index) * stride + uint32_t(normal_offset), 4);
++        if (swap) raw = BbrrSwap32(raw);
++        const float nx = float(int32_t(raw << 21) >> 21) / 1023.0f;
++        const float ny = float(int32_t(raw << 10) >> 21) / 1023.0f;
++        const float nz = float(int32_t(raw) >> 22) / 511.0f;
++        const float length = std::sqrt(nx * nx + ny * ny + nz * nz);
++        if (length > 0.5f && length < 1.5f) {
++          box.normal[0] += nx / length;
++          box.normal[1] += ny / length;
++          box.normal[2] += nz / length;
++        }
++      }
+     }
+     box.valid = used >= 3;
++    if (used) {
++      for (int k = 0; k < 3; ++k) box.normal[k] /= float(used);
++    }
+   }
+   return bbrr_boxes.emplace(key, box).first->second;
+ }
+@@ -2606,96 +2634,133 @@
+   bbrr_lights_frame = bbrr_frame;
+ }
+ 
+-// Gives a city draw its own light. Returns false when there is nothing to change.
+-bool BbrrLightCityDraw(RegisterFile& regs, const BbrrBox& box, float strength, BbrrConstantGuard& guard) {
+-  const uint32_t pixel_base = XE_GPU_REG_SHADER_CONSTANT_256_X;
++// All the lights of this frame as one, worked out at the first city draw of the frame.
++struct BbrrFrameLight {
++  uint64_t frame = ~uint64_t(0);
++  bool valid = false;
++  uint32_t count = 0;
++  BbrrLight lights[7];   // the six smoke lights and the game's own flash
++  float centre[3];       // where the light comes from, on average
++  float total[3];        // colour x strength, all lights added up
++};
++BbrrFrameLight bbrr_frame_light;
++
++// The city shader's c17.x for a light of strength 1 at City Lighting strength 1. The game's
++// own flash starts at 500,000 and dies away within a few frames.
++constexpr float kBbrrStrengthUnit = 500000.0f;
++constexpr float kBbrrNearest = 150.0f * 150.0f;
++
++void BbrrBuildFrameLight(const RegisterFile& regs, float strength) {
++  BbrrFrameLight& f = bbrr_frame_light;
++  f.frame = bbrr_frame;
++  f.valid = false;
++  f.count = 0;
++  for (uint32_t j = 0; j < bbrr_light_count && f.count < 6; ++j) f.lights[f.count++] = bbrr_lights[j];
++  // The game's own flash for the city (c15 position, c16 colour, c17.x strength), kept at
++  // its original brightness whatever the setting.
+   float game_position[4], game_colour[4], game_strength[4];
+-  BbrrReadFloats(regs, pixel_base, 15, game_position);
+-  BbrrReadFloats(regs, pixel_base, 16, game_colour);
+-  BbrrReadFloats(regs, pixel_base, 17, game_strength);
+-
+-  // How the game turns a light's strength into the city shader's c17.x: taken from the light
+-  // the game itself chose for the city (the one at c15), whenever that can be seen.
+-  for (uint32_t j = 0; j < bbrr_light_count; ++j) {
+-    const BbrrLight& light = bbrr_lights[j];
+-    const float dx = light.position[0] - game_position[0], dy = light.position[1] - game_position[1],
+-                dz = light.position[2] - game_position[2];
+-    if (dx * dx + dy * dy + dz * dz < 4.0f && game_strength[0] > 0.0f) {
+-      bbrr_strength_scale = game_strength[0] / light.strength;
+-      break;
+-    }
+-  }
+-  if (bbrr_light_count == 0) return false;
+-  // Until the game's own value has been seen, take strength as it is (the log line shows a
+-  // scale of 0 while that is the case).
+-  const float strength_scale = bbrr_strength_scale > 0.0f ? bbrr_strength_scale : 1.0f;
+-
+-  // The point of this piece nearest the brightest light.
+-  uint32_t brightest = 0;
+-  float brightest_value = -1.0f;
+-  for (uint32_t j = 0; j < bbrr_light_count; ++j) {
+-    const BbrrLight& light = bbrr_lights[j];
+-    const float value = light.strength * (light.colour[0] + light.colour[1] + light.colour[2]);
+-    if (value > brightest_value) {
+-      brightest_value = value;
+-      brightest = j;
+-    }
+-  }
+-  float q[3];
+-  for (int k = 0; k < 3; ++k) q[k] = std::clamp(bbrr_lights[brightest].position[k], box.lo[k], box.hi[k]);
+-
+-  // Light arriving at that point from every firework, and where it comes from on average.
+-  const float kNearest = 150.0f * 150.0f;
+-  float arriving[3] = {0, 0, 0}, from[3] = {0, 0, 0}, weight_sum = 0;
+-  for (uint32_t j = 0; j < bbrr_light_count; ++j) {
+-    const BbrrLight& light = bbrr_lights[j];
+-    float d2 = 0;
+-    for (int k = 0; k < 3; ++k) d2 += (q[k] - light.position[k]) * (q[k] - light.position[k]);
+-    const float e = light.strength / std::max(d2, kNearest);
+-    const float weight = e * (light.colour[0] + light.colour[1] + light.colour[2]);
++  BbrrReadFloats(regs, XE_GPU_REG_SHADER_CONSTANT_256_X, 15, game_position);
++  BbrrReadFloats(regs, XE_GPU_REG_SHADER_CONSTANT_256_X, 16, game_colour);
++  BbrrReadFloats(regs, XE_GPU_REG_SHADER_CONSTANT_256_X, 17, game_strength);
++  const float flash = game_strength[0] / (kBbrrStrengthUnit * strength);
++  if (flash > 0.0005f && std::isfinite(flash) &&
++      std::isfinite(game_position[0] + game_position[1] + game_position[2] + game_colour[0] + game_colour[1] +
++                    game_colour[2])) {
++    BbrrLight& light = f.lights[f.count++];
++    std::memcpy(light.position, game_position, sizeof(light.position));
++    std::memcpy(light.colour, game_colour, sizeof(light.colour));
++    light.strength = flash;
++  }
++  float weight_sum = 0;
++  for (int k = 0; k < 3; ++k) f.centre[k] = f.total[k] = 0;
++  for (uint32_t j = 0; j < f.count; ++j) {
++    const BbrrLight& light = f.lights[j];
++    const float weight = light.strength * (light.colour[0] + light.colour[1] + light.colour[2]);
+     for (int k = 0; k < 3; ++k) {
+-      arriving[k] += e * light.colour[k];
+-      from[k] += weight * light.position[k];
++      f.centre[k] += weight * light.position[k];
++      f.total[k] += light.strength * light.colour[k];
+     }
+     weight_sum += weight;
+   }
+-  if (!(weight_sum > 0.0f) || !std::isfinite(weight_sum)) return false;
+-  float d2 = 0;
++  if (!(weight_sum > 0.0f) || !std::isfinite(weight_sum)) return;
++  for (int k = 0; k < 3; ++k) f.centre[k] /= weight_sum;
++  f.valid = std::isfinite(f.centre[0] + f.centre[1] + f.centre[2] + f.total[0] + f.total[1] + f.total[2]);
++
++  if (f.valid && bbrr_light_log_lines < 120 && bbrr_frame >= bbrr_light_log_frame) {
++    bbrr_light_log_frame = bbrr_frame + 120;
++    ++bbrr_light_log_lines;
++    char line[384];
++    std::snprintf(line, sizeof(line),
++                  "%u lights (strengths %.2f %.2f %.2f %.2f %.2f %.2f %.2f), centre (%.0f %.0f %.0f), total colour "
++                  "(%.3g %.3g %.3g), game flash %.4g, setting %.3g",
++                  f.count, double(f.count > 0 ? f.lights[0].strength : 0), double(f.count > 1 ? f.lights[1].strength : 0),
++                  double(f.count > 2 ? f.lights[2].strength : 0), double(f.count > 3 ? f.lights[3].strength : 0),
++                  double(f.count > 4 ? f.lights[4].strength : 0), double(f.count > 5 ? f.lights[5].strength : 0),
++                  double(f.count > 6 ? f.lights[6].strength : 0), double(f.centre[0]), double(f.centre[1]),
++                  double(f.centre[2]), double(f.total[0]), double(f.total[1]), double(f.total[2]),
++                  double(game_strength[0]), double(strength));
++    REXLOG_INFO("[bbrr] city light: {}", line);
++  }
++}
++
++// Gives a city draw its own light. Returns false when there is nothing to change.
++//
++// Every piece is lit from the same place (the centre of this frame's lights), so the falloff
++// the shader works out per pixel runs unbroken across neighbouring pieces. What differs per
++// piece is the colour: a small piece gets the mix of colours that really arrives at it (the
++// nearer firework counts for more); a large one (ground, long walls) gets the plain total,
++// which is what the mix tends to from far away. A flat face is also brightened when it
++// faces the light and darkened when it faces away - the shader itself ignores which way a
++// surface points for this light, which left rooftops no brighter than walls.
++bool BbrrLightCityDraw(RegisterFile& regs, const BbrrBox& box, float strength, BbrrConstantGuard& guard) {
++  if (bbrr_frame_light.frame != bbrr_frame) BbrrBuildFrameLight(regs, strength);
++  const BbrrFrameLight& f = bbrr_frame_light;
++  if (!f.valid) return false;
++
++  float q[3], extent = 0;
++  for (int k = 0; k < 3; ++k) {
++    q[k] = std::clamp(f.centre[k], box.lo[k], box.hi[k]);
++    extent = std::max(extent, box.hi[k] - box.lo[k]);
++  }
++  float to_light[3], d2 = 0;
+   for (int k = 0; k < 3; ++k) {
+-    from[k] /= weight_sum;
+-    d2 += (q[k] - from[k]) * (q[k] - from[k]);
++    to_light[k] = f.centre[k] - q[k];
++    d2 += to_light[k] * to_light[k];
+   }
+-  d2 = std::max(d2, kNearest);
+   float colour[3];
+-  for (int k = 0; k < 3; ++k) colour[k] = arriving[k] * d2;
+-  const float out_strength = strength_scale * strength;
+-  if (!std::isfinite(colour[0] + colour[1] + colour[2] + from[0] + from[1] + from[2])) return false;
++  if (extent > 1500.0f) {
++    for (int k = 0; k < 3; ++k) colour[k] = f.total[k];
++  } else {
++    float arriving[3] = {0, 0, 0};
++    for (uint32_t j = 0; j < f.count; ++j) {
++      const BbrrLight& light = f.lights[j];
++      float dj2 = 0;
++      for (int k = 0; k < 3; ++k) dj2 += (q[k] - light.position[k]) * (q[k] - light.position[k]);
++      const float e = light.strength / std::max(dj2, kBbrrNearest);
++      for (int k = 0; k < 3; ++k) arriving[k] += e * light.colour[k];
++    }
++    const float scale = std::max(d2, kBbrrNearest);
++    for (int k = 0; k < 3; ++k) colour[k] = arriving[k] * scale;
++    // Which way the piece faces, when it is a flat face.
++    const float flatness =
++        std::sqrt(box.normal[0] * box.normal[0] + box.normal[1] * box.normal[1] + box.normal[2] * box.normal[2]);
++    if (flatness > 0.6f && d2 > 1.0f) {
++      const float distance = std::sqrt(d2);
++      const float facing = (box.normal[0] * to_light[0] + box.normal[1] * to_light[1] + box.normal[2] * to_light[2]) /
++                           (flatness * distance);
++      const float factor = 0.45f + 1.25f * std::max(facing, 0.0f);  // 0.45 facing away ... 1.7 facing it
++      const float blend = std::min((flatness - 0.6f) / 0.3f, 1.0f);
++      for (int k = 0; k < 3; ++k) colour[k] *= 1.0f + (factor - 1.0f) * blend;
++    }
++  }
++  if (!std::isfinite(colour[0] + colour[1] + colour[2])) return false;
+ 
++  const uint32_t pixel_base = XE_GPU_REG_SHADER_CONSTANT_256_X;
+   for (int k = 0; k < 3; ++k) {
+-    guard.Set(&regs[pixel_base + (15 << 2) + uint32_t(k)], from[k]);
++    guard.Set(&regs[pixel_base + (15 << 2) + uint32_t(k)], f.centre[k]);
+     guard.Set(&regs[pixel_base + (16 << 2) + uint32_t(k)], colour[k]);
+   }
+-  guard.Set(&regs[pixel_base + (17 << 2)], out_strength);
+-
+-  if (bbrr_light_log_lines < 120 && bbrr_frame >= bbrr_light_log_frame) {
+-    bbrr_light_log_frame = bbrr_frame + 120;
+-    ++bbrr_light_log_lines;
+-    char line[512];
+-    std::snprintf(line, sizeof(line),
+-                  "%u lights, first at (%.0f %.0f %.0f) colour (%.3g %.3g %.3g) strength %.4g | game: c15 (%.0f %.0f "
+-                  "%.0f %.3g) c16 (%.3g %.3g %.3g %.3g) c17 (%.4g %.3g %.3g %.3g) | scale %.4g | this piece: light "
+-                  "at (%.0f %.0f %.0f) colour (%.3g %.3g %.3g) strength %.4g",
+-                  bbrr_light_count, double(bbrr_lights[0].position[0]), double(bbrr_lights[0].position[1]),
+-                  double(bbrr_lights[0].position[2]), double(bbrr_lights[0].colour[0]),
+-                  double(bbrr_lights[0].colour[1]), double(bbrr_lights[0].colour[2]),
+-                  double(bbrr_lights[0].strength), double(game_position[0]), double(game_position[1]),
+-                  double(game_position[2]), double(game_position[3]), double(game_colour[0]),
+-                  double(game_colour[1]), double(game_colour[2]), double(game_colour[3]), double(game_strength[0]),
+-                  double(game_strength[1]), double(game_strength[2]), double(game_strength[3]),
+-                  double(bbrr_strength_scale), double(from[0]), double(from[1]), double(from[2]), double(colour[0]),
+-                  double(colour[1]), double(colour[2]), double(out_strength));
+-    REXLOG_INFO("[bbrr] city light: {}", line);
+-  }
++  guard.Set(&regs[pixel_base + (17 << 2)], kBbrrStrengthUnit * strength);
+   return true;
+ }
+ }  // namespace
+@@ -2781,7 +2846,8 @@
+     const uint64_t bbrr_vs_hash = vertex_shader->ucode_data_hash();
+     if (bbrr_vs_hash == kBbrrSmokeVertexShader) BbrrNoteLights(regs);
+     const float bbrr_strength = rex::graphics::CityLighting();
+-    if (bbrr_strength > 0.0f && pixel_shader && bbrr_lights_frame == bbrr_frame) {
++    if (bbrr_strength > 0.0f && pixel_shader) {
++      if (bbrr_lights_frame != bbrr_frame) bbrr_light_count = 0;  // no smoke drawn yet this frame
+       const uint64_t bbrr_ps_hash = pixel_shader->ucode_data_hash();
+       bool bbrr_city = false;
+       for (uint64_t hash : kBbrrCityPixelShaders) bbrr_city = bbrr_city || hash == bbrr_ps_hash;

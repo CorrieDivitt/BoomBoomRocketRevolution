@@ -4,7 +4,8 @@
 // lights and gives all of them to its smoke shader, but the city's shaders - which do light
 // per pixel, falling off with the square of the distance - only ever get one. SDK patch 0011
 // (thirdparty GPU code, patches/rexglue-sdk/0011-city-lighting.patch) gives every city draw a
-// light of its own that stands in for all six as seen from that piece. This file only passes
+// light of its own that stands in for all six (and the game's own flash) as seen from that
+// piece; flat faces are brightened when they face the light (patch 0012). This file only passes
 // the setting on (--city_lighting, BBRR Settings > Video Settings > City Lighting) and keeps
 // the probe that was used to find all this out (--city_light_probe, off by default).
 //
@@ -31,7 +32,8 @@
 
 REXCVAR_DEFINE_DOUBLE(city_lighting, 0.0, "BBR",
                       "City Lighting: 0 = off (the game's own look); above 0, each piece of the city is lit by "
-                      "the fireworks near it, times this strength (1, 2, 4, 8 in the menu)");
+                      "the fireworks near it, times this strength (1, 2, 4, 8, 32 in the menu; 1 = a firework at "
+                      "full strength lights the city as brightly as the game's own flash at its peak)");
 
 REXCVAR_DEFINE_BOOL(city_light_probe, false, "BBR",
                     "Development: log city draws, firework bursts and spark emitters once per run "
@@ -111,7 +113,7 @@ void bbr::CityLightProbeUpdate(uint8_t* base, bool song_on) {
   {
     // City Lighting: the GPU side does the work (SDK patch 0011); it only needs the strength.
     static double sent = -1.0;
-    const double want = std::clamp(REXCVAR_GET(city_lighting), 0.0, 16.0);
+    const double want = std::clamp(REXCVAR_GET(city_lighting), 0.0, 64.0);
     if (want != sent) {
       sent = want;
       rex::graphics::SetCityLighting(float(want));

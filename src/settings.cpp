@@ -92,7 +92,8 @@ const std::vector<Setting>& Settings() {
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
     // City lighting (src/city_lighting.cpp, SDK patch 0011): the value is a strength multiplier.
     s.push_back({"citylight", "city_lighting", "City Lighting",
-                 {{"0", "Off"}, {"1", "Low"}, {"2", "Medium"}, {"4", "High"}, {"8", "Very High"}}, 0, "video"});
+                 {{"0", "Off"}, {"1", "Low"}, {"2", "Medium"}, {"4", "High"}, {"8", "Very High"}, {"32", "Extreme"}}, 0,
+                 "video"});
     // A multiplier on the original particle count: 0.25x steps below 1x, whole steps up to 5x.
     // (10x fills the game's spark system within seconds and has crashed it; 5x stays under half.)
     Setting particles{"particles", "particle_quality", "Particle Density",
