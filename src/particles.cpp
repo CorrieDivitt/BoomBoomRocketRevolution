@@ -11,6 +11,7 @@
 // there within seconds and has crashed the game; 5x stays under half, so that is the top.
 
 #include "particles.h"
+#include "city_lighting.h"
 #include "settings.h"
 #include "midasm_hooks.h"
 #include "widescreen.h"
@@ -84,11 +85,19 @@ bool SparkBudgetLeft(PPCContext& ctx, uint8_t* base) {
 }  // namespace
 
 REX_HOOK_RAW(sub_820E5D10) {
-  if (SparkBudgetLeft(ctx, base)) __imp__sub_820E5D10(ctx, base);
+  const uint32_t emitter = ctx.r4.u32;
+  if (SparkBudgetLeft(ctx, base)) {
+    __imp__sub_820E5D10(ctx, base);
+    bbr::CityLightProbeEmit(base, emitter);
+  }
 }
 
 REX_HOOK_RAW(sub_820E5FB8) {
-  if (SparkBudgetLeft(ctx, base)) __imp__sub_820E5FB8(ctx, base);
+  const uint32_t emitter = ctx.r4.u32;
+  if (SparkBudgetLeft(ctx, base)) {
+    __imp__sub_820E5FB8(ctx, base);
+    bbr::CityLightProbeEmit(base, emitter);
+  }
 }
 
 // Mid-asm hook at 0x8206C7A4 (see config/default.toml): r3 = Count just read from the

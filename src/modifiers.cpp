@@ -36,6 +36,7 @@
 
 #include "input_offset.h"
 #include "autoplay.h"
+#include "city_lighting.h"
 #include "modifiers.h"
 #include "settings.h"
 #include "widescreen.h"
@@ -408,6 +409,7 @@ void bbr::UpdateNoBackground(uint8_t* base) {
   const uint32_t state = Load32(base, 0x821A0578 + 4);  // 1 playing, 4 failing, 2 game over, 3 finished
   const bool song_on = g_song_screens.load() || state == 1 || state == 4;
   bbr::AutoplayUpdate(base, song_on);
+  bbr::CityLightProbeUpdate(base, song_on);
   const bool hide = REXCVAR_GET(no_background) && song_on;
   static bool hiding = false;
   static bool dumped = false;

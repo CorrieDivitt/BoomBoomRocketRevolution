@@ -26,6 +26,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/metronome.cpp
     src/autoplay.cpp
     src/modifiers.cpp
+    src/city_lighting.cpp
     src/settings.cpp
     src/profiles.cpp
     src/visualizer.cpp

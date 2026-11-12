@@ -682,11 +682,11 @@
   "category": "Lighting",
   "title": "Improved city lighting",
   "priority": "P2",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "L",
   "acceptance": "Firework light reflected on city (dynamic point lights), optional",
   "depends_on": "R-408",
-  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): city is texture x one scene-wide ambient colour, no normals; plan = per-firework light list + replaced city shader. Ray tracing only as a later hybrid (shadows/reflections); RTX Remix not applicable."
+  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): city is texture x one scene-wide ambient colour, no normals; plan = per-firework light list + replaced city shader. Ray tracing only as a later hybrid (shadows/reflections); RTX Remix not applicable. 2026-11-12: started on branch city-lighting (tag pre-city-lighting marks the version before it; that build's exe and DLLs are copied to out/backup-pre-city-lighting). Chosen route: per-building tint - each city draw gets its own ambient colour from nearby fireworks - instead of per-pixel lighting, which needs shader replacement (R-408). Step 1, built, not run: a probe (--city_light_probe, src/city_lighting.cpp, SDK patch 0009) that logs every draw of one frame 12 s and 25 s into a song (shader constants, vertex box), the first firework bursts and spark emitters. Nothing on screen changes yet."
  },
  {
   "id": "R-411",
