@@ -1,0 +1,89 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2485,6 +2485,8 @@
+   float lo[3];
+   float hi[3];
+   float normal[3];  // the average of its vertex normals: near unit length for a flat face
++  float samples[96][3];  // some of its vertices, spread through the piece
++  uint32_t sample_count;
+   bool valid;
+ };
+ std::unordered_map<uint64_t, BbrrBox> bbrr_boxes;
+@@ -2559,6 +2561,7 @@
+   if (vertices && (endian == xenos::Endian::k8in32 || endian == xenos::Endian::kNone) && (!indexed || indices)) {
+     const bool swap = endian == xenos::Endian::k8in32;
+     const uint32_t step = std::max(uint32_t(1), index_count / 3000);
++    const uint32_t sample_every = std::max(uint32_t(1), (index_count / step) / 96);
+     uint32_t used = 0;
+     for (uint32_t i = 0; i < index_count; i += step) {
+       uint32_t index = i;
+@@ -2590,6 +2593,9 @@
+         box.lo[k] = used ? std::min(box.lo[k], p[k]) : p[k];
+         box.hi[k] = used ? std::max(box.hi[k], p[k]) : p[k];
+       }
++      if (used % sample_every == 0 && box.sample_count < 96) {
++        std::memcpy(box.samples[box.sample_count++], p, sizeof(p));
++      }
+       ++used;
+       if (normal_offset >= 0 && uint64_t(index) * stride + uint32_t(normal_offset) + 4 <= size) {
+         // Packed normal: x and y in 11 bits each, z in 10, all signed.
+@@ -2654,6 +2660,7 @@
+ // shown at the full brightness of its texture; the city's own ambient and moonlight add up
+ // to about 0.125).
+ constexpr float kBbrrCeiling = 1.5f;
++constexpr float kBbrrWhite = 0.35f;
+ // Time spent on city lighting, to report what it costs.
+ uint64_t bbrr_light_nanoseconds = 0;
+ uint32_t bbrr_light_draws = 0;
+@@ -2672,7 +2679,15 @@
+     bbrr_light_frames = 0;
+   }
+   f.count = 0;
+-  for (uint32_t j = 0; j < bbrr_light_count && f.count < 6; ++j) f.lights[f.count++] = bbrr_lights[j];
++  for (uint32_t j = 0; j < bbrr_light_count && f.count < 6; ++j) {
++    // The smoke's light colours are pure (green is 0.05 0.8 0.05), which turns a lit wall
++    // into one flat colour. The game's own flash for the city uses the same colours with
++    // white added; a smaller share of white is added here, so the tint stays strong but the
++    // building's own texture still shows.
++    BbrrLight& light = f.lights[f.count++];
++    light = bbrr_lights[j];
++    for (int k = 0; k < 3; ++k) light.colour[k] = (light.colour[k] + kBbrrWhite) / (1.0f + kBbrrWhite);
++  }
+   // The game's own flash for the city (c15 position, c16 colour, c17.x strength), kept at
+   // its original brightness whatever the setting.
+   float game_position[4], game_colour[4], game_strength[4];
+@@ -2745,8 +2760,21 @@
+     d2 += to_light[k] * to_light[k];
+   }
+   float colour[3];
++  // For the ceiling below: how near the piece comes to the light, and how far the whole
++  // piece may be dimmed for the sake of its nearest part.
++  float nearest2 = d2, least_ease = 0.0f;
+   if (extent > 1500.0f) {
+     for (int k = 0; k < 3; ++k) colour[k] = f.total[k];
++    // A large piece (a block of buildings, the ground): its box says little about where its
++    // surfaces are - the light is often inside the box - so go by its sampled vertices, and
++    // never dim the whole piece by more than half for one close wall.
++    nearest2 = 1e30f;
++    for (uint32_t i = 0; i < box.sample_count; ++i) {
++      float s2 = 0;
++      for (int k = 0; k < 3; ++k) s2 += (box.samples[i][k] - f.centre[k]) * (box.samples[i][k] - f.centre[k]);
++      nearest2 = std::min(nearest2, s2);
++    }
++    least_ease = 0.5f;
+   } else {
+     float arriving[3] = {0, 0, 0};
+     for (uint32_t j = 0; j < f.count; ++j) {
+@@ -2776,9 +2804,9 @@
+   // (Acid Trip) is left uncapped on purpose.
+   if (strength < 16.0f) {
+     const float brightest = std::max(colour[0], std::max(colour[1], colour[2])) * kBbrrStrengthUnit * strength /
+-                            std::max(d2, kBbrrNearest);
++                            std::max(nearest2, kBbrrNearest);
+     if (brightest > 0.0f) {
+-      const float ease = 1.0f / (1.0f + brightest / kBbrrCeiling);
++      const float ease = std::max(least_ease, 1.0f / (1.0f + brightest / kBbrrCeiling));
+       for (int k = 0; k < 3; ++k) colour[k] *= ease;
+     }
+   }

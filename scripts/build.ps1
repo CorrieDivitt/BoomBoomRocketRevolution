@@ -40,4 +40,17 @@ if ($Target) {
 } else {
   Run "Building ($Preset)" { cmake --build --preset $Preset }
 }
+# The SDK's DLLs are copied next to the game only when the game itself is relinked, so after
+# an SDK-only change (scripts\patch-sdk.ps1) the game would keep running the old ones. Copy
+# any that differ, every time.
+if (-not $Target) {
+  $Out = Join-Path $Root "out\build\$Preset"
+  foreach ($dll in Get-ChildItem (Join-Path $Prefix "bin") -Filter *.dll -ErrorAction SilentlyContinue) {
+    $dest = Join-Path $Out $dll.Name
+    if (-not (Test-Path $dest) -or (Get-FileHash $dll.FullName).Hash -ne (Get-FileHash $dest).Hash) {
+      Copy-Item $dll.FullName $dest -Force
+      Write-Host "updated $($dll.Name) from the SDK"
+    }
+  }
+}
 Write-Host "`nBuild finished. Output is under out\build\$Preset" -ForegroundColor Green
