@@ -18,6 +18,7 @@
 //
 // Scores are saved to <user folder>/boomboomrocket/leaderboards.txt.
 
+#include "profiles.h"
 #include "autoplay.h"
 
 #include <rex/filesystem.h>
@@ -160,11 +161,9 @@ void Save() {
 }
 
 std::string GamertagFor(uint64_t xuid) {
-  if (auto* ks = REX_KERNEL_STATE()) {
-    if (auto* profile = ks->user_profile(); profile && profile->xuid() == xuid) {
-      return profile->name().substr(0, 15);
-    }
-  }
+  // Any of the local profiles (src/profiles.cpp), signed in or not.
+  const std::string name = bbr::ProfileName(xuid);
+  if (!name.empty()) return name.substr(0, 15);
   return "Player 2";
 }
 

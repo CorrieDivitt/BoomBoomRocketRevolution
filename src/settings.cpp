@@ -11,6 +11,7 @@
 #include "metronome.h"
 #include "input_offset.h"
 #include "autoplay.h"
+#include "profiles.h"
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -19,6 +20,7 @@
 #if defined(_WIN32)
 #include <windows.h>
 #endif
+#include <cstring>
 
 #include <cctype>
 #include <chrono>
@@ -38,6 +40,8 @@ REXCVAR_DEFINE_STRING(frame_rate, "display", "BBR",
                       "--video_mode_refresh_rate on the command line overrides it");
 
 namespace bbr {
+
+
 namespace {
 struct Choice {
   std::string value;  // cvar value
@@ -121,7 +125,9 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:video", "page:timing", "page:modifiers", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "skip_intro", "layout"}},
+      // Rows handled by src/profiles.cpp.
+      {"profiles", "Profiles", {"profile_p1", "profile_p2", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
       {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
@@ -353,9 +359,11 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     out << "# Boom Boom Rocket Revolution settings (written by the in-game settings screen)\n";
     for (const Setting& s : Settings()) out << s.cvar << " = " << rex::cvar::GetFlagByName(s.cvar) << "\n";
     REXLOG_INFO("[settings] saved to {}", FilePath().string());
+    ProfilesCommand("bbrr.profiles.save", "", "");
     return "ok";
   }
   if (command == "bbrr.count" || command == "bbrr.key" || command == "bbrr.note") {
+    if (command == "bbrr.count" && key == "profiles") ProfilesCommand("bbrr.profiles.show", "", "");
     const Page* page = FindPage(key);
     if (!page) return command == "bbrr.key" ? "" : "0";
     if (command == "bbrr.count") return std::to_string(page->rows.size());
@@ -444,6 +452,12 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
     RestartGame();
     return "ok";
   }
+  if (command.rfind("bbrr.profiles.", 0) == 0 || command == "bbrr.action" ||
+      (IsProfileKey(key) && (command == "bbrr.choices" || command == "bbrr.get" || command == "bbrr.set" ||
+                             command == "bbrr.default" || command == "bbrr.label"))) {
+    return ProfilesCommand(command, key, value);
+  }
+  if (command == "bbrr.label") return "";
   const Setting* s = Find(key);
   if (!s) return "";
   if (command == "bbrr.choices") return std::to_string(s->choices.size());
@@ -460,6 +474,13 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
 std::string SettingsStrings() {
   std::string out = "BBRR_SETTINGS = BBRR Settings\n"
                     "BBRR_OPEN = Open\n"
+                    "BBRR_T_profile_p1 = Player 1\n"
+                    "BBRR_T_profile_p2 = Player 2\n"
+                    "BBRR_T_action_rename_p1 = Rename Player 1\n"
+                    "BBRR_T_action_rename_p2 = Rename Player 2\n"
+                    "BBRR_T_action_new_profile = New Profile\n"
+                    "BBRR_CREATE = Create\n"
+                    "BBRR_NONE = None\n"
                     "BBRR_SPEED_LABEL = Scroll Speed\n"
                     "BBRR_SPEED_HINT = ~~{LB}~~ Change ~~{RB}~~\n"
                     "BBRR_BPM = BPM\n"

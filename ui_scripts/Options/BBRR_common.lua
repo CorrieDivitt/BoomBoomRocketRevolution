@@ -52,12 +52,29 @@ local function ParentScript()
   return PageScript("main")
 end
 
+-- What option n of a row shows when the PC side names it (profile names are stored strings
+-- "STR<n>"; fixed words are text-table names). nil = the row's own text-table entry.
+function Label(key, n)
+  local label = BBRR("bbrr.label", key, n)
+  if label == nil or label == "" then
+    return nil
+  end
+  return UIText[label] or label
+end
+
 local function BuildRows()
   local rows = {}
   local count = tonumber(BBRR("bbrr.count", PAGE)) or 0
   for i = 1, count do
     local key = BBRR("bbrr.key", PAGE, i)
-    if key ~= nil and string.sub(key, 1, 5) == "page:" then
+    if key ~= nil and string.sub(key, 1, 7) == "action:" then
+      -- A row that does something when chosen (A); its value is a stored string kept by the PC side.
+      local name = string.sub(key, 8)
+      local title = UIText["BBRR_T_action_" .. name]
+      if title ~= nil then
+        table.insert(rows, { action = name, title = title, items = { { text = Label(key, 1), value = 1 } } })
+      end
+    elseif key ~= nil and string.sub(key, 1, 5) == "page:" then
       local target = string.sub(key, 6)
       local title = UIText["BBRR_T_page_" .. target]
       if title ~= nil then
@@ -67,7 +84,7 @@ local function BuildRows()
       local choices = tonumber(BBRR("bbrr.choices", key)) or 0
       local items = {}
       for n = 1, choices do
-        items[n] = { text = UIText["BBRR_C_" .. key .. "_" .. n], value = n }
+        items[n] = { text = Label(key, n) or UIText["BBRR_C_" .. key .. "_" .. n], value = n }
       end
       if choices > 0 and UIText["BBRR_T_" .. key] ~= nil then
         table.insert(rows, { key = key, title = UIText["BBRR_T_" .. key], items = items })
@@ -242,6 +259,50 @@ local function ApplyAll()
   end
 end
 
+-- Profiles page: Player 1 and Player 2 may not be the same profile. Player 1's option n is
+-- profile n; Player 2's option 1 is None and option n is profile n - 1. If the row just moved
+-- onto the other player's profile, keep going the same way past it.
+local function SkipTakenProfile(index, step)
+  local row = GUI.rows[index]
+  if PAGE ~= "profiles" or row == nil or (row.key ~= "profile_p1" and row.key ~= "profile_p2") then
+    return
+  end
+  local other_key = "profile_p2"
+  if row.key == "profile_p2" then
+    other_key = "profile_p1"
+  end
+  local other = nil
+  for i = 1, GUI.num_items do
+    if GUI.rows[i].key == other_key then
+      other = Buttons.GetSelection(GUI.spinner_menu_ID[i])
+    end
+  end
+  if other == nil then
+    return
+  end
+  -- The profile the other row holds, as an option number of this row.
+  local taken = other + 1
+  if row.key == "profile_p2" then
+    taken = other + 1
+  else
+    taken = other - 1
+    if taken < 1 then
+      return
+    end
+  end
+  local id = GUI.spinner_menu_ID[index]
+  local count = table.getn(row.items)
+  if Buttons.GetSelection(id) == taken then
+    local n = Buttons.GetSelection(id) + step
+    if n > count then
+      n = 1
+    elseif n < 1 then
+      n = count
+    end
+    Buttons.SetSelection(id, n)
+  end
+end
+
 local function Leave(script)
   GUI.finished = true
   Screen.SetNextScreen(script)
@@ -249,6 +310,11 @@ end
 
 function Update()
   ContinueXBLSessionCreation()
+  -- A profile was just created (src/profiles.cpp): open the page again so its lists include it.
+  if GUI.finished ~= true and PAGE == "profiles" and BBRR("bbrr.profiles.changed") == "1" then
+    ApplyAll()
+    Leave(PageScript(PAGE))
+  end
 end
 
 function Message(message, pad, data)
@@ -267,13 +333,21 @@ function Message(message, pad, data)
       SetSelection(GUI.current_selection + 1)
     end
   elseif message == "BUTTON_LEFT" or message == "BUTTON_RIGHT" then
+    if message == "BUTTON_LEFT" then
+      SkipTakenProfile(GUI.current_selection, -1)
+    else
+      SkipTakenProfile(GUI.current_selection, 1)
+    end
     ApplyAll()
   elseif message == "BUTTON_NEXT" then
     ApplyAll()
     BBRR("bbrr.save")
     PlayNextSound()
     local row = GUI.rows[GUI.current_selection]
-    if row ~= nil and row.link ~= nil then
+    if row ~= nil and row.action ~= nil then
+      -- Stay on this page: the PC side opens its own box and updates the row's text.
+      BBRR("bbrr.action", row.action)
+    elseif row ~= nil and row.link ~= nil then
       Leave(PageScript(row.link))
     elseif BBRR("bbrr.restart_needed") == "1" and UIText.BBRR_RESTART_TITLE ~= nil then
       -- Ask with the game's own pop-up box: X restarts now, B carries on without restarting.

@@ -6,6 +6,7 @@
 
 #include <rex/rex_app.h>
 
+#include "profiles.h"
 #include "dlc.h"
 #include "frame_stats.h"
 #include "settings.h"
@@ -59,6 +60,9 @@ class BoomBoomRocketApp : public rex::ReXApp {
   void OnPostSetup() override {
     // Install the user's own DLC package files (see src/dlc.cpp) before the game looks for them.
     bbr::InstallDlcPackages(runtime());
+    // Local profiles: sign Player 1 (and Player 2, if chosen) in before the game asks.
+    bbr::LoadProfiles();
+    bbr::ApplyProfiles();
     SetGuestFrameStats(bbr::GetFrameStats);
     bbr::SetWindowAspectProvider([this]() -> double {
       auto* w = window();

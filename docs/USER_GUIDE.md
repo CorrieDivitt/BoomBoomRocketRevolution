@@ -21,6 +21,9 @@ different folder.
 
 | Page | Setting | What it does |
 |---|---|---|
+| Profiles | Player 1 / Player 2 | Who is playing: each profile has its own gamertag, save data (scores, unlocks, progress) and achievements. Player 2 can be None. Saved with A; the game picks the new players up at once. The original profile is "User" and keeps everything from before profiles existed |
+| | Rename Player 1 / 2 | A opens a text box (keyboard) with the player's gamertag; Enter saves the new name (up to 15 characters). The profile keeps its data |
+| | New Profile | A opens a text box for the new profile's gamertag; it then appears in the Player 1 / Player 2 lists (up to 8 profiles). Profiles are kept in Documents\boomboomrocket\profiles.ini |
 | Video Settings | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
 | | Window Mode | Fullscreen or Windowed; changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |

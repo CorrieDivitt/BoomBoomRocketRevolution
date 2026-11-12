@@ -27,6 +27,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/autoplay.cpp
     src/modifiers.cpp
     src/settings.cpp
+    src/profiles.cpp
     src/ui_mod.cpp
 )
 

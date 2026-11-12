@@ -747,11 +747,11 @@
   "category": "Achievements",
   "title": "Local achievements from SPA",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "12 achievements (200G) tracked and toasted; persisted",
   "depends_on": "R-107",
-  "notes": "ReXGlue has an achievements XEX-to-TOML extractor"
+  "notes": "ReXGlue has an achievements XEX-to-TOML extractor 2026-11-12: the SDK already unlocks from the SPA, saves progress and shows a toast; F7 lists them. Built, untested: SDK patch 0006 implements XamShowAchievementsUI(Ex) (was a stub, so the in-game Achievements menu did nothing) as a XAM dialog with the same list and icons, closed with B / A / Back / Esc, scrolled with d-pad or left stick. Seen working 2026-11-12; list made opaque over a darkened screen. Overlays in HDR: patch 0006 also gives the immediate drawer an HDR pixel shader (sRGB made linear, scaled to the paper white), so ImGui menus are no longer dim with HDR on; untested. HDR overlays confirmed good 2026-11-12. In-game list shows the achievements of the player who opened it (XamShowAchievementsUI user index). Confirmed 2026-11-12."
  },
  {
   "id": "R-502",
@@ -812,11 +812,11 @@
   "category": "Online",
   "title": "Player identity / profile",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "Local gamertag; optional online account token",
   "depends_on": "R-504",
-  "notes": ""
+  "notes": " 2026-11-12, built, untested: SDK patch 0006 adds the user_gamertag setting (UserProfile::name(), max 15 characters, User if empty) and an exported text box (rex::kernel::xam::ShowTextEntryDialog); BBRR Settings has a Gamertag row (action:gamertag, current name in STR117) that opens it; saved in settings.ini. Second local profile not done (R-604). The name in the game's corner did not change at first: the game reads names only on a notification, so a new name now sends XN_SYS_PROFILESETTINGCHANGED (0x0E), which its handler (sub_820C5650) answers by reading every name again; untested. 2026-11-12: replaced by real local profiles (see R-604): the single-name gamertag setting moved each name to its own save folder, so renaming lost the progress. Done through local profiles (R-604)."
  },
  {
   "id": "R-601",
@@ -864,11 +864,11 @@
   "category": "Input",
   "title": "Local 2-player",
   "priority": "P1",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "S",
   "acceptance": "Two controllers, or controller + keyboard",
   "depends_on": "R-601",
-  "notes": ""
+  "notes": " 2026-11-12, built, untested: local profiles. SDK patch 0006: KernelState::SignInUser / SignOutUser / user_profile(slot) for slots 0-3, XamUser* calls answer for any signed-in slot, profile title data kept by XUID (content/<title>/profile/<XUID>, the old name folder is moved over), achievements per profile (achievements/<XUID>/<title>.toml; slot from the XGI entry's first word; other slots written without a pop-up). Game: src/profiles.cpp keeps profiles.ini (up to 8; original XUID B13EBABEBABEBABE named User keeps the old data), BBRR Settings > Profiles picks Player 1 / Player 2 (None), renames and creates; saving signs them in and sends XN_SYS_SIGNINCHANGED (0x0A), a rename sends 0x0E. Assumption to check: multiplayer works with any second controller; Player 2 profile only adds a name, save data and achievements for it. Pop-up profile picker: later if needed. 2026-11-12: seen working (two profiles, two controllers; old scores kept under User; per-player achievements list). Profiles page: Left/Right pick Player 1 / Player 2 and skip the other player's profile; A saves; rename rows show no name. Controllers: SDL connection order = player order (first found is Player 1). Open: Swap Controllers row or press-to-join, delete profile, launcher field."
  },
  {
   "id": "R-605",
@@ -894,7 +894,7 @@
   "effort": "M",
   "acceptance": "Points at a dump, validates hashes, copies to assets/",
   "depends_on": "R-104",
-  "notes": "Uses ReXApp OnFinalizePaths"
+  "notes": "Uses ReXApp OnFinalizePaths 2026-11-12: the planned builder/launcher should offer the Gamertag (settings.ini key user_gamertag, up to 15 characters) so it can be set before the first game."
  },
  {
   "id": "R-701",

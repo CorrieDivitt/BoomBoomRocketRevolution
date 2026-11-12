@@ -1,0 +1,847 @@
+diff --git a/include/rex/system/kernel_state.h b/include/rex/system/kernel_state.h
+index 9b9cf9e..214322d 100644
+--- a/include/rex/system/kernel_state.h
++++ b/include/rex/system/kernel_state.h
+@@ -200,6 +200,17 @@ class KernelState {
+   xam::AppManager* app_manager() const { return app_manager_.get(); }
+   xam::ContentManager* content_manager() const { return content_manager_.get(); }
+   xam::UserProfile* user_profile() const { return user_profile_.get(); }
++  // The profile signed in to a controller slot (0-3), or null when nobody is. Slot 0 always
++  // has one.
++  xam::UserProfile* user_profile(uint32_t user_index) const;
++  // Signs a profile in to a slot, replacing whoever was there (a fresh profile object, so no
++  // data of the previous one carries over). Slot 0 also moves the achievements to this
++  // profile's own unlock file. The caller tells the title (XN_SYS_SIGNINCHANGED).
++  void SignInUser(uint32_t user_index, uint64_t xuid, const std::string& name);
++  // Slots 1-3 only.
++  void SignOutUser(uint32_t user_index);
++  // Bit n set = slot n signed in.
++  uint32_t signed_in_mask() const;
+ 
+   // Access must be guarded by the global critical region.
+   util::ObjectTable* object_table() { return &object_table_; }
+@@ -326,6 +337,11 @@ class KernelState {
+ 
+   void SetLoadedAchievements(std::vector<AchievementInfo> achievements);
+   void UnlockAchievement(uint32_t id);
++  // An unlock for the profile in a slot: slot 0 as UnlockAchievement; another slot is written
++  // to that profile's own unlock file (no pop-up).
++  void UnlockAchievementForUser(uint32_t user_index, uint32_t id);
++  // Unlock file of a profile: user data/achievements/<XUID>/<title>.toml.
++  std::filesystem::path AchievementSavePath(uint64_t xuid) const;
+   bool IsAchievementUnlocked(uint32_t id) const;
+   // Returns the unlock FILETIME (100-ns intervals since 1601-01-01), or 0 if locked.
+   uint64_t GetAchievementUnlockTime(uint32_t id) const;
+@@ -354,6 +370,10 @@ class KernelState {
+   std::unique_ptr<xam::AppManager> app_manager_;
+   std::unique_ptr<xam::ContentManager> content_manager_;
+   std::unique_ptr<xam::UserProfile> user_profile_;
++  std::unique_ptr<xam::UserProfile> other_user_profiles_[3];  // slots 1-3
++  // Profiles replaced by a sign-in are kept, not freed: a guest call may still be using one.
++  std::vector<std::unique_ptr<xam::UserProfile>> retired_user_profiles_;
++  std::mutex user_profiles_mutex_;
+ 
+   rex::thread::global_critical_region global_critical_region_;
+ 
+diff --git a/include/rex/system/xam/content_manager.h b/include/rex/system/xam/content_manager.h
+index 949d185..b974122 100644
+--- a/include/rex/system/xam/content_manager.h
++++ b/include/rex/system/xam/content_manager.h
+@@ -26,6 +26,9 @@
+ namespace rex {
+ namespace system {
+ class KernelState;
++namespace xam {
++class UserProfile;
++}  // namespace xam
+ }  // namespace system
+ }  // namespace rex
+ 
+@@ -170,7 +173,8 @@ class ContentManager {
+   X_RESULT ReadContentHeaderFile(const std::string_view file_name, uint64_t xuid, uint32_t title_id,
+                                  XContentType content_type, XCONTENT_AGGREGATE_DATA& data) const;
+ 
+-  std::filesystem::path ResolveGameUserContentPath();
++  // Title data of one profile: content_root/title_id/profile/<XUID as 16 hex digits>.
++  std::filesystem::path ResolveGameUserContentPath(const UserProfile& profile);
+   bool IsContentOpen(const XCONTENT_AGGREGATE_DATA& data) const;
+   void CloseOpenedFilesFromContent(const std::string_view root_name);
+ 
+diff --git a/include/rex/system/xam/user_profile.h b/include/rex/system/xam/user_profile.h
+index ec37017..5dec89a 100644
+--- a/include/rex/system/xam/user_profile.h
++++ b/include/rex/system/xam/user_profile.h
+@@ -218,6 +218,12 @@ class UserProfile {
+ 
+   uint64_t xuid() const { return xuid_; }
+   std::string name() const { return name_; }
++  // Who this profile is (set when a profile is signed in to a slot, see
++  // KernelState::SignInUser). The name is cut to 15 characters.
++  void set_identity(uint64_t xuid, std::string name) {
++    xuid_ = xuid;
++    name_ = name.size() > 15 ? name.substr(0, 15) : std::move(name);
++  }
+   uint32_t signin_state() const { return 1; }
+   uint32_t type() const { return 1 | 2; /* local | online profile? */ }
+ 
+diff --git a/include/rex/ui/d3d12/d3d12_immediate_drawer.h b/include/rex/ui/d3d12/d3d12_immediate_drawer.h
+index ef511e0..2500f85 100644
+--- a/include/rex/ui/d3d12/d3d12_immediate_drawer.h
++++ b/include/rex/ui/d3d12/d3d12_immediate_drawer.h
+@@ -106,6 +106,7 @@ class D3D12ImmediateDrawer final : public ImmediateDrawer {
+     kTexture,
+     kSampler,
+     kCoordinateSpaceSizeInv,
++    kUiWhite,  // pixel shader b1: scRGB white for the HDR pipelines
+ 
+     kCount
+   };
+diff --git a/include/rex/ui/imgui_drawer.h b/include/rex/ui/imgui_drawer.h
+index a570fa0..93cb319 100644
+--- a/include/rex/ui/imgui_drawer.h
++++ b/include/rex/ui/imgui_drawer.h
+@@ -52,6 +52,9 @@ class ImGuiDrawer : public WindowInputListener, public UIDrawer {
+   // UI thread can skip the round trip entirely.
+   bool HasDialogs() const { return !dialogs_.empty(); }
+ 
++  // For dialogs that draw textures of their own (the achievements list's icons).
++  ImmediateDrawer* immediate_drawer() const { return immediate_drawer_; }
++
+   // SetPresenter may be called from the destructor.
+   void SetPresenter(Presenter* new_presenter);
+   void SetImmediateDrawer(ImmediateDrawer* new_immediate_drawer);
+diff --git a/src/kernel/xam/apps/xgi_app.cpp b/src/kernel/xam/apps/xgi_app.cpp
+index 2b222da..0bf51d0 100644
+--- a/src/kernel/xam/apps/xgi_app.cpp
++++ b/src/kernel/xam/apps/xgi_app.cpp
+@@ -84,8 +84,11 @@ X_HRESULT XgiApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
+         auto* base = memory_->TranslateVirtual(achievements_ptr);
+         for (uint32_t i = 0; i < achievement_count; ++i) {
+           uint32_t id = memory::load_and_swap<uint32_t>(base + i * kEntryStride + kEntryIdOffset);
+-          REXKRNL_INFO("XGIUserWriteAchievements: id={} ({})", id, i);
+-          kernel_state_->UnlockAchievement(id);
++          // Offset 0: the user (slot) the achievement is for.
++          uint32_t user = memory::load_and_swap<uint32_t>(base + i * kEntryStride);
++          if (user >= 4) user = 0;
++          REXKRNL_INFO("XGIUserWriteAchievements: id={} user={} ({})", id, user, i);
++          kernel_state_->UnlockAchievementForUser(user, id);
+         }
+       } else {
+         REXKRNL_INFO("XGIUserWriteAchievements: skipped (count={} ptr={:08X})", achievement_count,
+diff --git a/src/kernel/xam/xam_ui.cpp b/src/kernel/xam/xam_ui.cpp
+index e38cd25..f6d270e 100644
+--- a/src/kernel/xam/xam_ui.cpp
++++ b/src/kernel/xam/xam_ui.cpp
+@@ -29,6 +29,15 @@ REXCVAR_DEFINE_BOOL(headless, false, "Kernel",
+ #include <rex/ui/imgui_drawer.h>
+ #include <rex/ui/window.h>
+ #include <rex/ui/windowed_app_context.h>
++#include <rex/system/achievement_manager.h>
++#include <rex/ui/overlay/achievement_icon_cache.h>
++#include <rex/ui/style.h>
++#include <rex/kernel/xam/text_entry.h>
++
++#include <algorithm>
++#include <cmath>
++#include <atomic>
++#include <thread>
+ 
+ namespace rex {
+ namespace kernel {
+@@ -296,6 +305,165 @@ class MessageBoxDialog : public XamDialog {
+   uint32_t chosen_button_ = 0;
+ };
+ 
++// XShowAchievementsUI: the title's own "Achievements" menu entry. Shows the list the F7
++// overlay shows (icons, gamerscore, locked/unlocked), as a XAM dialog: the title is told the
++// system UI is up (XN_SYS_UI) and its input is held while it is open. Driven by the
++// controller as well as the keyboard: B, Back or A closes it, d-pad / left stick scroll.
++class AchievementsUIDialog : public XamDialog {
++ public:
++  // user_index: whose achievements (the player who opened the menu). Player 1's are the live
++  // ones; another player's are read from that profile's own unlock file.
++  AchievementsUIDialog(rex::ui::ImGuiDrawer* imgui_drawer, rex::Runtime* runtime, uint32_t user_index)
++      : XamDialog(imgui_drawer), icons_(imgui_drawer->immediate_drawer(), runtime) {
++    auto* ks = REX_KERNEL_STATE();
++    if (const auto* profile = user_index < 4 ? ks->user_profile(user_index) : nullptr) {
++      owner_ = profile->name();
++      if (user_index != 0) {
++        other_ = std::make_unique<rex::system::AchievementManager>();
++        other_->ReplaceAchievements(ks->achievements().ListAchievements());
++        other_->SetUnlockSavePath(ks->AchievementSavePath(profile->xuid()));
++        other_->LoadUnlockState();
++      }
++    }
++  }
++
++  void OnDraw(ImGuiIO& io) override {
++    // Controller, read past the hold on guest input.
++    uint16_t buttons = 0;
++    float stick = 0.0f;
++    auto* runtime = REX_KERNEL_STATE()->emulator();
++    if (auto* input = runtime ? static_cast<rex::input::InputSystem*>(runtime->input_system()) : nullptr) {
++      for (uint32_t user = 0; user < 4; ++user) {
++        rex::input::X_INPUT_STATE state = {};
++        if (input->GetStateForUI(user, &state) != X_ERROR_SUCCESS) continue;
++        buttons |= static_cast<uint16_t>(state.gamepad.buttons);
++        const float ly = static_cast<int16_t>(state.gamepad.thumb_ly) / 32767.0f;
++        if (std::fabs(ly) > std::fabs(stick)) stick = ly;
++      }
++    }
++    // Buttons already down when the list opened (the A that chose the menu entry) count only
++    // once they have been let go.
++    if (first_draw_) held_ = buttons;
++    held_ &= buttons;
++    const uint16_t pressed = static_cast<uint16_t>(buttons & ~held_ & ~last_buttons_);
++    last_buttons_ = buttons;
++    const bool close = (pressed & (0x2000 | 0x1000 | 0x0020)) != 0 ||  // B, A, Back
++                       ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsKeyPressed(ImGuiKey_Enter);
++    float scroll = 0.0f;
++    if (buttons & 0x0001) scroll -= 1.0f;  // d-pad up
++    if (buttons & 0x0002) scroll += 1.0f;  // d-pad down
++    if (std::fabs(stick) > 0.25f) scroll -= stick;
++    first_draw_ = false;
++
++    const rex::ui::AchievementsStyle& style = imgui_drawer()->style().achievements;
++    const ImVec2 size(std::min(720.0f, io.DisplaySize.x * 0.9f), io.DisplaySize.y * 0.8f);
++    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always,
++                            ImVec2(0.5f, 0.5f));
++    ImGui::SetNextWindowSize(size, ImGuiCond_Always);
++    ImGui::SetNextWindowFocus();
++    // Opaque, over a darkened screen: the game's menu behind it must not show through.
++    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0.0f, 0.0f), io.DisplaySize, IM_COL32(0, 0, 0, 190));
++    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1.0f);
++    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, style.window_padding);
++    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, style.item_spacing);
++    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.03f, 0.05f, 0.04f, 1.0f));
++    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.03f, 0.05f, 0.04f, 1.0f));
++    if (ImGui::Begin("Achievements##xamui", nullptr,
++                     ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
++                         ImGuiWindowFlags_NoSavedSettings)) {
++      const auto& manager = other_ ? *other_ : REX_KERNEL_STATE()->achievements();
++      const auto achievements = manager.ListAchievements();
++      if (!owner_.empty()) {
++        ImGui::PushStyleColor(ImGuiCol_Text, style.header_text);
++        ImGui::Text("%s", owner_.c_str());
++        ImGui::PopStyleColor();
++      }
++      int unlocked = 0, total_gs = 0, earned_gs = 0;
++      for (const auto& a : achievements) {
++        total_gs += static_cast<int>(a.gamerscore);
++        if (manager.IsUnlocked(a.id)) ++unlocked, earned_gs += static_cast<int>(a.gamerscore);
++      }
++      ImGui::PushStyleColor(ImGuiCol_Text, style.header_text);
++      ImGui::Text("%d / %d unlocked", unlocked, static_cast<int>(achievements.size()));
++      ImGui::PopStyleColor();
++      ImGui::SameLine();
++      ImGui::TextColored(style.badge_gamerscore, "%dG / %dG", earned_gs, total_gs);
++      ImGui::PushStyleColor(ImGuiCol_PlotHistogram, style.progress_bar);
++      ImGui::ProgressBar(achievements.empty() ? 0.0f : float(unlocked) / float(achievements.size()),
++                         ImVec2(-1.0f, 6.0f), "");
++      ImGui::PopStyleColor();
++      ImGui::Separator();
++
++      ImGui::BeginChild("##achlist", ImVec2(0.0f, -ImGui::GetFrameHeightWithSpacing()), false);
++      if (scroll != 0.0f) ImGui::SetScrollY(ImGui::GetScrollY() + scroll * 900.0f * io.DeltaTime);
++      for (const auto& a : achievements) {
++        const bool is_unlocked = manager.IsUnlocked(a.id);
++        ImGui::PushID(static_cast<int>(a.id));
++        if (rex::ui::ImmediateTexture* icon = icons_.GetIcon(a)) {
++          ImGui::ImageWithBg(reinterpret_cast<ImTextureID>(icon), ImVec2(style.icon_size, style.icon_size),
++                             ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0),
++                             is_unlocked ? style.unlocked_icon_tint : style.locked_icon_tint);
++        } else {
++          ImGui::Dummy(ImVec2(style.icon_size, style.icon_size));
++        }
++        ImGui::SameLine();
++        ImGui::BeginGroup();
++        const ImVec4& title_color = is_unlocked ? style.unlocked_title : style.locked_title;
++        ImGui::TextColored(title_color, "%s", is_unlocked ? "[*]" : "[ ]");
++        ImGui::SameLine();
++        ImGui::TextColored(style.badge_gamerscore, "%dG", static_cast<int>(a.gamerscore));
++        ImGui::SameLine();
++        ImGui::TextColored(title_color, "%s", a.label.c_str());
++        ImGui::PushStyleColor(ImGuiCol_Text, is_unlocked ? style.unlocked_desc : style.locked_desc);
++        ImGui::TextWrapped("%s", (is_unlocked ? a.description : a.unachieved_description).c_str());
++        ImGui::PopStyleColor();
++        ImGui::EndGroup();
++        ImGui::Separator();
++        ImGui::PopID();
++      }
++      ImGui::EndChild();
++      ImGui::TextDisabled("B / Esc: close      D-pad / left stick: scroll");
++    }
++    ImGui::End();
++    ImGui::PopStyleColor(2);
++    ImGui::PopStyleVar(3);
++    if (close) Close();
++  }
++
++ private:
++  rex::ui::AchievementIconCache icons_;
++  std::unique_ptr<rex::system::AchievementManager> other_;
++  std::string owner_;
++  bool first_draw_ = true;
++  uint16_t held_ = 0, last_buttons_ = 0;
++};
++
++std::atomic<bool> xam_achievements_ui_open_{false};
++
++u32 XamShowAchievementsUI_entry(u32 user_index) {
++  REXKRNL_INFO("XamShowAchievementsUI({})", uint32_t(user_index));
++  Runtime* emulator = REX_KERNEL_STATE()->emulator();
++  ui::ImGuiDrawer* imgui_drawer = emulator ? emulator->imgui_drawer() : nullptr;
++  if (!imgui_drawer || REXCVAR_GET(headless) || xam_achievements_ui_open_.exchange(true)) {
++    return X_ERROR_SUCCESS;
++  }
++  // The real call returns at once and the Guide shows the list on its own; the title learns
++  // of it through XN_SYS_UI. So the dialog runs on a thread of its own, not the title's.
++  const uint32_t user = user_index;
++  std::thread([imgui_drawer, emulator, user]() {
++    auto close = [](AchievementsUIDialog*) -> X_RESULT { return X_ERROR_SUCCESS; };
++    xeXamDispatchDialog<AchievementsUIDialog>(new AchievementsUIDialog(imgui_drawer, emulator, user), close,
++                                              0);
++    xam_achievements_ui_open_.store(false);
++  }).detach();
++  return X_ERROR_SUCCESS;
++}
++
++u32 XamShowAchievementsUIEx_entry(u32 user_index, u32 flags) {
++  (void)flags;
++  return XamShowAchievementsUI_entry(user_index);
++}
++
+ // https://www.se7ensins.com/forums/threads/working-xshowmessageboxui.844116/
+ u32 XamShowMessageBoxUI_entry(u32 user_index, mapped_wstring title_ptr, mapped_wstring text_ptr,
+                               u32 button_count, mapped_u32 button_ptrs, u32 active_button,
+@@ -592,6 +760,28 @@ uint32_t XamShowMessageBoxUIEx_entry() {
+   return 0;
+ }
+ 
++void ShowTextEntryDialog(std::string title, std::string description, std::string default_text,
++                         size_t max_length, std::function<void(bool, std::string)> done) {
++  Runtime* emulator = REX_KERNEL_STATE()->emulator();
++  ui::ImGuiDrawer* imgui_drawer = emulator ? emulator->imgui_drawer() : nullptr;
++  if (!imgui_drawer || REXCVAR_GET(headless)) {
++    if (done) done(false, "");
++    return;
++  }
++  std::thread([imgui_drawer, title, description, default_text, max_length, done]() {
++    bool ok = false;
++    std::string text;
++    auto close = [&ok, &text](KeyboardInputDialog* dialog) -> X_RESULT {
++      ok = !dialog->cancelled();
++      text = std::string(dialog->text().c_str());
++      return X_ERROR_SUCCESS;
++    };
++    xeXamDispatchDialog<KeyboardInputDialog>(
++        new KeyboardInputDialog(imgui_drawer, title, description, default_text, max_length + 1), close, 0);
++    if (done) done(ok, ok ? text : std::string());
++  }).detach();
++}
++
+ }  // namespace xam
+ }  // namespace kernel
+ }  // namespace rex
+@@ -615,8 +805,8 @@ REX_EXPORT_STUB(__imp__XamNavigate);
+ REX_EXPORT_STUB(__imp__XamNavigateBack);
+ REX_EXPORT_STUB(__imp__XamOverrideHudOpenType);
+ REX_EXPORT_STUB(__imp__XamShowAchievementDetailsUI);
+-REX_EXPORT_STUB(__imp__XamShowAchievementsUI);
+-REX_EXPORT_STUB(__imp__XamShowAchievementsUIEx);
++REX_EXPORT(__imp__XamShowAchievementsUI, rex::kernel::xam::XamShowAchievementsUI_entry)
++REX_EXPORT(__imp__XamShowAchievementsUIEx, rex::kernel::xam::XamShowAchievementsUIEx_entry)
+ REX_EXPORT_STUB(__imp__XamShowAndWaitForMessageBoxEx);
+ REX_EXPORT_STUB(__imp__XamShowAvatarAwardGamesUI);
+ REX_EXPORT_STUB(__imp__XamShowAvatarAwardsUI);
+diff --git a/src/kernel/xam/xam_user.cpp b/src/kernel/xam/xam_user.cpp
+index 8778066..b5ea91f 100644
+--- a/src/kernel/xam/xam_user.cpp
++++ b/src/kernel/xam/xam_user.cpp
+@@ -45,8 +45,7 @@ i32 XamUserGetXUID_entry(u32 user_index, u32 type_mask, mapped_u64 xuid_ptr) {
+   uint32_t result = X_E_NO_SUCH_USER;
+   uint64_t xuid = 0;
+   if (user_index < 4) {
+-    if (user_index == 0) {
+-      const auto& user_profile = REX_KERNEL_STATE()->user_profile();
++    if (const auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index)) {
+       auto type = user_profile->type() & type_mask;
+       if (type & (2 | 4)) {
+         // maybe online profile?
+@@ -68,8 +67,7 @@ i32 XamUserGetXUID_entry(u32 user_index, u32 type_mask, mapped_u64 xuid_ptr) {
+ u32 XamUserGetSigninState_entry(u32 user_index) {
+   uint32_t signin_state = 0;
+   if (user_index < 4) {
+-    if (user_index == 0) {
+-      const auto& user_profile = REX_KERNEL_STATE()->user_profile();
++    if (const auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index)) {
+       signin_state = user_profile->signin_state();
+     }
+   }
+@@ -92,11 +90,11 @@ i32 XamUserGetSigninInfo_entry(u32 user_index, u32 flags, ppc_ptr_t<X_USER_SIGNI
+   }
+ 
+   std::memset(info, 0, sizeof(X_USER_SIGNIN_INFO));
+-  if (user_index) {
++  const auto* user_profile = user_index < 4 ? REX_KERNEL_STATE()->user_profile(user_index) : nullptr;
++  if (!user_profile) {
+     return X_E_NO_SUCH_USER;
+   }
+ 
+-  const auto& user_profile = REX_KERNEL_STATE()->user_profile();
+   info->xuid = user_profile->xuid();
+   info->signin_state = user_profile->signin_state();
+   rex::string::copy_truncating(info->name, user_profile->name(), rex::countof(info->name));
+@@ -108,11 +106,10 @@ u32 XamUserGetName_entry(u32 user_index, mapped_string buffer, u32 buffer_len) {
+     return X_E_INVALIDARG;
+   }
+ 
+-  if (user_index) {
++  const auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index);
++  if (!user_profile) {
+     return X_E_NO_SUCH_USER;
+   }
+-
+-  const auto& user_profile = REX_KERNEL_STATE()->user_profile();
+   const auto& user_name = user_profile->name();
+   rex::string::copy_truncating(buffer, user_name, std::min(buffer_len, uint32_t(16)));
+   return X_E_SUCCESS;
+@@ -123,7 +120,8 @@ u32 XamUserGetGamerTag_entry(u32 user_index, mapped_wstring buffer, u32 buffer_l
+     return X_E_INVALIDARG;
+   }
+ 
+-  if (user_index) {
++  const auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index);
++  if (!user_profile) {
+     return X_E_NO_SUCH_USER;
+   }
+ 
+@@ -131,7 +129,6 @@ u32 XamUserGetGamerTag_entry(u32 user_index, mapped_wstring buffer, u32 buffer_l
+     return X_E_INVALIDARG;
+   }
+ 
+-  const auto& user_profile = REX_KERNEL_STATE()->user_profile();
+   auto user_name = rex::string::to_utf16(user_profile->name());
+   rex::string::copy_and_swap_truncating(buffer, user_name, std::min(buffer_len, uint32_t(16)));
+   return X_E_SUCCESS;
+@@ -154,9 +151,14 @@ uint32_t XamUserReadProfileSettingsEx(uint32_t title_id, uint32_t user_index, ui
+   } else {
+     assert_true(xuid_count == 1);
+     assert_not_null(xuids);
+-    // TODO(gibbed): allow proper lookup of arbitrary XUIDs
+-    const auto& user_profile = REX_KERNEL_STATE()->user_profile();
+-    assert_true(static_cast<uint64_t>(xuids[0]) == user_profile->xuid());
++    // The XUID asked about picks the signed-in profile (any slot).
++    for (uint32_t slot = 0; slot < 4; ++slot) {
++      const auto* p = REX_KERNEL_STATE()->user_profile(slot);
++      if (p && p->xuid() == static_cast<uint64_t>(xuids[0])) {
++        user_index = slot;
++        break;
++      }
++    }
+     // TODO(gibbed): we assert here, but in case a title passes xuid_count > 1
+     // until it's implemented for release builds...
+     xuid_count = 1;
+@@ -211,8 +213,8 @@ uint32_t XamUserReadProfileSettingsEx(uint32_t title_id, uint32_t user_index, ui
+   // Title ID = 0 means us.
+   // 0xfffe07d1 = profile?
+ 
+-  if (!xuids && user_index) {
+-    // Only support user 0.
++  if (!REX_KERNEL_STATE()->user_profile(user_index)) {
++    // Nobody signed in to that slot.
+     if (overlapped) {
+       REX_KERNEL_STATE()->CompleteOverlappedImmediate(
+           REX_KERNEL_MEMORY()->HostToGuestVirtual(overlapped), X_ERROR_NO_SUCH_USER);
+@@ -221,7 +223,7 @@ uint32_t XamUserReadProfileSettingsEx(uint32_t title_id, uint32_t user_index, ui
+     return X_ERROR_NO_SUCH_USER;
+   }
+ 
+-  const auto& user_profile = REX_KERNEL_STATE()->user_profile();
++  auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index);
+ 
+   // First call asks for size (fill buffer_size_ptr).
+   // Second call asks for buffer contents with that size.
+@@ -308,8 +310,9 @@ u32 XamUserWriteProfileSettings_entry(u32 title_id, u32 user_index, u32 setting_
+     return X_ERROR_INVALID_PARAMETER;
+   }
+ 
+-  if (user_index) {
+-    // Only support user 0.
++  auto* user_profile = user_index < 4 ? REX_KERNEL_STATE()->user_profile(user_index) : nullptr;
++  if (!user_profile) {
++    // Nobody signed in to that slot.
+     if (overlapped) {
+       REX_KERNEL_STATE()->CompleteOverlappedImmediate(overlapped.guest_address(),
+                                                       X_ERROR_NO_SUCH_USER);
+@@ -319,7 +322,6 @@ u32 XamUserWriteProfileSettings_entry(u32 title_id, u32 user_index, u32 setting_
+   }
+ 
+   // Update and save settings.
+-  const auto& user_profile = REX_KERNEL_STATE()->user_profile();
+ 
+   for (uint32_t n = 0; n < setting_count; ++n) {
+     const X_USER_PROFILE_SETTING& setting = settings[n];
+@@ -377,7 +379,7 @@ u32 XamUserCheckPrivilege_entry(u32 user_index, u32 mask, mapped_u32 out_value)
+       return X_ERROR_INVALID_PARAMETER;
+     }
+ 
+-    if (user_index) {
++    if (!REX_KERNEL_STATE()->user_profile(user_index)) {
+       return X_ERROR_NO_SUCH_USER;
+     }
+   }
+@@ -388,7 +390,7 @@ u32 XamUserCheckPrivilege_entry(u32 user_index, u32 mask, mapped_u32 out_value)
+ }
+ 
+ u32 XamUserContentRestrictionGetFlags_entry(u32 user_index, mapped_u32 out_flags) {
+-  if (user_index) {
++  if (user_index >= 4 || !REX_KERNEL_STATE()->user_profile(user_index)) {
+     return X_ERROR_NO_SUCH_USER;
+   }
+ 
+@@ -399,7 +401,7 @@ u32 XamUserContentRestrictionGetFlags_entry(u32 user_index, mapped_u32 out_flags
+ 
+ u32 XamUserContentRestrictionGetRating_entry(u32 user_index, u32 unk1, mapped_u32 out_unk2,
+                                              mapped_u32 out_unk3) {
+-  if (user_index) {
++  if (user_index >= 4 || !REX_KERNEL_STATE()->user_profile(user_index)) {
+     return X_ERROR_NO_SUCH_USER;
+   }
+ 
+@@ -430,7 +432,7 @@ u32 XamUserGetMembershipTier_entry(u32 user_index) {
+   if (user_index >= 4) {
+     return X_ERROR_INVALID_PARAMETER;
+   }
+-  if (user_index) {
++  if (!REX_KERNEL_STATE()->user_profile(user_index)) {
+     return X_ERROR_NO_SUCH_USER;
+   }
+   return 6 /* 6 appears to be Gold */;
+@@ -444,8 +446,7 @@ u32 XamUserAreUsersFriends_entry(u32 user_index, u32 unk1, u32 unk2, mapped_u32
+   if (user_index >= 4) {
+     result = X_ERROR_INVALID_PARAMETER;
+   } else {
+-    if (user_index == 0) {
+-      const auto& user_profile = REX_KERNEL_STATE()->user_profile();
++    if (const auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index)) {
+       if (user_profile->signin_state() == 0) {
+         result = X_ERROR_NOT_LOGGED_ON;
+       } else {
+diff --git a/src/system/kernel_state.cpp b/src/system/kernel_state.cpp
+index 697399c..2bc3acb 100644
+--- a/src/system/kernel_state.cpp
++++ b/src/system/kernel_state.cpp
+@@ -268,6 +268,82 @@ void KernelState::UnlockAchievement(uint32_t id) {
+   (void)achievement_manager_.UnlockAchievement(id, AchievementNotification::kShow);
+ }
+ 
++xam::UserProfile* KernelState::user_profile(uint32_t user_index) const {
++  if (user_index == 0) return user_profile_.get();
++  if (user_index < 4) return other_user_profiles_[user_index - 1].get();
++  return nullptr;
++}
++
++uint32_t KernelState::signed_in_mask() const {
++  uint32_t mask = 0;
++  for (uint32_t i = 0; i < 4; ++i) {
++    if (user_profile(i)) mask |= 1u << i;
++  }
++  return mask;
++}
++
++void KernelState::SignInUser(uint32_t user_index, uint64_t xuid, const std::string& name) {
++  if (user_index >= 4) return;
++  auto profile = std::make_unique<xam::UserProfile>();
++  profile->set_kernel_state(this);
++  profile->set_identity(xuid, name);
++  {
++    std::lock_guard lock(user_profiles_mutex_);
++    auto& slot = user_index == 0 ? user_profile_ : other_user_profiles_[user_index - 1];
++    if (slot) retired_user_profiles_.push_back(std::move(slot));
++    slot = std::move(profile);
++  }
++  REXSYS_INFO("Signed in {} ({:016X}) as user {}", name, xuid, user_index);
++  if (user_index == 0 && title_id() != 0 && !emulator_->user_data_root().empty()) {
++    achievement_manager_.SetUnlockSavePath(AchievementSavePath(xuid));
++    achievement_manager_.LoadUnlockState();
++  }
++}
++
++void KernelState::SignOutUser(uint32_t user_index) {
++  if (user_index == 0 || user_index >= 4) return;
++  std::lock_guard lock(user_profiles_mutex_);
++  auto& slot = other_user_profiles_[user_index - 1];
++  if (slot) {
++    REXSYS_INFO("Signed out user {}", user_index);
++    retired_user_profiles_.push_back(std::move(slot));
++  }
++}
++
++std::filesystem::path KernelState::AchievementSavePath(uint64_t xuid) const {
++  const auto user_root = emulator_->user_data_root();
++  const auto title = fmt::format("{:08X}.toml", title_id());
++  const auto path = user_root / "achievements" / fmt::format("{:016X}", xuid) / title;
++  // Unlocks from before profiles had their own file belong to the original profile.
++  constexpr uint64_t kOriginalXuid = 0xB13EBABEBABEBABEull;
++  std::error_code ec;
++  if (xuid == kOriginalXuid && !std::filesystem::exists(path, ec)) {
++    const auto old_path = user_root / "achievements" / title;
++    if (std::filesystem::exists(old_path, ec)) {
++      std::filesystem::create_directories(path.parent_path(), ec);
++      std::filesystem::copy_file(old_path, path, ec);
++    }
++  }
++  return path;
++}
++
++void KernelState::UnlockAchievementForUser(uint32_t user_index, uint32_t id) {
++  if (user_index == 0 || user_index >= 4) {
++    UnlockAchievement(id);
++    return;
++  }
++  auto* profile = user_profile(user_index);
++  if (!profile || emulator_->user_data_root().empty()) return;
++  AchievementManager other;
++  other.ReplaceAchievements(achievement_manager_.ListAchievements());
++  other.SetUnlockSavePath(AchievementSavePath(profile->xuid()));
++  other.LoadUnlockState();
++  if (other.UnlockAchievement(id) == AchievementUnlockResult::kUnlocked) {
++    other.SaveUnlockState();
++    REXSYS_INFO("Achievement {} unlocked for {} (user {})", id, profile->name(), user_index);
++  }
++}
++
+ bool KernelState::IsAchievementUnlocked(uint32_t id) const {
+   return achievement_manager_.IsUnlocked(id);
+ }
+@@ -308,8 +384,7 @@ void KernelState::LoadAchievementsData() {
+   // Set up the unlock save path and restore persisted state.
+   const auto user_root = emulator_->user_data_root();
+   if (!user_root.empty()) {
+-    achievement_manager_.SetUnlockSavePath(user_root / "achievements" /
+-                                           fmt::format("{:08X}.toml", title_id()));
++    achievement_manager_.SetUnlockSavePath(AchievementSavePath(user_profile_->xuid()));
+     achievement_manager_.LoadUnlockState();
+   }
+ }
+diff --git a/src/system/xam/content_manager.cpp b/src/system/xam/content_manager.cpp
+index d0c7bfd..b3bede6 100644
+--- a/src/system/xam/content_manager.cpp
++++ b/src/system/xam/content_manager.cpp
+@@ -17,6 +17,7 @@
+ #include <fmt/format.h>
+ 
+ #include <rex/filesystem.h>
++#include <rex/logging.h>
+ #include <rex/filesystem/devices/host_path_device.h>
+ #include <rex/filesystem/devices/stfs_container_device.h>
+ #include <rex/string.h>
+@@ -442,13 +443,27 @@ X_RESULT ContentManager::UnmountAndDeleteContent(uint64_t xuid,
+   return X_ERROR_FILE_NOT_FOUND;
+ }
+ 
+-std::filesystem::path ContentManager::ResolveGameUserContentPath() {
++std::filesystem::path ContentManager::ResolveGameUserContentPath(const UserProfile& profile) {
+   auto title_id = fmt::format("{:08X}", kernel_state_->title_id());
+-  auto user_name = rex::to_path(kernel_state_->user_profile()->name());
+-
+-  // Per-game per-profile data location:
+-  // content_root/title_id/profile/user_name
+-  return root_path_ / title_id / kGameUserContentDirName / user_name;
++  // Per-game per-profile data location: content_root/title_id/profile/<XUID>. Keyed by XUID so a
++  // profile keeps its data when it is renamed. Data kept under the old key (the profile's
++  // name, as before) is moved over the first time.
++  const auto folder = root_path_ / title_id / kGameUserContentDirName;
++  const auto by_xuid = folder / fmt::format("{:016X}", profile.xuid());
++  std::error_code ec;
++  if (!std::filesystem::exists(by_xuid, ec) && !profile.name().empty()) {
++    const auto by_name = folder / rex::to_path(profile.name());
++    if (std::filesystem::is_directory(by_name, ec)) {
++      std::filesystem::rename(by_name, by_xuid, ec);
++      if (ec) {
++        REXSYS_WARN("Profile data: could not move {} to {}: {}", by_name.string(), by_xuid.string(),
++                    ec.message());
++        return by_name;
++      }
++      REXSYS_INFO("Profile data moved from {} to {}", by_name.string(), by_xuid.string());
++    }
++  }
++  return by_xuid;
+ }
+ 
+ std::unordered_map<string::string_key_case, ContentPackage*,
+diff --git a/src/system/xam/user_profile.cpp b/src/system/xam/user_profile.cpp
+index a77f5e6..82f95ed 100644
+--- a/src/system/xam/user_profile.cpp
++++ b/src/system/xam/user_profile.cpp
+@@ -21,6 +21,7 @@ namespace rex {
+ namespace system {
+ namespace xam {
+ 
++
+ UserProfile::UserProfile() {
+   // 58410A1F checks the user XUID against a mask of 0x00C0000000000000 (3<<54),
+   // if non-zero, it prevents the user from playing the game.
+@@ -133,7 +134,7 @@ UserProfile::Setting* UserProfile::GetSetting(uint32_t setting_id) {
+ 
+ void UserProfile::LoadSetting(UserProfile::Setting* setting) {
+   if (setting->is_title_specific()) {
+-    auto content_dir = kernel_state_->content_manager()->ResolveGameUserContentPath();
++    auto content_dir = kernel_state_->content_manager()->ResolveGameUserContentPath(*this);
+     auto setting_id = fmt::format("{:08X}", setting->setting_id);
+     auto file_path = content_dir / setting_id;
+     auto file = rex::filesystem::OpenFile(file_path, "rb");
+@@ -158,7 +159,7 @@ void UserProfile::LoadSetting(UserProfile::Setting* setting) {
+ void UserProfile::SaveSetting(UserProfile::Setting* setting) {
+   if (setting->is_title_specific()) {
+     auto serialized_setting = setting->Serialize();
+-    auto content_dir = kernel_state_->content_manager()->ResolveGameUserContentPath();
++    auto content_dir = kernel_state_->content_manager()->ResolveGameUserContentPath(*this);
+     std::filesystem::create_directories(content_dir);
+     auto setting_id = fmt::format("{:08X}", setting->setting_id);
+     auto file_path = content_dir / setting_id;
+diff --git a/include/rex/kernel/xam/text_entry.h b/include/rex/kernel/xam/text_entry.h
+new file mode 100644
+index 0000000..27b7282
+--- /dev/null
++++ b/include/rex/kernel/xam/text_entry.h
+@@ -0,0 +1,19 @@
++/**
++ * @file        rex/kernel/xam/text_entry.h
++ * @brief       A text box for the host program (same dialog as XamShowKeyboardUI).
++ */
++#pragma once
++
++#include <cstddef>
++#include <functional>
++#include <string>
++
++namespace rex::kernel::xam {
++
++// Shows a text box over the game, on a thread of its own, and returns at once. While it is
++// open the title is told the system UI is up and its input is held. `done` is called once,
++// from that thread: (true, text) on OK / Enter, (false, "") when cancelled or no UI.
++void ShowTextEntryDialog(std::string title, std::string description, std::string default_text,
++                         size_t max_length, std::function<void(bool, std::string)> done);
++
++}  // namespace rex::kernel::xam
+diff --git a/src/ui/d3d12/d3d12_presenter.cpp b/src/ui/d3d12/d3d12_presenter.cpp
+--- a/src/ui/d3d12/d3d12_presenter.cpp
++++ b/src/ui/d3d12/d3d12_presenter.cpp
+@@ -2123,6 +2123,15 @@
+   return InitializeCommonSurfaceIndependent();
+ }
+ 
++// Overlays (ImGui, via the immediate drawer) into the scRGB swap chain: their colours are
++// sRGB, so they are made linear and brought up to the game's own white. 0 = the swap chain is
++// SDR, draw them as they are.
++float UiScrgbWhite() {
++  if (!g_swap_chain_is_scrgb) return 0.0f;
++  if (!g_display_hdr) return 1.0f;
++  return float(std::clamp(REXCVAR_GET(hdr_paper_white_nits), 80.0, 500.0)) / 80.0f;
++}
++
+ }  // namespace rex::ui::d3d12
+ 
+ // ---------------------------------------------------------------------------------------
+diff --git a/src/ui/d3d12/d3d12_immediate_drawer.cpp b/src/ui/d3d12/d3d12_immediate_drawer.cpp
+--- a/src/ui/d3d12/d3d12_immediate_drawer.cpp
++++ b/src/ui/d3d12/d3d12_immediate_drawer.cpp
+@@ -9,6 +9,7 @@
+  * @modified    Tom Clay, 2026 - Adapted for ReXGlue runtime
+  */
+ 
++#include <algorithm>
+ #include <cstring>
+ #include <memory>
+ #include <utility>
+@@ -28,8 +29,43 @@
+ // The same two pipelines for the HDR swap chain format (see D3D12Presenter::SwapChainFormat).
+ Microsoft::WRL::ComPtr<ID3D12PipelineState> g_pipeline_triangle_hdr;
+ Microsoft::WRL::ComPtr<ID3D12PipelineState> g_pipeline_line_hdr;
++
++// Pixel shader for those: the overlay's sRGB colours made linear and scaled to the game's
++// white, so menus are not dim and washed out in HDR. Compiled at start; if it cannot be,
++// the HDR pipelines keep the ordinary pixel shader.
++constexpr char kHdrPixelShader[] = R"hlsl(
++Texture2D xe_immediate_texture : register(t0);
++SamplerState xe_immediate_sampler : register(s0);
++cbuffer xe_ui_constants : register(b1) { float xe_ui_white; };
++float4 main(float2 uv : TEXCOORD0, float4 colour : COLOR0) : SV_Target {
++  float4 result = xe_immediate_texture.SampleLevel(xe_immediate_sampler, uv, 0.0) * colour;
++  result.rgb = pow(max(result.rgb, 0.0), 2.2) * xe_ui_white;
++  return result;
++}
++)hlsl";
++
++Microsoft::WRL::ComPtr<ID3DBlob> CompileHdrPixelShader() {
++  Microsoft::WRL::ComPtr<ID3DBlob> code;
++  HMODULE compiler = LoadLibraryW(L"d3dcompiler_47.dll");
++  if (!compiler) return code;
++  using CompileFn = HRESULT(WINAPI*)(LPCVOID, SIZE_T, LPCSTR, const D3D_SHADER_MACRO*, ID3DInclude*,
++                                     LPCSTR, LPCSTR, UINT, UINT, ID3DBlob**, ID3DBlob**);
++  auto compile = reinterpret_cast<CompileFn>(GetProcAddress(compiler, "D3DCompile"));
++  if (!compile) return code;
++  Microsoft::WRL::ComPtr<ID3DBlob> errors;
++  if (FAILED(compile(kHdrPixelShader, sizeof(kHdrPixelShader) - 1, "immediate_hdr_ps", nullptr, nullptr,
++                     "main", "ps_5_1", 1u << 15, 0, &code, &errors)) ||
++      !code) {
++    REXLOG_WARN("D3D12ImmediateDrawer: HDR overlay shader did not compile: {}",
++                errors ? static_cast<const char*>(errors->GetBufferPointer()) : "(no message)");
++    code.Reset();
++  }
++  return code;
++}
+ }  // namespace
+ 
++float UiScrgbWhite();  // d3d12_presenter.cpp
++
+ namespace shaders {
+ #include "../shaders/bytecode/d3d12_5_1/immediate_ps.h"
+ #include "../shaders/bytecode/d3d12_5_1/immediate_vs.h"
+@@ -111,6 +147,14 @@
+     root_parameter.Constants.Num32BitValues = 2;
+     root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+   }
++  {
++    auto& root_parameter = root_parameters[size_t(RootParameter::kUiWhite)];
++    root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
++    root_parameter.Constants.ShaderRegister = 1;
++    root_parameter.Constants.RegisterSpace = 0;
++    root_parameter.Constants.Num32BitValues = 1;
++    root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
++  }
+   D3D12_ROOT_SIGNATURE_DESC root_signature_desc;
+   root_signature_desc.NumParameters = UINT(RootParameter::kCount);
+   root_signature_desc.pParameters = root_parameters;
+@@ -161,6 +205,11 @@
+   pipeline_desc.NumRenderTargets = 1;
+   pipeline_desc.SampleDesc.Count = 1;
+   pipeline_desc.RTVFormats[0] = D3D12Presenter::kSwapChainFormatHdr;
++  Microsoft::WRL::ComPtr<ID3DBlob> hdr_ps = CompileHdrPixelShader();
++  if (hdr_ps) {
++    pipeline_desc.PS.pShaderBytecode = hdr_ps->GetBufferPointer();
++    pipeline_desc.PS.BytecodeLength = hdr_ps->GetBufferSize();
++  }
+   if (FAILED(device->CreateGraphicsPipelineState(&pipeline_desc,
+                                                  IID_PPV_ARGS(&g_pipeline_triangle_hdr)))) {
+     REXLOG_ERROR("D3D12ImmediateDrawer: Failed to create the HDR triangle pipeline");
+@@ -173,6 +222,8 @@
+     return false;
+   }
+   pipeline_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
++  pipeline_desc.PS.pShaderBytecode = shaders::immediate_ps;
++  pipeline_desc.PS.BytecodeLength = sizeof(shaders::immediate_ps);
+   pipeline_desc.RTVFormats[0] = D3D12Presenter::kSwapChainFormatSdr;
+   pipeline_desc.SampleDesc.Count = 1;
+   if (FAILED(
+@@ -398,6 +449,8 @@
+   coordinate_space_size_inv[1] = 1.0f / coordinate_space_height;
+   command_list->SetGraphicsRoot32BitConstants(UINT(RootParameter::kCoordinateSpaceSizeInv), 2,
+                                               coordinate_space_size_inv, 0);
++  const float ui_white = std::max(UiScrgbWhite(), 1.0f);
++  command_list->SetGraphicsRoot32BitConstants(UINT(RootParameter::kUiWhite), 1, &ui_white, 0);
+ 
+   current_scissor_.left = 0;
+   current_scissor_.top = 0;

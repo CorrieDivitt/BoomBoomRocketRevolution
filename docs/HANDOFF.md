@@ -44,6 +44,11 @@ above 1x; the multiplayer song list (has length and BPM, no speed panel or butto
   start; first-note fix now at 1x too; Autoplay masks the player's A/B/X/Y while the song clock
   moves and blocks achievements (hook on XUserWriteAchievements, sub_820E7478). User is done with
   modifiers for now.
+- Third 2026-11-12 commit: SDK patch 0006 (run `scripts\patch-sdk.ps1`): in-game Achievements menu
+  (XamShowAchievementsUI as an opaque XAM dialog, per player), ImGui overlays bright in HDR
+  (immediate drawer HDR pixel shader), local profiles (KernelState::SignInUser, per-XUID title
+  data and achievements). Game: src/profiles.cpp + BBRR Settings > Profiles (profiles.ini).
+  Next candidates: Swap Controllers / press-to-join, keyboard (R-602), controllers (R-601).
 - Other modern rhythm-game features under Modifiers (R-801 research list).
   R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).
