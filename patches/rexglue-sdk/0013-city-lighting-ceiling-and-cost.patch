@@ -1,0 +1,77 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <algorithm>
++#include <chrono>
+ #include <cmath>
+ #include <cstdarg>
+ #include <cstdio>
+@@ -2649,11 +2650,27 @@
+ // own flash starts at 500,000 and dies away within a few frames.
+ constexpr float kBbrrStrengthUnit = 500000.0f;
+ constexpr float kBbrrNearest = 150.0f * 150.0f;
++// The most light a piece is given at its nearest point, in the shader's units (1 = a surface
++// shown at the full brightness of its texture; the city's own ambient and moonlight add up
++// to about 0.125).
++constexpr float kBbrrCeiling = 1.5f;
++// Time spent on city lighting, to report what it costs.
++uint64_t bbrr_light_nanoseconds = 0;
++uint32_t bbrr_light_draws = 0;
++uint32_t bbrr_light_frames = 0;
+ 
+ void BbrrBuildFrameLight(const RegisterFile& regs, float strength) {
+   BbrrFrameLight& f = bbrr_frame_light;
+   f.frame = bbrr_frame;
+   f.valid = false;
++  if (++bbrr_light_frames >= 1200) {
++    REXLOG_INFO("[bbrr] city light cost: {:.1f} microseconds a frame on average over {} frames ({} city draws a frame)",
++                double(bbrr_light_nanoseconds) / 1000.0 / bbrr_light_frames, bbrr_light_frames,
++                bbrr_light_draws / bbrr_light_frames);
++    bbrr_light_nanoseconds = 0;
++    bbrr_light_draws = 0;
++    bbrr_light_frames = 0;
++  }
+   f.count = 0;
+   for (uint32_t j = 0; j < bbrr_light_count && f.count < 6; ++j) f.lights[f.count++] = bbrr_lights[j];
+   // The game's own flash for the city (c15 position, c16 colour, c17.x strength), kept at
+@@ -2753,6 +2770,18 @@
+       for (int k = 0; k < 3; ++k) colour[k] *= 1.0f + (factor - 1.0f) * blend;
+     }
+   }
++  // A ceiling on how bright the nearest point of a piece gets, so a firework close to a wall
++  // does not wash it out to one flat colour: the light is eased off as it nears the ceiling
++  // (half the ceiling is reached where the uncapped light would equal it). The top setting
++  // (Acid Trip) is left uncapped on purpose.
++  if (strength < 16.0f) {
++    const float brightest = std::max(colour[0], std::max(colour[1], colour[2])) * kBbrrStrengthUnit * strength /
++                            std::max(d2, kBbrrNearest);
++    if (brightest > 0.0f) {
++      const float ease = 1.0f / (1.0f + brightest / kBbrrCeiling);
++      for (int k = 0; k < 3; ++k) colour[k] *= ease;
++    }
++  }
+   if (!std::isfinite(colour[0] + colour[1] + colour[2])) return false;
+ 
+   const uint32_t pixel_base = XE_GPU_REG_SHADER_CONSTANT_256_X;
+@@ -2852,6 +2881,7 @@
+       bool bbrr_city = false;
+       for (uint64_t hash : kBbrrCityPixelShaders) bbrr_city = bbrr_city || hash == bbrr_ps_hash;
+       if (bbrr_city) {
++        const auto bbrr_started = std::chrono::steady_clock::now();
+         const BbrrBox& bbrr_box = BbrrDrawBox(
+             regs, *memory_, *vertex_shader, index_buffer_info != nullptr,
+             index_buffer_info ? index_buffer_info->guest_base : 0,
+@@ -2861,6 +2891,10 @@
+           bbrr_city_light.up_to_date = &cbuffer_binding_float_pixel_.up_to_date;
+           cbuffer_binding_float_pixel_.up_to_date = false;
+         }
++        bbrr_light_nanoseconds += uint64_t(
++            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - bbrr_started)
++                .count());
++        ++bbrr_light_draws;
+       }
+     }
+   }
