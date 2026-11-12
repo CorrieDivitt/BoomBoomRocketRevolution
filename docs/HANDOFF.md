@@ -48,7 +48,10 @@ above 1x; the multiplayer song list (has length and BPM, no speed panel or butto
   (XamShowAchievementsUI as an opaque XAM dialog, per player), ImGui overlays bright in HDR
   (immediate drawer HDR pixel shader), local profiles (KernelState::SignInUser, per-XUID title
   data and achievements). Game: src/profiles.cpp + BBRR Settings > Profiles (profiles.ini).
-  Next candidates: Swap Controllers / press-to-join, keyboard (R-602), controllers (R-601).
+  Then: Player 1 Controller row (SDK patch 0007, controller order by device key) and the
+  Visualizer fed by the PC's sound (src/visualizer.cpp: XMPCaptureOutput answered, WASAPI
+  process loopback, Visualizer Sensitivity), both confirmed. Next candidates: keyboard (R-602),
+  controllers (R-601), full playthrough (R-110).
 - Other modern rhythm-game features under Modifiers (R-801 research list).
   R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).

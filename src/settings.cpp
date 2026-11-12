@@ -110,6 +110,9 @@ const std::vector<Setting>& Settings() {
                  {{"true", "Default"}, {"false", "Off"}}, 0, "modifiers"});
     // Arrows in four lanes by button, like DDR (src/modifiers.cpp).
     s.push_back({"ddr_mode", "ddr_mode", "DDR Mode", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
+    // How strongly the Visualizer reacts to the PC's music (src/visualizer.cpp).
+    s.push_back({"visualizer", "visualizer_sensitivity", "Visualizer Sensitivity",
+                 {{"0.5", "Low"}, {"1", "Normal"}, {"2", "High"}, {"4", "Very High"}}, 1, "main"});
     // Every rocket hit at 0 ms; songs that used it save no score (src/autoplay.cpp).
     s.push_back({"autoplay", "autoplay", "Autoplay", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
     s.push_back({"no_background", "no_background", "Background", {{"false", "Default"}, {"true", "Off"}}, 0,
@@ -125,9 +128,9 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "visualizer", "skip_intro", "layout"}},
       // Rows handled by src/profiles.cpp.
-      {"profiles", "Profiles", {"profile_p1", "profile_p2", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
+      {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
       {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
@@ -476,6 +479,7 @@ std::string SettingsStrings() {
                     "BBRR_OPEN = Open\n"
                     "BBRR_T_profile_p1 = Player 1\n"
                     "BBRR_T_profile_p2 = Player 2\n"
+                    "BBRR_T_controller_p1 = Player 1 Controller\n"
                     "BBRR_T_action_rename_p1 = Rename Player 1\n"
                     "BBRR_T_action_rename_p2 = Rename Player 2\n"
                     "BBRR_T_action_new_profile = New Profile\n"

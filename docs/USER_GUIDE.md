@@ -22,6 +22,7 @@ different folder.
 | Page | Setting | What it does |
 |---|---|---|
 | Profiles | Player 1 / Player 2 | Who is playing: each profile has its own gamertag, save data (scores, unlocks, progress) and achievements. Player 2 can be None. Saved with A; the game picks the new players up at once. The original profile is "User" and keeps everything from before profiles existed |
+| | Player 1 Controller | Which connected controller plays as Player 1 (Left/Right through their names); the others follow in the order they were connected. Remembered for next time, and used again whenever that controller is connected. Takes effect when the page is saved (A) - after that the other controller drives the menus if you picked it |
 | | Rename Player 1 / 2 | A opens a text box (keyboard) with the player's gamertag; Enter saves the new name (up to 15 characters). The profile keeps its data |
 | | New Profile | A opens a text box for the new profile's gamertag; it then appears in the Player 1 / Player 2 lists (up to 8 profiles). Profiles are kept in Documents\boomboomrocket\profiles.ini |
 | Video Settings | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
@@ -42,7 +43,8 @@ different folder.
 | | DDR Mode | Off (default) or On: a novelty mode like DDR. Arrows climb straight up in four lanes in the middle of the screen, sorted by button: Left (X), Down (A), Up (Y), Right (B). Two arrows of the same button on the same beat share a lane and overlap. Changes at once |
 | | Background | Default or Off: when Off, during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
 | | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. While the song plays your own A, B, X and Y presses are ignored (they work again in the pause menu). For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and earns no achievements; and once it has been used the game does not save its profile again until it is restarted |
-| (main page) | Skip Intro | Skips the start-up logos |
+| (main page) | Visualizer Sensitivity | Low, Normal (default), High, Very High: how strongly the Visualizer reacts to the music playing on the PC (Single Player > Visualizer, with music playing in any app). The music's loudness is evened out first, so the PC's volume does not matter |
+| | Skip Intro | Skips the start-up logos |
 | | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 
 The frame rate follows your display automatically; there is nothing to set.

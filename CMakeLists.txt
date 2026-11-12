@@ -28,6 +28,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/modifiers.cpp
     src/settings.cpp
     src/profiles.cpp
+    src/visualizer.cpp
     src/ui_mod.cpp
 )
 
@@ -38,4 +39,9 @@ else()
 endif()
 
 rexglue_setup_target(boomboomrocket GPU_PLUGINS xenos)
+
+if(WIN32)
+    # src/visualizer.cpp: WASAPI loopback capture (COM).
+    target_link_libraries(boomboomrocket PRIVATE ole32)
+endif()
 

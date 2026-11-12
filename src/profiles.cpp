@@ -18,8 +18,10 @@
 #include "widescreen.h"
 
 #include <rex/filesystem.h>
+#include <rex/input/input_system.h>
 #include <rex/kernel/xam/text_entry.h>
 #include <rex/logging.h>
+#include <rex/runtime.h>
 #include <rex/system/kernel_state.h>
 
 #include <algorithm>
@@ -46,6 +48,8 @@ constexpr size_t kNameMax = 15;
 constexpr uint32_t kTextManager = 0x821D48C8;  // the game's stored strings, 256 bytes each
 constexpr uint32_t kFirstNameSlot = 108;       // STR108-STR115: profile names, in list order
 constexpr uint32_t kBlankSlot = 116;           // STR116: a space (the rename rows show no value)
+constexpr uint32_t kFirstPadSlot = 100;        // STR100-STR103: connected controllers' names
+constexpr size_t kMaxPads = 4;
 // XN_SYS_SIGNINCHANGED: the game reads who is signed in again (sub_820C5650, case 0x0A).
 // XN_SYS_PROFILESETTINGCHANGED: it reads every signed-in player's name again (case 0x0E).
 constexpr uint32_t kSigninChanged = 0x0000000A;
@@ -62,6 +66,50 @@ uint64_t g_player1 = kOriginalXuid, g_player2 = 0;  // chosen (saved with the pa
 uint64_t g_signed1 = 0, g_signed2 = 0;              // what the kernel has now
 std::string g_signed1_name, g_signed2_name;
 std::atomic<bool> g_list_changed{false};            // a profile was added: rebuild the page
+// Player 1's controller (rex::input::DeviceKey), "" = the first one connected. The others
+// follow in connection order.
+std::string g_pad1, g_applied_pad1 = "\x01";
+std::vector<std::string> g_pad_keys;               // controllers listed on the page, in order
+
+void WriteSlot(uint8_t* base, uint32_t slot, const std::string& text);
+
+rex::input::InputSystem* Input() {
+  auto* ks = REX_KERNEL_STATE();
+  auto* runtime = ks ? ks->emulator() : nullptr;
+  return runtime ? static_cast<rex::input::InputSystem*>(runtime->input_system()) : nullptr;
+}
+
+// Short name for the settings page.
+std::string PadName(std::string name) {
+  for (const char* tail : {" Wireless Controller", " Controller"}) {
+    const size_t n = std::strlen(tail);
+    if (name.size() > n && name.compare(name.size() - n, n, tail) == 0) name.resize(name.size() - n);
+  }
+  if (name.size() > 24) name.resize(24);
+  return name.empty() ? std::string("Controller") : name;
+}
+
+// Lists the connected controllers into g_pad_keys and STR100-103 (call with g_mutex held).
+void ListPadsLocked() {
+  g_pad_keys.clear();
+  auto* input = Input();
+  const auto pads = input ? input->ListControllers() : std::vector<rex::input::DeviceInfo>();
+  uint8_t* base = GuestBase();
+  for (const auto& pad : pads) {
+    if (g_pad_keys.size() >= kMaxPads) break;
+    if (base) WriteSlot(base, kFirstPadSlot + uint32_t(g_pad_keys.size()), PadName(pad.name));
+    g_pad_keys.push_back(rex::input::DeviceKey(pads, pad));
+  }
+}
+
+void ApplyPadLocked() {
+  if (g_pad1 == g_applied_pad1) return;
+  auto* input = Input();
+  if (!input) return;
+  input->SetPlayerOrder(g_pad1.empty() ? std::vector<std::string>() : std::vector<std::string>{g_pad1});
+  g_applied_pad1 = g_pad1;
+  REXLOG_INFO("[profiles] Player 1 controller: {}", g_pad1.empty() ? std::string("first connected") : g_pad1);
+}
 
 std::filesystem::path FilePath() { return rex::filesystem::GetUserFolder() / "boomboomrocket" / "profiles.ini"; }
 
@@ -101,6 +149,7 @@ void SaveLocked() {
   } else {
     out << "player2 = none\n";
   }
+  out << "player1_controller = " << (g_pad1.empty() ? std::string("first") : g_pad1) << "\n";
 }
 
 void WriteSlot(uint8_t* base, uint32_t slot, const std::string& text) {
@@ -266,6 +315,8 @@ void LoadProfiles() {
       g_player1 = std::strtoull(value.c_str(), nullptr, 16);
     } else if (key == "player2") {
       g_player2 = value == "none" ? 0 : std::strtoull(value.c_str(), nullptr, 16);
+    } else if (key == "player1_controller") {
+      g_pad1 = value == "first" ? std::string() : value;
     }
   }
   if (IndexOf(kOriginalXuid) < 0 && g_profiles.size() < kMaxProfiles) {
@@ -281,6 +332,7 @@ void LoadProfiles() {
 void ApplyProfiles() {
   std::lock_guard<std::mutex> lock(g_mutex);
   ApplyLocked();  // at start: the game has not read anyone yet, so nothing to tell it
+  ApplyPadLocked();
 }
 
 std::string ProfileName(uint64_t xuid) {
@@ -289,7 +341,7 @@ std::string ProfileName(uint64_t xuid) {
 }
 
 bool IsProfileKey(const std::string& key) {
-  return key == "profile_p1" || key == "profile_p2" || key.rfind("action:", 0) == 0;
+  return key == "profile_p1" || key == "profile_p2" || key == "controller_p1" || key.rfind("action:", 0) == 0;
 }
 
 std::string ProfilesCommand(const std::string& command, const std::string& key, const std::string& value) {
@@ -297,7 +349,33 @@ std::string ProfilesCommand(const std::string& command, const std::string& key, 
   if (command == "bbrr.profiles.show") {
     std::lock_guard<std::mutex> lock(g_mutex);
     ShowNamesLocked();
+    ListPadsLocked();
     return "ok";
+  }
+  if (key == "controller_p1") {
+    // Player 1 Controller: one option per connected controller (none: one "None" option).
+    std::lock_guard<std::mutex> lock(g_mutex);
+    const size_t count = std::max<size_t>(g_pad_keys.size(), 1);
+    if (command == "bbrr.choices") return std::to_string(count);
+    if (command == "bbrr.label") {
+      const long n = std::strtol(value.c_str(), nullptr, 10);
+      if (g_pad_keys.empty()) return "BBRR_NONE";
+      return "STR" + std::to_string(kFirstPadSlot + uint32_t(std::clamp<long>(n, 1, long(kMaxPads)) - 1));
+    }
+    if (command == "bbrr.get") {
+      for (size_t i = 0; i < g_pad_keys.size(); ++i) if (g_pad_keys[i] == g_pad1) return std::to_string(i + 1);
+      return "1";  // the first connected plays as Player 1 unless another is chosen
+    }
+    if (command == "bbrr.default") return "1";
+    if (command == "bbrr.set") {
+      const long n = std::strtol(value.c_str(), nullptr, 10);
+      if (n >= 1 && size_t(n) <= g_pad_keys.size()) {
+        const bool unchanged_default = g_pad1.empty() && n == 1;
+        if (!unchanged_default) g_pad1 = g_pad_keys[size_t(n - 1)];
+      }
+      return "ok";
+    }
+    return "";
   }
   if (command == "bbrr.profiles.save") {
     // The settings page was saved: keep the choices and sign the players in.
@@ -308,6 +386,7 @@ std::string ProfilesCommand(const std::string& command, const std::string& key, 
       SaveLocked();
       ShowNamesLocked();
       note = ApplyLocked();
+      ApplyPadLocked();
     }
     Notify(note);
     return "ok";

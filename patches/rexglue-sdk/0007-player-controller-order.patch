@@ -1,0 +1,182 @@
+diff --git a/include/rex/input/device_assignment.h b/include/rex/input/device_assignment.h
+index a318f2c..6c45103 100644
+--- a/include/rex/input/device_assignment.h
++++ b/include/rex/input/device_assignment.h
+@@ -11,6 +11,7 @@
+  */
+ 
+ #include <cstdint>
++#include <string>
+ #include <vector>
+ 
+ #include <rex/input/device.h>
+@@ -26,16 +27,26 @@ class DeviceAssignment {
+ 
+   /// An empty result means the guest sees X_ERROR_DEVICE_NOT_CONNECTED.
+   virtual void DevicesForUser(uint32_t user_index, std::vector<DeviceId>& out) const = 0;
++
++  /// Which devices take users 0, 1, ... first (see SlotAssignment). Ignored by default.
++  virtual void SetPreferredOrder(std::vector<std::string> keys) { (void)keys; }
+ };
+ 
+ /// Device ordinal N feeds guest user N. Synthetic devices feed user 0.
++/// With a preferred order, the devices named in it take users 0, 1, ... in that order and
++/// the others follow by ordinal in the users left over.
+ class SlotAssignment final : public DeviceAssignment {
+  public:
+   void OnDevicesChanged(const std::vector<DeviceInfo>& devices) override;
+   void DevicesForUser(uint32_t user_index, std::vector<DeviceId>& out) const override;
+ 
++  /// Keys from DeviceKey(); empty = plain ordinal order. Takes effect at the next
++  /// OnDevicesChanged.
++  void SetPreferredOrder(std::vector<std::string> keys) override { preferred_ = std::move(keys); }
++
+  private:
+   std::vector<std::vector<DeviceId>> users_ = std::vector<std::vector<DeviceId>>(kMaxGuestUsers);
++  std::vector<std::string> preferred_;
+ };
+ 
+ /// Every device feeds guest user 0. Users 1 and up report not connected. For
+@@ -49,4 +60,8 @@ class SharedAssignment final : public DeviceAssignment {
+   std::vector<DeviceId> user0_;
+ };
+ 
++/// A key that names one physical device across restarts: its GUID, and which of the devices
++/// with that GUID it is by connection order ("<guid>#<n>"), for two identical pads.
++std::string DeviceKey(const std::vector<DeviceInfo>& devices, const DeviceInfo& device);
++
+ }  // namespace rex::input
+diff --git a/include/rex/input/input_system.h b/include/rex/input/input_system.h
+index 0c27eed..869fe0d 100644
+--- a/include/rex/input/input_system.h
++++ b/include/rex/input/input_system.h
+@@ -14,6 +14,8 @@
+ #include <atomic>
+ #include <bitset>
+ #include <memory>
++#include <mutex>
++#include <string>
+ #include <utility>
+ #include <vector>
+ 
+@@ -46,6 +48,13 @@ class InputSystem : public system::IInputSystem {
+   /// Replaces any previous assignment. Call before the guest starts polling.
+   void SetDeviceAssignment(std::unique_ptr<DeviceAssignment> assignment);
+ 
++  /// Physical controllers connected now, by connection order (copies; any thread).
++  std::vector<DeviceInfo> ListControllers() const;
++  /// Which controller plays as which user: keys (rex::input::DeviceKey) for users 0, 1, ...;
++  /// controllers not named follow by connection order. Applied at the next poll, and the
++  /// title is told the input devices changed. Works with the default SlotAssignment.
++  void SetPlayerOrder(std::vector<std::string> keys);
++
+   X_RESULT GetCapabilities(uint32_t user_index, uint32_t flags, X_INPUT_CAPABILITIES* out_caps);
+   X_RESULT GetState(uint32_t user_index, X_INPUT_STATE* out_state);
+   /// GetState for the emulator's own UI, which reads while the guest is blocked.
+@@ -92,6 +101,11 @@ class InputSystem : public system::IInputSystem {
+   // does not renumber pad two.
+   std::vector<DeviceInfo> devices_;
+   std::vector<InputDriver*> device_owners_;
++  // Guards the copy of devices_ others read (ListControllers) and the pending order.
++  mutable std::mutex devices_mutex_;
++  std::vector<DeviceInfo> devices_copy_;
++  std::vector<std::string> pending_order_;
++  std::atomic<bool> order_pending_{false};
+ 
+   std::bitset<kMaxGuestUsers> connected_users_;
+   uint32_t last_used_user_ = 0;
+diff --git a/src/input/device_assignment.cpp b/src/input/device_assignment.cpp
+index 52e0073..d4f5e47 100644
+--- a/src/input/device_assignment.cpp
++++ b/src/input/device_assignment.cpp
+@@ -13,11 +13,43 @@
+ 
+ namespace rex::input {
+ 
++std::string DeviceKey(const std::vector<DeviceInfo>& devices, const DeviceInfo& device) {
++  uint32_t n = 0;
++  for (const auto& other : devices) {
++    if (other.id == device.id) break;
++    if (!other.synthetic && other.guid == device.guid) ++n;
++  }
++  return device.guid + "#" + std::to_string(n);
++}
++
+ void SlotAssignment::OnDevicesChanged(const std::vector<DeviceInfo>& devices) {
+   for (auto& user : users_) {
+     user.clear();
+   }
+ 
++  if (!preferred_.empty()) {
++    std::vector<bool> placed(devices.size(), false);
++    uint32_t next_user = 0;
++    for (const auto& key : preferred_) {
++      for (size_t i = 0; i < devices.size() && next_user < kMaxGuestUsers; ++i) {
++        if (!placed[i] && !devices[i].synthetic && DeviceKey(devices, devices[i]) == key) {
++          users_[next_user++].push_back(devices[i].id);
++          placed[i] = true;
++          break;
++        }
++      }
++    }
++    for (size_t i = 0; i < devices.size(); ++i) {
++      if (placed[i]) continue;
++      if (devices[i].synthetic) {
++        users_[0].push_back(devices[i].id);
++      } else if (next_user < kMaxGuestUsers) {
++        users_[next_user++].push_back(devices[i].id);
++      }
++    }
++    return;
++  }
++
+   // Key off the ordinal rather than list position, so unplugging pad one does
+   // not promote pad two to player one.
+   for (const auto& device : devices) {
+diff --git a/src/input/input_system.cpp b/src/input/input_system.cpp
+index 40740ee..bca8cc0 100644
+--- a/src/input/input_system.cpp
++++ b/src/input/input_system.cpp
+@@ -175,9 +175,41 @@ void InputSystem::RefreshDevices() {
+     device_owners_.push_back(owners[i]);
+   }
+ 
+-  if (changed && assignment_) {
++  const bool reorder = order_pending_.exchange(false);
++  if (reorder) {
++    std::lock_guard lock(devices_mutex_);
++    if (assignment_) {
++      assignment_->SetPreferredOrder(pending_order_);
++    }
++  }
++  if ((changed || reorder) && assignment_) {
+     assignment_->OnDevicesChanged(devices_);
+   }
++  if (changed || reorder) {
++    std::lock_guard lock(devices_mutex_);
++    devices_copy_.clear();
++    for (const auto& d : devices_) {
++      if (!d.synthetic) devices_copy_.push_back(d);
++    }
++  }
++  if (reorder) {
++    if (auto* kernel_state = REX_KERNEL_STATE()) {
++      kernel_state->BroadcastNotification(kXNotificationSystemInputDevicesChanged, 0);
++    }
++  }
++}
++
++std::vector<DeviceInfo> InputSystem::ListControllers() const {
++  std::lock_guard lock(devices_mutex_);
++  return devices_copy_;
++}
++
++void InputSystem::SetPlayerOrder(std::vector<std::string> keys) {
++  {
++    std::lock_guard lock(devices_mutex_);
++    pending_order_ = std::move(keys);
++  }
++  order_pending_.store(true);
+ }
+ 
+ InputDriver* InputSystem::DriverForDevice(DeviceId id) {
