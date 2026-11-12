@@ -40,6 +40,7 @@
 
 REX_EXTERN(__imp__sub_8215FA28);
 REX_EXTERN(__imp__sub_820E7368);
+REX_EXTERN(__imp__sub_820E7478);
 
 namespace bbr::lb {
 namespace {
@@ -325,6 +326,17 @@ uint32_t CreateEnumerator(bool by_xuid, uint64_t pivot, uint32_t num_rows, uint3
 }  // namespace bbr::lb
 
 using namespace bbr::lb;
+
+// XUserWriteAchievements(count, pAchievements, pOverlapped): XGI message 0xB0008. A song in which
+// Autoplay was on earns none; the call goes through with a count of 0 so the overlapped
+// request still completes as the game expects.
+REX_HOOK_RAW(sub_820E7478) {
+  if (bbr::AutoplayUsedThisSong() && ctx.r3.u32 != 0) {
+    REXLOG_INFO("[achievements] {} not awarded: Autoplay was used in this song", ctx.r3.u32);
+    ctx.r3.u64 = 0;
+  }
+  __imp__sub_820E7478(ctx, base);
+}
 
 // XSessionWriteStats(hSession, xuid, numViews, pViews, pOverlapped)
 REX_HOOK_RAW(sub_8215FA28) {

@@ -33,11 +33,12 @@ different folder.
 | | Input Offset | Moves how presses are judged. Positive = presses count as made earlier |
 | | Show Accuracy | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
 | | Assist Tick | Plays a click at the exact moment of every rocket |
-| Modifiers | Scroll Speed | 0.5x to 4x (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step, without pausing; the new speed shows briefly in the middle of the screen and is saved |
+| Modifiers | Scroll Speed | 0.25x to 4x in steps of 0.25 (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step, without pausing; the new speed shows briefly in the middle of the screen and is saved |
 | | Rocket Acceleration | Default (the game's own movement) or Static (arrows move at one even speed along their path the whole way up). Changes at once, also during a song |
 | | Horizontal Drift | Default (the original): arrows drift sideways towards where their firework will go off. Off: each arrow climbs straight up and stays in the screen column where it first appears, even when the camera swings, so none come in from the sides. Changes at once |
+| | DDR Mode | Off (default) or On: a novelty mode like DDR. Arrows climb straight up in four lanes in the middle of the screen, sorted by button: Left (X), Down (A), Up (Y), Right (B). Two arrows of the same button on the same beat share a lane and overlap. Changes at once |
 | | Background | Default or Off: when Off, during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
-| | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and once it has been used the game does not save its profile again until it is restarted |
+| | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. While the song plays your own A, B, X and Y presses are ignored (they work again in the pause menu). For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and earns no achievements; and once it has been used the game does not save its profile again until it is restarted |
 | (main page) | Skip Intro | Skips the start-up logos |
 | | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 

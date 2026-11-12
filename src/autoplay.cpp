@@ -144,6 +144,16 @@ REX_HOOK_RAW(sub_820E6E50) {
   const Clock::time_point t = Clock::now();
   double now = 0;
   const bool have_time = bbr::SongTimeNow(&now);
+  // While the song clock is moving (playing, not paused), the player's own face buttons are
+  // taken out: a press of theirs would otherwise judge a rocket first, with their timing
+  // instead of 0 ms. In the pause menu the clock stops and the buttons work again.
+  static double last_song_time = -1;
+  static Clock::time_point last_moved{};
+  if (have_time && now != last_song_time) {
+    last_song_time = now;
+    last_moved = t;
+  }
+  const bool mask_player = have_time && t - last_moved < std::chrono::milliseconds(150);
   uint16_t add = 0;
   {
     std::lock_guard<std::mutex> lock(g_mutex);
@@ -176,11 +186,13 @@ REX_HOOK_RAW(sub_820E6E50) {
       if (t < g_down_until[b]) add |= kButtons[b];
     }
   }
-  if (add == 0) return;
+  if (add == 0 && !mask_player) return;
   // Add the buttons (big-endian guest memory); a new packet number tells the game it changed.
   uint16_t buttons;
   std::memcpy(&buttons, base + state + 4, 2);
-  buttons = uint16_t(__builtin_bswap16(buttons) | add);
+  buttons = __builtin_bswap16(buttons);
+  if (mask_player) buttons &= uint16_t(~0xF000);  // A, B, X, Y
+  buttons = uint16_t(buttons | add);
   if (ctx.r3.u32 != 0) {  // no controller: report one with only these buttons down
     std::memset(base + state, 0, 16);
     buttons = add;

@@ -73,6 +73,11 @@ REXCVAR_DEFINE_BOOL(rocket_acceleration, false, "BBR",
 REXCVAR_DEFINE_BOOL(horizontal_drift, true, "BBR",
                     "Arrows drift sideways towards where their firework goes off (the original). Off: they go "
                     "straight up from where they start");
+REXCVAR_DEFINE_BOOL(ddr_mode, false, "BBR",
+                    "DDR Mode: arrows climb straight up in four lanes by button, centred on the screen: "
+                    "Left (X), Down (A), Up (Y), Right (B)");
+REXCVAR_DEFINE_DOUBLE(ddr_lane_spacing, 0.08, "BBR",
+                      "DDR Mode: distance between lane centres, as a fraction of half the screen width");
 REXCVAR_DEFINE_BOOL(no_background, false, "BBR",
                     "Hide the city during a song: arrows and fireworks on black, for practice without distractions");
 
@@ -132,6 +137,7 @@ std::unordered_map<uint32_t, Note> g_notes;  // by note address
 thread_local uint32_t t_new_note = 0;
 thread_local bool t_building = false;
 std::atomic<bool> g_notice{false};
+std::atomic<bool> g_retime{false};  // the speed changed: retime every note not yet launched
 // Flight times of the notes built for the song being played (full-length ones only), for
 // the measure lines. A build more than a second after the previous one starts a new song.
 std::vector<double> g_song_flights;
@@ -288,15 +294,40 @@ bool TakeSteps() {
   const int wanted = std::clamp(now + steps, 1, count);
   if (wanted != now) {
     bbr::SettingsCommand("bbrr.set", "scroll_speed", std::to_string(wanted));
+    g_retime.store(true);
     bbr::SettingsCommand("bbrr.save", "", "");
     REXLOG_INFO("[modifiers] scroll speed set to {:.2f}x with {}", Speed(), steps > 0 ? "RB" : "LB");
   }
   return true;
 }
 
+// Every note of the song not yet launched gets the launch time for the current speed. The
+// game only checks a note for launch (sub_82064C50) once its launch time (+0x1C) has come, so
+// a slower speed, which launches earlier, must be written into the waiting notes ahead of
+// time, not only into the one being checked - otherwise each arrow is seen only at its 1x
+// launch time and pops in part of the way up (seen at 0.25x). Shortened first notes are left
+// to RestoreFullPath. The sum +0x1C + +0x38 (the arrival) is kept, so Lookup still matches.
+void RetimeWaiting(uint8_t* base) {
+  const double speed = Speed();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  for (uint32_t note : g_song_notes) {
+    auto it = g_notes.find(note);
+    if (it == g_notes.end() || it->second.shortened || base[note + 4] != 0) continue;
+    const double arrival = double(LoadFloat(base, note + 0x1C)) + double(LoadFloat(base, note + 0x38));
+    if (!(std::fabs(arrival - it->second.arrival) < 0.003)) continue;  // memory reused
+    const double flight = it->second.flight / speed;
+    const double launch = std::max(it->second.arrival - flight, double(LoadFloat(base, kSongStart)) + 0.001);
+    StoreFloat(base, note + 0x38, float(it->second.arrival - launch));
+    StoreFloat(base, note + 0x1C, float(launch));
+    it->second.changed = true;
+  }
+}
+
 // During a song: step, and show the new speed for a moment.
 void HandleButtons(uint8_t* base) {
+  if (g_retime.exchange(false)) RetimeWaiting(base);
   if (!TakeSteps()) return;
+  if (g_retime.exchange(false)) RetimeWaiting(base);
   char text[32];
   std::snprintf(text, sizeof(text), "Speed %.4gx", Speed());
   std::memcpy(base + kTextManager + kNoticeSlot * 256, text, std::strlen(text) + 1);
@@ -449,6 +480,13 @@ REX_HOOK_RAW(sub_82065E70) {
   if (g_song_notes.size() < 8000) g_song_notes.push_back(t_new_note);
   g_last_build = now;
   if (!entry.shortened && g_song_flights.size() < 4000) g_song_flights.push_back(flight);
+  // Built for the current speed straight away (see RetimeWaiting).
+  const double speed = Speed();
+  if (!entry.shortened && std::fabs(speed - 1.0) > 1e-6 && arrival - flight / speed > double(song_start) + 0.001) {
+    StoreFloat(base, t_new_note + 0x38, float(flight / speed));
+    StoreFloat(base, t_new_note + 0x1C, float(arrival - flight / speed));
+    g_notes[t_new_note].changed = true;
+  }
 }
 
 // A note's per-frame check, before it is launched.
@@ -457,8 +495,10 @@ REX_HOOK_RAW(sub_82064C50) {
   const uint32_t note = ctx.r3.u32;
   const double speed = Speed();
   Note entry;
+  // A shortened first note is given its full path back at every speed, 1x included (the
+  // game's own 1x start pops the first arrows in part of the way up).
   if (note >= 0x10000 && base[note + 4] == 0 && Lookup(base, note, &entry) &&
-      (entry.changed || std::fabs(speed - 1.0) > 1e-6)) {
+      (entry.changed || entry.shortened || std::fabs(speed - 1.0) > 1e-6)) {
     if (entry.shortened) {
       RestoreFullPath(base, note);
       Lookup(base, note, &entry);
@@ -586,9 +626,22 @@ std::unordered_map<uint32_t, DriftColumn> g_drift_columns;  // by arrow icon
 }  // namespace
 
 void BbrArrowDriftHook(PPCRegister& r31, PPCRegister& r1) {
-  if (REXCVAR_GET(horizontal_drift)) return;
+  const bool ddr = REXCVAR_GET(ddr_mode);
+  if (REXCVAR_GET(horizontal_drift) && !ddr) return;
   uint8_t* base = bbr::GuestBase();
   if (!base || r31.u32 < 0x10000) return;
+  // DDR Mode: the lane comes from the rocket's button (rocket byte 8 / 2: A, B, X, Y). Lanes
+  // left to right: Left = X, Down = A, Up = Y, Right = B. Two rockets of one button on one beat
+  // share a lane and are drawn over each other.
+  float ddr_column = 0.0f;
+  if (ddr) {
+    const uint32_t rocket = Load32(base, r31.u32);
+    if (rocket < 0x10000) return;
+    static constexpr int kLane[4] = {1, 3, 0, 2};  // A down, B right, X left, Y up
+    const int lane = kLane[(base[rocket + 8] / 2) % 4];
+    const float spacing = float(std::clamp(REXCVAR_GET(ddr_lane_spacing), 0.02, 0.45));
+    ddr_column = (float(lane) - 1.5f) * spacing;
+  }
   // 1. In the world: keep the x and z of the firework point (icon +44 / +52); only the height
   //    follows the game's path, so the rocket climbs straight up into the spot it would hit.
   const float ex = LoadFloat(base, r31.u32 + 44), ez = LoadFloat(base, r31.u32 + 52);
@@ -617,7 +670,7 @@ void BbrArrowDriftHook(PPCRegister& r31, PPCRegister& r1) {
         DriftColumn& d = g_drift_columns[r31.u32];
         if (d.start[0] != sx || d.start[1] != sy || d.start[2] != sz)
           d = {{sx, sy, sz}, std::clamp(cx / cw, -0.95f, 0.95f)};
-        column = d.column;
+        column = ddr ? ddr_column : d.column;
       }
       const float r[3] = {E(m, order, 0, 0), E(m, order, 1, 0), E(m, order, 2, 0)};
       const float rr = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];

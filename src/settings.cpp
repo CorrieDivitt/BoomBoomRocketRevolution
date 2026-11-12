@@ -95,9 +95,8 @@ const std::vector<Setting>& Settings() {
     s.push_back(particles);
     // Scroll speed, as in StepMania: arrows travel faster and sit further apart, timing unchanged.
     s.push_back({"scroll_speed", "scroll_speed", "Scroll Speed",
-                 {{"0.5", "0.5x"}, {"0.75", "0.75x"}, {"1", "1x"}, {"1.25", "1.25x"}, {"1.5", "1.5x"},
-                  {"1.75", "1.75x"}, {"2", "2x"}, {"2.5", "2.5x"}, {"3", "3x"}, {"4", "4x"}},
-                 2, "modifiers"});
+                 {{"0.25", "0.25x"}, {"0.5", "0.5x"}, {"0.75", "0.75x"}, {"1", "1x"}, {"1.25", "1.25x"}, {"1.5", "1.5x"}, {"1.75", "1.75x"}, {"2", "2x"}, {"2.25", "2.25x"}, {"2.5", "2.5x"}, {"2.75", "2.75x"}, {"3", "3x"}, {"3.25", "3.25x"}, {"3.5", "3.5x"}, {"3.75", "3.75x"}, {"4", "4x"}},
+                 3, "modifiers"});
     // Arrows speed up as they climb (original) or move at an even pace (src/modifiers.cpp).
     s.push_back({"rocket_acceleration", "rocket_acceleration", "Rocket Acceleration",
                  {{"false", "Default"}, {"true", "Static"}}, 0, "modifiers"});
@@ -105,6 +104,8 @@ const std::vector<Setting>& Settings() {
     // Arrows go straight up instead of drifting towards their firework (src/modifiers.cpp).
     s.push_back({"horizontal_drift", "horizontal_drift", "Horizontal Drift",
                  {{"true", "Default"}, {"false", "Off"}}, 0, "modifiers"});
+    // Arrows in four lanes by button, like DDR (src/modifiers.cpp).
+    s.push_back({"ddr_mode", "ddr_mode", "DDR Mode", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
     // Every rocket hit at 0 ms; songs that used it save no score (src/autoplay.cpp).
     s.push_back({"autoplay", "autoplay", "Autoplay", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
     s.push_back({"no_background", "no_background", "Background", {{"false", "Default"}, {"true", "Off"}}, 0,
@@ -121,7 +122,7 @@ const std::vector<Setting>& Settings() {
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
       {"main", "BBRR Settings", {"page:video", "page:timing", "page:modifiers", "skip_intro", "layout"}},
-      {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "no_background", "autoplay"}},
+      {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
       {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},

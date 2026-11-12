@@ -38,7 +38,12 @@ above 1x; the multiplayer song list (has length and BPM, no speed panel or butto
   (2026-11-12), all confirmed in play: Particle Density 0x; Horizontal Drift Default/Off (R-810,
   reworked for camera swings, see below); Autoplay (R-811); Rocket Acceleration Default/Static;
   No Background renamed Background (Default/Off).
-- Next: DDR mode (R-812) under Modifiers.
+- Second 2026-11-12 commit: DDR Mode (R-812, four lanes by button, spacing 0.08); Scroll Speed
+  0.25x-4x in 0.25 steps, slow speeds fixed by retiming every waiting note (`RetimeWaiting`; the
+  game only checks a note once its launch time has come) and never launching before the song
+  start; first-note fix now at 1x too; Autoplay masks the player's A/B/X/Y while the song clock
+  moves and blocks achievements (hook on XUserWriteAchievements, sub_820E7478). User is done with
+  modifiers for now.
 - Other modern rhythm-game features under Modifiers (R-801 research list).
   R-805 practice tools moved to the post-1.0 stretch goals (phase 9, now "Stretch goals (post-1.0)").
 - Graphics: true HDR rendering, per-firework city lighting, shader replacement by hash (GRAPHICS.md order).
