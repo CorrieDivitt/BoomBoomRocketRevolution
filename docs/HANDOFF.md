@@ -15,6 +15,8 @@ Built and confirmed by the user the same day:
 - **Texture Filtering (R-406, done):** Video Settings row (Off/2x/4x/8x/16x) on the SDK's
   `anisotropic_override`; also in the launcher. Distant highlights look more subtle; little
   difference above 4x (the default).
+- **Visualizer zoom out (R-909), built, not run:** hold X to zoom out 4x as far as RB zooms in
+  (`src/visualizer_zoom.cpp`; how the RB zoom works is in the file's header and R-909's notes).
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
@@ -288,7 +290,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-100 requirements: 3 in progress, 30 todo, 67 done. Details and notes per item: docs/requirements.csv or the dashboard.
+101 requirements: 4 in progress, 30 todo, 67 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -387,6 +389,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-811 | Autoplay | P2 | done |
 | R-812 | DDR Mode | P2 | done |
 | **Phase 9** | **Stretch goals (post-1.0)** | | |
+| R-909 | Visualizer zoom out (X) | P2 | in progress |
 | R-114 | Endurance mode: issues found in testing | P1 | todo |
 | R-417 | Fireworks reflected in the water | P2 | todo |
 | R-504 | Online leaderboard service | P1 | todo |

@@ -1170,6 +1170,19 @@
   "notes": "Added 2026-11-13 as a post-release check. The prototype's non-English language files used pack 1 keys (the Rock Pack's); src/dlc.cpp renames them to pack 2 on placeholder lines and fills in the titles (tested on Linux with the real files, not yet in game)."
  },
  {
+  "id": "R-909",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
+  "category": "Feature",
+  "title": "Visualizer zoom out (X)",
+  "priority": "P2",
+  "status": "in_progress",
+  "effort": "S",
+  "acceptance": "In the Visualizer, holding X zooms out by 4x the distance RB zooms in; releasing eases back, like RB",
+  "depends_on": "R-905",
+  "notes": "Requested 2026-11-13. Built 2026-11-13, not yet run: src/visualizer_zoom.cpp hooks the Visualizer camera update (sub_82088580). The game's RB zoom is a lens zoom: z at game+0x12E60 (0.03 an update, 0..1), field of view 2*atan(tan(22.5 deg)*2850/(2500+1600z)) at game+0x103FC, 50.6 deg at rest, 32.1 deg at full RB (the camera looks 39% closer). X (pad byte +134, control 6) eases a second amount in the same way and widens the view as if the camera backed off 4x that: 100.8 deg at full X. --visualizer_zoom_out sets the multiple (0 = off)."
+ },
+ {
   "id": "R-801",
   "phase": 9,
   "phase_name": "Stretch goals (post-1.0)",

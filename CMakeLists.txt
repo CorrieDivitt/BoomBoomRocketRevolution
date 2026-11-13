@@ -31,6 +31,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/settings.cpp
     src/profiles.cpp
     src/visualizer.cpp
+    src/visualizer_zoom.cpp
     src/keyboard.cpp
     src/ui_mod.cpp
 )

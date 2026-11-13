@@ -92,6 +92,12 @@ BPM multiplied by the current scroll speed, so it tells you how fast the arrows 
 song select screen the scroll speed is shown to the right of the list, and **LB** / **RB** lower
 and raise it there too.
 
+## Visualizer
+**Single Player > Visualizer** sets off fireworks to whatever music is playing on the PC. Hold
+**RB** to zoom in, as in the original. Hold **X** to zoom out: the view widens to as if the
+camera had backed off four times as far as RB brings it in (`--visualizer_zoom_out=<n>` changes
+the four; 0 turns it off). Let go and the view eases back.
+
 ## Command-line options
 Settings can also be given when starting the game; these win over the saved settings.
 
