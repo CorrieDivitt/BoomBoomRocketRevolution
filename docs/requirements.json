@@ -500,11 +500,11 @@
   "category": "Timing",
   "title": "Unlocked frame rate (120/144/240+)",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built. Tracker clean-up 2026-11-12: left open: the user will test frame rate more. 2026-11-13: tested on a GTX 1650 / i5-12400F PC with a 165 Hz monitor: about 86 fps at 720p (low settings), 35 fps at 1440p; frames were asked for at 165 Hz. Added Frame Rate in Video Settings (60 / 120 / 144 / 240 / Unlocked / Monitor, restart; fixed rates use the timer unless the display has that rate). Built, not run."
+  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built. Tracker clean-up 2026-11-12: left open: the user will test frame rate more. 2026-11-13: tested on a GTX 1650 / i5-12400F PC with a 165 Hz monitor: about 86 fps at 720p (low settings), 35 fps at 1440p; frames were asked for at 165 Hz. Added Frame Rate in Video Settings (60 / 120 / 144 / 240 / Unlocked / Monitor, restart; fixed rates use the timer unless the display has that rate). Built, not run. Marked done 2026-11-13 at the user's request: Frame Rate setting (60/120/144/240/Unlocked/Monitor) tested on both PCs."
  },
  {
   "id": "R-303",
@@ -937,8 +937,8 @@
  },
  {
   "id": "R-701",
-  "phase": 7,
-  "phase_name": "QA, CI & release",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "CI",
   "title": "GitHub Actions Windows build",
   "priority": "P1",
@@ -946,12 +946,12 @@
   "effort": "M",
   "acceptance": "CI builds runtime without game data (codegen output cached/user-generated)",
   "depends_on": "R-102",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-702",
-  "phase": 7,
-  "phase_name": "QA, CI & release",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "QA",
   "title": "Input replay regression tests",
   "priority": "P1",
@@ -959,12 +959,12 @@
   "effort": "L",
   "acceptance": "Recorded inputs replay to identical score at 60/144/240 fps",
   "depends_on": "R-302",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-703",
-  "phase": 7,
-  "phase_name": "QA, CI & release",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "QA",
   "title": "Sync accuracy test",
   "priority": "P0",
@@ -972,12 +972,12 @@
   "effort": "M",
   "acceptance": "Automated measurement: judged time error < 1 ms vs chart",
   "depends_on": "R-204",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-704",
-  "phase": 7,
-  "phase_name": "QA, CI & release",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Perf",
   "title": "Performance target",
   "priority": "P1",
@@ -985,7 +985,7 @@
   "effort": "M",
   "acceptance": ">= 240 fps at 1440p on a GTX 1660-class GPU; 60 fps on Steam Deck",
   "depends_on": "R-302",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-705",
@@ -994,11 +994,11 @@
   "category": "Docs",
   "title": "Build & user guides",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "README build steps verified on a clean machine",
   "depends_on": "R-006",
-  "notes": ""
+  "notes": " Marked done 2026-11-13: docs/USER_GUIDE.md and the README (players and developers) written for 1.0."
  },
  {
   "id": "R-706",

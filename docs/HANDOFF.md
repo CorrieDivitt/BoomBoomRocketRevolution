@@ -350,7 +350,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-101 requirements: 2 in progress, 28 todo, 71 done. Details and notes per item: docs/requirements.csv or the dashboard.
+101 requirements: 1 in progress, 27 todo, 73 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -391,8 +391,8 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-213 | Smooth arrow motion (interpolated song clock) | P0 | done |
 | R-214 | Game volume boost | P2 | done |
 | **Phase 3** | **Frame rate & timing** | | |
-| R-302 | Unlocked frame rate (120/144/240+) | P0 | in progress |
 | R-301 | Determine game loop timing model | P0 | done |
+| R-302 | Unlocked frame rate (120/144/240+) | P0 | done |
 | R-303 | Fixed-step sim with render interpolation | P1 | done |
 | R-304 | Frame pacing matched to the display | P0 | done |
 | R-306 | High-rate timestamped input | P0 | done |
@@ -422,13 +422,9 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-605 | Settings persistence | P0 | done |
 | R-606 | Launcher: game files, DLC, settings, play | P1 | done |
 | **Phase 7** | **QA, CI & release** | | |
-| R-701 | GitHub Actions Windows build | P1 | todo |
-| R-702 | Input replay regression tests | P1 | todo |
-| R-703 | Sync accuracy test | P0 | todo |
-| R-704 | Performance target | P1 | todo |
-| R-705 | Build & user guides | P1 | todo |
 | R-707 | Public release v1.0 | P0 | todo |
 | R-708 | Store listings: Quiver Launcher and RecompStore | P1 | todo |
+| R-705 | Build & user guides | P1 | done |
 | R-706 | Licensing decision for project code | P0 | done |
 | **Phase 8** | **Modern rhythm features** | | |
 | R-802 | Note speed / scroll-speed modifier | P2 | done |
@@ -453,6 +449,10 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-504 | Online leaderboard service | P1 | todo |
 | R-505 | Score integrity checks | P2 | todo |
 | R-603 | Button glyph swap | P2 | todo |
+| R-701 | GitHub Actions Windows build | P1 | todo |
+| R-702 | Input replay regression tests | P1 | todo |
+| R-703 | Sync accuracy test | P0 | todo |
+| R-704 | Performance target | P1 | todo |
 | R-801 | Research modern rhythm-game features | P1 | todo |
 | R-805 | Practice tools (section loop, slow-down) | P2 | todo |
 | R-902 | Accessibility review | P2 | todo |
