@@ -8,13 +8,13 @@ list; its current state is copied into the **Tracker** section at the end of thi
 `python3 docs/requirements.py` runs. `SUBMISSION.md` covers the store listings.
 
 ## Session 2026-11-13 (night): tracker tidy-up, no game testing
-Built but **not run** (needs `scripts\build.ps1`, then a look in game):
-- **Prototype DLC (R-112):** French/German/Italian/Spanish titles (the files used pack 1's keys,
-  clashing with the Rock Pack) and unlock icons drawn from the pack's own shapes, both in
-  `src/dlc.cpp`. To check: the prototype's unlock icons, and titles of a prototype and a Rock Pack
-  song with the game in French. Then R-112 is done.
-- **Texture Filtering (R-406):** Video Settings row (Off/2x/4x/8x/16x) on the SDK's
-  `anisotropic_override`; also in the launcher.
+Built and confirmed by the user the same day:
+- **Prototype DLC (R-112, done):** unlock icons drawn from the pack's own shapes (`src/dlc.cpp`),
+  seen working. The fix for its French/German/Italian/Spanish titles (the files used pack 1's
+  keys, clashing with the Rock Pack) is in too but untested: post-release check R-908.
+- **Texture Filtering (R-406, done):** Video Settings row (Off/2x/4x/8x/16x) on the SDK's
+  `anisotropic_override`; also in the launcher. Distant highlights look more subtle; little
+  difference above 4x (the default).
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
@@ -288,7 +288,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-99 requirements: 4 in progress, 29 todo, 66 done. Details and notes per item: docs/requirements.csv or the dashboard.
+100 requirements: 3 in progress, 30 todo, 67 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -304,7 +304,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-009 | Static analysis setup (Ghidra/IDA + XEX loader) | P1 | done |
 | **Phase 1** | **Recompile & boot** | | |
 | R-109 | All modes playable | P0 | in progress |
-| R-112 | Clean up prototype DLC packs | P2 | in progress |
 | R-110 | All 10 tracks x 3 difficulties complete | P0 | todo |
 | R-101 | rexglue init project + codegen config | P0 | done |
 | R-102 | Clean codegen of all functions | P0 | done |
@@ -315,6 +314,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-107 | Save data & profile settings persistence | P0 | done |
 | R-108 | Stub missing XAM UI calls | P1 | done |
 | R-111 | DLC support (owned track packs) | P0 | done |
+| R-112 | Clean up prototype DLC packs | P2 | done |
 | R-113 | Skip start-up logos | P1 | done |
 | **Phase 2** | **Audio & music sync** | | |
 | R-203 | Native low-latency music path | P2 | todo |
@@ -398,6 +398,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-904 | Gameplay across the full screen width | P2 | todo |
 | R-906 | Custom charts and automatic chart generation | P2 | todo |
 | R-907 | True HDR rendering (float render target) | P2 | todo |
+| R-908 | Prototype DLC titles in other languages | P2 | todo |
 | R-804 | Beat guides (measure lines / timing bars) - dropped | P2 | done |
 | R-901 | Reduce background/camera motion option | P2 | done |
 | R-905 | Visualizer driven by audio playing in Windows | P2 | done |

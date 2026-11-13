@@ -48,7 +48,7 @@ Still to do for a proper clean-up:
   `src/dlc.cpp`: bold white strokes in alpha, 8×4 cells of 64 px like the retail sheets), and each
   track and difficulty is pointed at its shape's cell. Existing installs that borrowed the Rock
   Pack's sheet are fixed on the next start; retail packs are never touched. Tested on Linux with
-  the real packs; not yet seen in game.
+  the real packs; confirmed in game 2026-11-13 (a prototype firework unlocked with its own icon).
 - Leaderboard ids 103–138 are the prototype's own; scores for these charts should stay local.
   Already true: every board is local (`src/leaderboards.cpp`). Keep these ids out of any online
   service (R-504).
@@ -57,8 +57,8 @@ Still to do for a proper clean-up:
   pack 1) where `contents.txt` asks for `IDS_DLC_PACK_2_*`. So those languages had no titles for
   the prototype songs, and the prototype's placeholders shared keys with the Rock Pack's real titles.
   `NamePlaceholderTitles` now renames another pack's key to the pack's own on placeholder lines only,
-  then fills in the titles. Tested on the real files on Linux; not yet run in game (check a
-  prototype song and a Rock Pack song with the game set to French).
+  then fills in the titles. Tested on the real files on Linux; the in-game check (a prototype song and a Rock Pack
+  song with the game set to French) is post-release item R-908.
 - Decide the final titles ("II" suggests new music; "(Prototype)" would be more accurate).
 
 ## Early Rock Pack build (`_inactive`)
