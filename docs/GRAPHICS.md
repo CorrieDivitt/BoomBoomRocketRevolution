@@ -206,6 +206,13 @@ How it could be done, cheapest first:
    the vertex buffer (first three-float attribute of the shader's vertex bindings) and applies
    `PointSprite.hlsl` (clip_i = dot(c_i, (p, 1)); size factor (1 - c7.x) + 1000 c7.x / clip.z). It
    also logs the sparks' world heights, the viewport and the vertex layout.
+   Run of 0025: the copy's geometry is right. Close up (w about 2,500) the sparks are at rows
+   296..309 of 720 and the copy at rows 1466..1494, off the bottom of the screen: a reflection sits as
+   far below the horizon as the firework is above it, so a near, level camera cannot see it (true in
+   reality too). Pulled back (w 12,000..20,000) every sampled copy spark is on screen just below the
+   real ones (rows about 170..550 against 90..520), depth 0.999..1.000. Vertex layout: fetch 95,
+   stride 7 words, position float3 at 0. c5.x and c7.x read 0, so the burst shader's constants differ
+   from `PointSprite.hlsl`.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.

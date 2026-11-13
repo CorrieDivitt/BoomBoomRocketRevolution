@@ -29,7 +29,8 @@ Built and confirmed by the user the same day:
   turns user clip planes off for the copy; tested, no change (there were none). **Patch 0024** logs
   where the normal sparks and the copy land on screen (`[bbrr] reflection probe`); its run gave no
   numbers (the SDK's shader interpreter refuses the burst shader), so **patch 0025** does the
-  shader's maths itself (GRAPHICS.md, Water reflections). Built, not run.
+  shader's maths itself (GRAPHICS.md, Water reflections). Its run: close up the copy is off the
+  bottom of the screen (as in reality); pulled back it is on screen just below the fireworks.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
