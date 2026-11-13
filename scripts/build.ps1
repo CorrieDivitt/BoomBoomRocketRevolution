@@ -1,12 +1,13 @@
 <#
   Configure + build the Boom Boom Rocket recomp (codegen runs automatically as part of the build).
-  Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Config relwithdebinfo|release|debug]  (debug needs a Debug SDK build) [-Target <name>]
+  Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Config relwithdebinfo|release|debug]  (debug needs a Debug SDK build) [-Target <name>] [-Version 1.0.0]
+  Builds the game (boomboomrocket.exe) and the launcher (BoomBoomRocketRevolution.exe).
   Examples:
     scripts\build.ps1                                  # RelWithDebInfo build (default; matches the Release SDK runtime)
     scripts\build.ps1 -Target boomboomrocket_codegen # codegen only
     scripts\build.ps1 -Config release
 #>
-param([ValidateSet("debug", "release", "relwithdebinfo")][string]$Config = "relwithdebinfo", [string]$Target = "")
+param([ValidateSet("debug", "release", "relwithdebinfo")][string]$Config = "relwithdebinfo", [string]$Target = "", [string]$Version = "")
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
@@ -14,7 +15,7 @@ function Run([string]$what, [scriptblock]$cmd) { & $cmd; if ($LASTEXITCODE -ne 0
 
 # A game that is still running (or left behind after closing its window) keeps the exe
 # locked and the link step fails, so close it first.
-$running = Get-Process -Name boomboomrocket -ErrorAction SilentlyContinue
+$running = Get-Process -Name boomboomrocket, BoomBoomRocketRevolution -ErrorAction SilentlyContinue
 if ($running) {
   Write-Host "Closing the running game before building..."
   $running | Stop-Process -Force
@@ -34,7 +35,10 @@ if (-not (Test-Path (Join-Path $Root "CMakePresets.json"))) { throw "Project not
 # Use the SDK built by bootstrap.ps1, not any other ReXGlue install registered on this PC.
 $Prefix = Join-Path $Root "thirdparty\rexglue-sdk\out\install\win-amd64"
 $Preset = "win-amd64-$Config"
-Run "Configuring ($Preset)" { cmake --preset $Preset "-DCMAKE_PREFIX_PATH=$Prefix" }
+# -Version (used by scripts\package.ps1) sets the version the launcher shows.
+$Extra = @()
+if ($Version) { $Extra += "-DBBRR_VERSION=$Version" }
+Run "Configuring ($Preset)" { cmake --preset $Preset "-DCMAKE_PREFIX_PATH=$Prefix" @Extra }
 if ($Target) {
   Run "Building target $Target" { cmake --build --preset $Preset --target $Target }
 } else {

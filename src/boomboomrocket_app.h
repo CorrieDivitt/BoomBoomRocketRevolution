@@ -94,5 +94,6 @@ class BoomBoomRocketApp : public rex::ReXApp {
       }
       if (dir == dir.parent_path()) break;
     }
+    bbr::NoGameFiles();  // not set up yet: point the player at the launcher
   }
 };

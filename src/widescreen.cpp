@@ -552,6 +552,7 @@ void bbr::NoteUiScriptLoaded(const char* name) {
   bbr::NoteScreenForNoBackground(name);
   bbr::AutoplayNoteScreen(name);
   bbr::SongLengthNoteScreen(name);
+  if (std::strncmp(name, "Ingame\\GetReady", 15) == 0) bbr::SongClockNewSong();
   std::lock_guard<std::mutex> lock(g_screen_mutex);
   const bool popup = std::strncmp(name, "Popups\\", 7) == 0 || std::strncmp(name, "Popups/", 7) == 0;
   if (popup && g_under_signature.empty() && !g_last_signature.empty() &&

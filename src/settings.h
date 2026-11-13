@@ -25,4 +25,8 @@ void ExitSoon();
 // start-up is under way and throws that folder away when the last start-up never finished;
 // BootCompleted (called once frames are being drawn) removes the marker.
 void BootCompleted();
+
+// No game files were found next to the game (the launcher installs them there): says so,
+// offers to open the launcher, and ends the program.
+void NoGameFiles();
 }  // namespace bbr

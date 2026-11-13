@@ -15,6 +15,9 @@ uint8_t* GuestBase();
 // Called with the name of every UI script the game loads: the leaderboard screens show
 // their song lists without lengths and tempos (src/song_length.cpp).
 void SongLengthNoteScreen(const char* name);
+// Called when a song starts (its Get Ready screen): the song clock goes back to the song's
+// nominal tempo (src/song_clock.cpp; within a song it keeps the tempo it measured).
+void SongClockNewSong();
 // Width/height ratio the 2D layer is laid out for (16/9 unless widescreen is on).
 double UiAspectRatio();
 // Called whenever the game loads a UI script (src/ui_mod.cpp): a new screen is starting.

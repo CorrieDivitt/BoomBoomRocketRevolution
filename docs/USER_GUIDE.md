@@ -3,18 +3,36 @@
 A native Windows build of the Xbox 360 game Boom Boom Rocket. You need your own copy of the
 game files; none are included.
 
-## Starting the game
-1. Put the game's files in a folder called `Game Files` (the one that contains `default.xex`)
-   next to the program or in any folder above it.
-2. Run `boomboomrocket.exe`. An Xbox controller is recommended.
+## Setting up and starting the game
+Run `BoomBoomRocketRevolution.exe`, the launcher.
 
-The start-up logos are skipped automatically. Alt+F4 closes the game.
+**Setup tab**
+1. **Game files:** press *Browse for the game* and choose either `default.xex` in your unpacked
+   game folder, or the game's package file exactly as it came from the Xbox 360. The launcher
+   checks every file against the copy the port was made from: green means verified, yellow
+   means it can be installed but something differs (another version, or modified files), red
+   says what is wrong.
+2. **DLC (optional):** press *Add DLC* and choose your DLC package files (the long names such
+   as `6AEA31EE…D758`). Unfinished prototype packs are accepted too; the game repairs what it
+   can. You can also drop files or folders on the launcher's window.
+3. When the launcher says **Ready to install**, press *Install*. Everything goes into the
+   launcher's own folder: `Game Files` and `DLC`. Packs can be removed again in the DLC list.
 
-## Downloadable packs
-Put the original package files (the long names such as `6AEA31EE…D758`, exactly as they came
-from the console) in a folder called `DLC` next to `Game Files`. They are installed the next time
-the game starts and removed again if you take the file away. `--dlc_path=<folder>` uses a
-different folder.
+**Game Settings tab:** the Video Settings page of BBRR Settings, plus Menu Layout and Skip
+Intro. Changes are saved at once (Documents\boomboomrocket\settings.ini) and used the next
+time the game starts; the in-game menu changes the same settings.
+
+**Play** starts the game (`boomboomrocket.exe`), and the launcher closes unless you untick that
+option. `BoomBoomRocketRevolution.exe --play` starts the game straight away once it is set up;
+other options on the launcher's command line are passed on to the game. Starting
+`boomboomrocket.exe` before anything is set up offers to open the launcher.
+
+An Xbox controller is recommended. The start-up logos are skipped (Skip Intro). Alt+F4 closes
+the game.
+
+Without the launcher: put the unpacked game in a folder called `Game Files` (the one that
+contains `default.xex`) and DLC packages in a folder called `DLC`, both next to the program or
+in any folder above it. `--dlc_path=<folder>` uses a different DLC folder.
 
 ## BBRR Settings
 **Help & Options > BBRR Settings.** A saves, B leaves without saving, X restores the defaults.
@@ -26,12 +44,11 @@ different folder.
 | | Rename Player 1 / 2 | A opens a text box (keyboard) with the player's gamertag; Enter saves the new name (up to 15 characters). The profile keeps its data |
 | | New Profile | A opens a text box for the new profile's gamertag; it then appears in the Player 1 / Player 2 lists (up to 8 profiles). Profiles are kept in Documents\boomboomrocket\profiles.ini |
 | Video Settings | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
-| | Window Mode | Fullscreen or Windowed; changes at once |
+| | Window Mode | Fullscreen (default), Windowed, or Borderless Window (a window without its title bar and frame); changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
 | | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
 | | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
-| | Water Reflections (test) | Off (default) or On: an experiment that draws the firework bursts reflected in the water. For now they also show over things that should hide them |
 | | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |

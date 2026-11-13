@@ -287,8 +287,8 @@
  },
  {
   "id": "R-114",
-  "phase": 1,
-  "phase_name": "Recompile & boot",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Gameplay",
   "title": "Endurance mode: issues found in testing",
   "priority": "P1",
@@ -296,7 +296,7 @@
   "effort": "M",
   "acceptance": "The issues the user found in Endurance mode are written down, reproduced and fixed; a full Endurance game plays correctly",
   "depends_on": "R-109",
-  "notes": "Added 2026-11-12: the user tested Endurance mode and found some issues, to be tested and addressed later. Details still to be recorded."
+  "notes": "Added 2026-11-12. Issues found: (1) with Autoplay on, the first two arrows of every new lap are missed; (2) after pausing at lap 4 and changing settings, the camera stutters on unpause, jumping forward every few seconds. Cause (from the log): Endurance plays the music faster each lap, and the smooth song clock went back to the normal tempo whenever it re-synced (after a pause, at a lap loop). Running too slowly it fell behind, re-synced with a jump, and the re-sync also restarted the tempo measurement, so at high lap tempos it never recovered. The jumps skipped past the first arrows of a lap (Autoplay presses within 50 ms) and moved the camera in steps. Fix in src/song_clock.cpp: a re-sync keeps the measured tempo (only a new song, at its Get Ready screen, starts from normal), and an ordinary correction no longer restarts the measurement; the tempo is logged as [songclock] tempo now N.NNx. To test: Endurance with Autoplay to lap 4 or later, a pause with settings changes; no missed lap-start arrows and no camera stutter. 2026-11-12, test of the song clock fix: Autoplay still misses the first few notes of each lap. Parked by the user as a known bug, to be fixed after release (moved to the post-release list). Also to check: hit timing (Input Offset advice) ignores presses when the song runs over 10% fast, so later Endurance laps give no timing data."
  },
  {
   "id": "R-201",
@@ -768,16 +768,16 @@
  },
  {
   "id": "R-417",
-  "phase": 4,
-  "phase_name": "Graphics & resolution",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Lighting",
   "title": "Fireworks reflected in the water",
   "priority": "P2",
-  "status": "in_progress",
+  "status": "todo",
   "effort": "M",
   "acceptance": "Bursts and sparks show in the water's reflection, optional",
   "depends_on": "R-410",
-  "notes": "Researched 2026-11-12 (docs/GRAPHICS.md, Water reflections): the water samples a mirror pass of the sky, city and ground-level lights; the sparks and smoke are only drawn in the normal pass. Options: firework light on the water via the water shader's light constants (small), or drawing the sparks again in the mirror pass from the game side (medium, needs a probe build first). 2026-11-12: both built as Video Settings toggles, not run. Correction to the research: the 4,000-point draw 63B4/4B1E is not the sparks (its pixel shader multiplies by c11.x = 0, so it draws nothing: likely a star field switched off); the bursts are BA59/7C30 (up to ~19,000 points), the lit smoke BBFF/9567, and rockets with their trails 1DB9/C471 are already in the mirror pass. Water Glow (--water_glow): the water's single specular highlight (light position c2, shininess c3, colour c4; the moon) is moved to this frame's fireworks and given their colour, shininess 20. Water Reflections (--water_reflections): the burst draw is issued a second time with the mirror camera captured from the city's mirror pass (C837 c0-c3); whether it shows depends on whether the water writes depth - the first frame logs the depth state of the water and burst draws ('[bbrr] water draw: depth test ...'). SDK patch 0019. Test 2026-11-12: Water Glow looked really nice and is to be kept (now on by default at Medium) - but only the rocket tails showed in the water, and the user wants the light that falls on the buildings to fall on the water too. Patch 0020: the highlight spreads wider (shininess 6 instead of 20; Video Settings > Water Glow Spread: Narrow 20 / Medium 6 / Wide 2) and the fireworks' colour washes over the water (ambient green and blue, --water_glow_wash 0.06; red is left alone as it also sets the water's opacity). Water Glow has levels Off / Low / Medium / High. Water Reflections: the log shows the burst draw has no depth test (and the water writes depth), so the mirrored copy painted over everything - seen in visualizer mode. Doing it properly means drawing the bursts into the mirror picture before the water reads it (a register-state snapshot replayed in the next frame's mirror pass); kept as 'Water Reflections (test)', off by default. Settled 2026-11-12: the Spread row is gone, the highlight is always Narrow (shininess 20; --water_glow_spread still works); Water Glow Off / Low / Medium / High with High the default."
+  "notes": "Researched 2026-11-12 (docs/GRAPHICS.md, Water reflections): the water samples a mirror pass of the sky, city and ground-level lights; the sparks and smoke are only drawn in the normal pass. Options: firework light on the water via the water shader's light constants (small), or drawing the sparks again in the mirror pass from the game side (medium, needs a probe build first). 2026-11-12: both built as Video Settings toggles, not run. Correction to the research: the 4,000-point draw 63B4/4B1E is not the sparks (its pixel shader multiplies by c11.x = 0, so it draws nothing: likely a star field switched off); the bursts are BA59/7C30 (up to ~19,000 points), the lit smoke BBFF/9567, and rockets with their trails 1DB9/C471 are already in the mirror pass. Water Glow (--water_glow): the water's single specular highlight (light position c2, shininess c3, colour c4; the moon) is moved to this frame's fireworks and given their colour, shininess 20. Water Reflections (--water_reflections): the burst draw is issued a second time with the mirror camera captured from the city's mirror pass (C837 c0-c3); whether it shows depends on whether the water writes depth - the first frame logs the depth state of the water and burst draws ('[bbrr] water draw: depth test ...'). SDK patch 0019. Test 2026-11-12: Water Glow looked really nice and is to be kept (now on by default at Medium) - but only the rocket tails showed in the water, and the user wants the light that falls on the buildings to fall on the water too. Patch 0020: the highlight spreads wider (shininess 6 instead of 20; Video Settings > Water Glow Spread: Narrow 20 / Medium 6 / Wide 2) and the fireworks' colour washes over the water (ambient green and blue, --water_glow_wash 0.06; red is left alone as it also sets the water's opacity). Water Glow has levels Off / Low / Medium / High. Water Reflections: the log shows the burst draw has no depth test (and the water writes depth), so the mirrored copy painted over everything - seen in visualizer mode. Doing it properly means drawing the bursts into the mirror picture before the water reads it (a register-state snapshot replayed in the next frame's mirror pass); kept as 'Water Reflections (test)', off by default. Settled 2026-11-12: the Spread row is gone, the highlight is always Narrow (shininess 20; --water_glow_spread still works); Water Glow Off / Low / Medium / High with High the default. 2026-11-12: the Water Reflections (test) option was taken out of the menu and the reflections are forced off in code (src/city_lighting.cpp); post-release rework."
  },
  {
   "id": "R-501",
@@ -927,13 +927,13 @@
   "phase": 6,
   "phase_name": "Input, UX & settings",
   "category": "UX",
-  "title": "First-run setup wizard",
+  "title": "Launcher: game files, DLC, settings, play",
   "priority": "P1",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "Points at a dump, validates hashes, copies to assets/",
   "depends_on": "R-104",
-  "notes": "Uses ReXApp OnFinalizePaths 2026-11-12: the planned builder/launcher should offer the Gamertag (settings.ini key user_gamertag, up to 15 characters) so it can be set before the first game."
+  "notes": "Uses ReXApp OnFinalizePaths 2026-11-12: the planned builder/launcher should offer the Gamertag (settings.ini key user_gamertag, up to 15 characters) so it can be set before the first game. 2026-11-12, built (compiled and run here under Wine, not yet on Windows): launcher/ -> BoomBoomRocketRevolution.exe (Dear ImGui, Direct3D 11). Setup tab: choose default.xex in the unpacked folder or the original XBLA package (read directly, STFS), checked against launcher/game_files.inc (327 files, SHA-256; unknown versions allowed with a warning); DLC packages added by file or drag and drop (any pack for the title, prototypes included); Ready to install, then Install copies both next to the launcher (Game Files, DLC; done in a temporary folder and swapped in). Game Settings tab: the Video Settings page plus Menu Layout and Skip Intro, from the same table as the game (src/settings_table.h), saved to settings.ini. Play starts boomboomrocket.exe; --play skips the window. The game offers to open the launcher when it finds no game files. Checking and installing were tested on the real files (identical copy; DLC extraction matches tools/stfs/stfs.py). Gamertag in the launcher still to do. 2026-11-12, first test on Windows by the user: worked well. Changes after it: the file dialogs show all files by default (packages have no extension, so the DLC filter hid them); new Game Settings intro text; Window Mode has a third choice, Borderless Window (cvar window_mode sets --fullscreen and the new --window_borderless, SDK patch 0021; old settings files with only fullscreen = false become Windowed); shorter Glow and City Lighting descriptions; restart-only settings marked (restart required)."
  },
  {
   "id": "R-701",
@@ -1023,8 +1023,20 @@
   "status": "todo",
   "effort": "M",
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
-  "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502",
-  "notes": ""
+  "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502 2026-11-12: scripts/package.ps1 -Version x.y.z builds the zip (BoomBoomRocketRevolution-v<ver>-windows-x64.zip: launcher, game, DLLs, ui_scripts, docs; refuses game data) with a .sha256 and a symbols zip."
+ },
+ {
+  "id": "R-708",
+  "phase": 7,
+  "phase_name": "QA, CI & release",
+  "category": "Release",
+  "title": "Store listings: Quiver Launcher and RecompStore",
+  "priority": "P1",
+  "status": "todo",
+  "effort": "S",
+  "acceptance": "Listed in both catalogs, installing from the GitHub release",
+  "depends_on": "R-707",
+  "notes": "2026-11-12: prepared in docs/SUBMISSION.md (Quiver catalog fields from its open-source client: folderName, release asset filter, launcher exe, optional setupFiles hash; RecompStore text). Still to do: 1.0 release, screenshots and a logo of our own, the AI-use answer, README install section."
  },
  {
   "id": "R-806",

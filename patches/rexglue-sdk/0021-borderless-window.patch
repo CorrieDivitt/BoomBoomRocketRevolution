@@ -1,0 +1,90 @@
+diff --git a/include/rex/ui/flags.h b/include/rex/ui/flags.h
+--- a/include/rex/ui/flags.h
++++ b/include/rex/ui/flags.h
+@@ -30,6 +30,7 @@
+ REXCVAR_DECLARE(int32_t, window_height);
+ REXCVAR_DECLARE(bool, fullscreen);
+ REXCVAR_DECLARE(bool, fullscreen_exclusive);
++REXCVAR_DECLARE(bool, window_borderless);
+ REXCVAR_DECLARE(int32_t, monitor);
+ REXCVAR_DECLARE(std::string, video_driver);
+ 
+diff --git a/include/rex/ui/window.h b/include/rex/ui/window.h
+--- a/include/rex/ui/window.h
++++ b/include/rex/ui/window.h
+@@ -281,6 +281,8 @@
+   bool IsFullscreen() const { return fullscreen_; }
+   void SetFullscreen(bool new_fullscreen);
+   void RefreshFullscreen();
++  // Re-reads --window_borderless (a windowed window without its frame).
++  virtual void RefreshBorderless() {}
+ 
+   int32_t GetMonitor() const { return monitor_; }
+   void SetMonitor(int32_t new_monitor);
+diff --git a/include/rex/ui/window_sdl.h b/include/rex/ui/window_sdl.h
+--- a/include/rex/ui/window_sdl.h
++++ b/include/rex/ui/window_sdl.h
+@@ -51,6 +51,11 @@
+   void RequestCloseImpl() override;
+ 
+   void ApplyNewFullscreen() override;
++
++ public:
++  void RefreshBorderless() override;
++
++ protected:
+   void ApplyNewMonitor() override;
+   void ApplyNewDesiredLogicalSize() override;
+   void ApplyNewTitle() override;
+diff --git a/src/ui/rex_app.cpp b/src/ui/rex_app.cpp
+--- a/src/ui/rex_app.cpp
++++ b/src/ui/rex_app.cpp
+@@ -366,6 +366,7 @@
+   });
+   on_window_cvar("fullscreen_exclusive",
+                  [this](std::string_view) { window_->RefreshFullscreen(); });
++  on_window_cvar("window_borderless", [this](std::string_view) { window_->RefreshBorderless(); });
+   on_window_cvar("monitor", [this](std::string_view value) {
+     window_->SetMonitor(rex::string::from_string<int32_t>(value, 0));
+   });
+diff --git a/src/ui/window.cpp b/src/ui/window.cpp
+--- a/src/ui/window.cpp
++++ b/src/ui/window.cpp
+@@ -39,6 +39,10 @@
+                     "Switch the display mode in fullscreen instead of going "
+                     "borderless at the desktop mode");
+ 
++// Boom Boom Rocket Revolution: a window without its title bar and frame (when not fullscreen).
++REXCVAR_DEFINE_BOOL(window_borderless, false, "UI/Window",
++                    "Windowed mode without the title bar and frame");
++
+ REXCVAR_DEFINE_INT32(monitor, 0, "UI/Window",
+                      "Monitor index to display on (0 = default, 1 = primary, 2 = "
+                      "second monitor, etc.)")
+diff --git a/src/ui/window_sdl.cpp b/src/ui/window_sdl.cpp
+--- a/src/ui/window_sdl.cpp
++++ b/src/ui/window_sdl.cpp
+@@ -99,6 +99,9 @@
+   // SDL window coordinates are physical pixels on Windows and X11. Cocoa
+   // uses logical points and applies the backing scale itself.
+   SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN;
++  if (REXCVAR_GET(window_borderless)) {
++    flags |= SDL_WINDOW_BORDERLESS;
++  }
+ #if REX_PLATFORM_MAC
+   int initial_width = int(GetDesiredLogicalWidth());
+   int initial_height = int(GetDesiredLogicalHeight());
+@@ -258,6 +261,13 @@
+   SDL_SetWindowFullscreen(sdl_window_, IsFullscreen());
+ }
+ 
++void WindowSDL::RefreshBorderless() {
++  if (!sdl_window_) {
++    return;
++  }
++  SDL_SetWindowBordered(sdl_window_, !REXCVAR_GET(window_borderless));
++}
++
+ void WindowSDL::ApplyNewMonitor() {
+   if (!sdl_window_) {
+     return;

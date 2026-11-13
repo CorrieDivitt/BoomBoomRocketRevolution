@@ -51,9 +51,6 @@ REXCVAR_DEFINE_DOUBLE(water_glow_spread, 20.0, "BBR",
                       "lower spreads wider)");
 REXCVAR_DEFINE_DOUBLE(water_glow_wash, 0.06, "BBR",
                       "Water Glow: how much of the fireworks' colour washes over the whole water (0 to 1)");
-REXCVAR_DEFINE_BOOL(water_reflections, false, "BBR",
-                    "Water Reflections: the firework bursts are drawn again with the mirror camera, so they show "
-                    "in the water");
 
 REXCVAR_DEFINE_BOOL(city_light_probe, false, "BBR",
                     "Development: log city draws, firework bursts and spark emitters once per run "
@@ -147,7 +144,10 @@ void bbr::CityLightProbeUpdate(uint8_t* base, bool song_on) {
     static double glow_sent = -1.0;
     static int reflections_sent = -1;
     const double glow = std::clamp(REXCVAR_GET(water_glow), 0.0, 8.0);
-    const int reflections = REXCVAR_GET(water_reflections) ? 1 : 0;
+    // Water Reflections (the bursts drawn again with the mirror camera) painted over other
+    // things in testing, because the bursts have no depth test: kept off until it is reworked
+    // (R-417). There is no setting for it; the SDK side stays in place.
+    const int reflections = 0;
     if (glow != glow_sent) {
       glow_sent = glow;
       rex::graphics::SetWaterGlow(float(glow));

@@ -16,11 +16,14 @@
 //
 // --smooth_song_clock=false restores the original behaviour for A/B comparison.
 
+#include "widescreen.h"
+
 #include <rex/cvar.h>
 #include <rex/hook.h>
 #include <rex/logging.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -122,6 +125,9 @@ double AudioLagSeconds() {
 
 std::mutex g_mutex;
 std::unordered_map<uint32_t, State> g_states;
+// Set when a new song starts (its Get Ready screen): the next snap goes back to the song's
+// nominal rate. Otherwise a snap keeps the tempo it has measured (see below).
+std::atomic<bool> g_new_song{true};
 
 double Seconds(Clock::duration d) { return std::chrono::duration<double>(d).count(); }
 }  // namespace
@@ -190,18 +196,29 @@ REX_HOOK_RAW(sub_82080928) {
     s.dt_count = s.late_frames = 0;
   }
 
-  auto snap = [&] {
+  // A snap puts the estimate on the audio position. It keeps the tempo measured so far:
+  // Endurance plays each lap faster than the last, and going back to the nominal rate after
+  // a pause or at the start of a lap left the clock running too slowly, so it fell behind
+  // and kept jumping forward (the camera stuttered, and Autoplay skipped arrows that fell in
+  // a jump: the first two of each lap). Only a new song starts again from the nominal rate.
+  // restart_window: whether the tempo measurement starts over (after a gap, a loop or a new
+  // song; not after an ordinary correction, or a run of corrections would keep the tempo from
+  // ever being measured).
+  auto snap = [&](bool restart_window) {
     s.est = raw_c4;
-    s.rate = nominal;
+    if (g_new_song.exchange(false) || !(s.rate > 0.0)) s.rate = nominal;
     s.valid = true;
-    s.last_change = s.window_start = now;
-    s.window_raw = raw_c4;
+    s.last_change = now;
+    if (restart_window) {
+      s.window_start = now;
+      s.window_raw = raw_c4;
+    }
     s.credit = 0;
   };
   const double lag_samples = AudioLagSeconds() * nominal;
 
-  if (!s.valid || raw_c4 < s.raw_c4) {  // first frame, new song, seek or loop
-    snap();
+  if (!s.valid || raw_c4 < s.raw_c4) {  // first frame, after a pause, new song, seek or loop
+    snap(true);
   } else {
     const double dt = Seconds(now - s.last);
     if (raw_c4 != s.raw_c4) s.last_change = now;
@@ -221,8 +238,10 @@ REX_HOOK_RAW(sub_82080928) {
       }
     }
     const double error = double(raw_c4) - predicted;
-    if (dt > 0.25 || std::fabs(error) > 0.25 * nominal) {
-      snap();
+    if (dt > 0.25) {
+      snap(true);
+    } else if (std::fabs(error) > 0.25 * nominal) {
+      snap(false);
     } else {
       const double gain = 1.0 - std::exp(-dt / 0.5);  // ~0.5 s time constant
       s.est = std::max(s.est, predicted + error * gain);  // never run backwards
@@ -239,6 +258,11 @@ REX_HOOK_RAW(sub_82080928) {
         s.rate = nominal;
       } else if (ratio > 0.25 && ratio < 4.0) {
         s.rate = 0.5 * s.rate + 0.5 * measured;
+      }
+      static double logged_ratio = 1.0;
+      if (std::fabs(s.rate / nominal - logged_ratio) > 0.05) {
+        logged_ratio = s.rate / nominal;
+        REXLOG_INFO("[songclock] tempo now {:.2f}x", logged_ratio);
       }
       s.window_start = now;
       s.window_raw = raw_c4;
@@ -269,3 +293,5 @@ REX_HOOK_RAW(sub_82080928) {
   Store32(base, player + kPosLooped, s.wrote_cc);
   s.applied = true;
 }
+
+void bbr::SongClockNewSong() { g_new_song.store(true); }
