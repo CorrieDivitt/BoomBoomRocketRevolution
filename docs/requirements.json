@@ -240,11 +240,11 @@
   "category": "Gameplay",
   "title": "All 10 tracks x 3 difficulties complete",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "30 charts finish with correct results screen and grade",
   "depends_on": "R-109",
-  "notes": " During the playthrough also test Camera Speed (R-901) at 100, 50 and 0 on every song, including the camera move at the end of the song. Leaderboards (R-502/R-503) checks to do in the playthrough: every board type, the leaderboard screen's buttons (Y filter incl. Friends, X gamer profile, paging, difficulty), two-player songs not posting, and any side effects of Leaderboards Test being on."
+  "notes": " During the playthrough also test Camera Speed (R-901) at 100, 50 and 0 on every song, including the camera move at the end of the song. Leaderboards (R-502/R-503) checks to do in the playthrough: every board type, the leaderboard screen's buttons (Y filter incl. Friends, X gamer profile, paging, difficulty), two-player songs not posting, and any side effects of Leaderboards Test being on. Marked done 2026-11-13 at the user's request (full playthrough completed)."
  },
  {
   "id": "R-111",
