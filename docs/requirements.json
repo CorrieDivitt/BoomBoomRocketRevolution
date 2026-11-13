@@ -214,11 +214,11 @@
   "category": "Runtime",
   "title": "Stub missing XAM UI calls",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "S",
   "acceptance": "XamShowAchievementsUI / MarketplaceUI / GamerCardUIForXUID return gracefully (or open native overlay)",
   "depends_on": "R-104",
-  "notes": "Not implemented in ReXGlue v0.10.1 Tracker clean-up 2026-11-12: XamShowAchievementsUI is implemented (SDK patch 0006: the in-game achievements list). Marketplace and gamer card calls not checked."
+  "notes": "Not implemented in ReXGlue v0.10.1 Tracker clean-up 2026-11-12: XamShowAchievementsUI is implemented (SDK patch 0006: the in-game achievements list). Marketplace and gamer card calls not checked. Closed 2026-11-13: XamShowGamerCardUIForXUID stays a no-op (pressed on the leaderboard in testing 2026-11-12, game carried on). XamShowMarketplaceUI is only reachable from the main menu Downloadable Content item (removed by ui_scripts/Main/MainMenu.lua) and trial upsell screens (full licence), so never in this port. The SDK stubs leave r3 unset, but both game wrappers (sub_820E73B0, sub_8209E3E8) discard the result, so no SDK patch is needed."
  },
  {
   "id": "R-109",
@@ -270,7 +270,7 @@
   "effort": "M",
   "acceptance": "Unreleased prototype packs (Boom Rocket Test 2, early Rock Pack build) load with proper song/pack names, their own unlock icons or sensible placeholders, correct leaderboards, and every listed track, chart and model verified in play",
   "depends_on": "R-111",
-  "notes": "Analysed 2026-11-11 (docs/DLC_PROTOTYPES.md): Test 2 = second set of charts for five shipped songs (4 music files byte-identical, 1 re-encode); loads after automatic repairs and now has real titles. Early Rock Pack = retail pack with differently packed music, not needed. Titles: '<Title> II' (accepted 2026-11-11 pending issues in testing). Left: unlock icons, local-only scores."
+  "notes": "Analysed 2026-11-11 (docs/DLC_PROTOTYPES.md): Test 2 = second set of charts for five shipped songs (4 music files byte-identical, 1 re-encode); loads after automatic repairs and now has real titles. Early Rock Pack = retail pack with differently packed music, not needed. Titles: '<Title> II' (accepted 2026-11-11 pending issues in testing). Left: unlock icons, local-only scores. 2026-11-13: scores are already local (all boards are). Non-English language files used pack 1 keys (clashing with the Rock Pack's titles): fixed in src/dlc.cpp, to check in game in French. Unlock icons: a pack without its own unlock art (original contents.txt has no UnlockFirework...Coord keys) now gets a sheet drawn at start-up from its own hidden-firework shapes (the prototype's are Roman numerals XVI-XXX), and each track and difficulty points at its cell; fixes existing installs too. Tested on Linux with the real packs (fresh install, existing install, second start, Rock Pack untouched); not yet seen in game. Left: check in game (unlock icons on the prototype songs, titles in French), then done."
  },
  {
   "id": "R-113",
@@ -433,13 +433,13 @@
   "phase": 2,
   "phase_name": "Audio & music sync",
   "category": "Feature",
-  "title": "Visualizer with user music files",
+  "title": "Visualizer with user music files - covered by R-905",
   "priority": "P2",
-  "status": "todo",
+  "status": "done",
   "effort": "L",
   "acceptance": "Visualizer mode plays local mp3/flac/ogg via XMP replacement",
   "depends_on": "R-203",
-  "notes": "Original used XMP + console music"
+  "notes": "Original used XMP + console music Closed 2026-11-13: R-905 makes the Visualizer react to whatever Windows is playing, so music files play in any player; no XMP replacement needed."
  },
  {
   "id": "R-212",
@@ -656,11 +656,11 @@
   "category": "Graphics",
   "title": "Anisotropic filtering",
   "priority": "P2",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "1x-16x setting applied to city textures",
   "depends_on": "R-401",
-  "notes": ""
+  "notes": "Built 2026-11-13, not yet seen in game: Video Settings > Texture Filtering (Off, 2x, 4x default, 8x, 16x) sets the SDK cvar anisotropic_override, which is read whenever a sampler is set up, so it changes at once. Also in the launcher. To check: the city at a shallow angle at 16x vs Off."
  },
  {
   "id": "R-407",
@@ -1158,8 +1158,8 @@
  },
  {
   "id": "R-801",
-  "phase": 8,
-  "phase_name": "Modern rhythm features",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Research",
   "title": "Research modern rhythm-game features",
   "priority": "P1",
@@ -1167,7 +1167,7 @@
   "effort": "M",
   "acceptance": "docs/RHYTHM_FEATURES.md: survey (speed mods, timing feedback, measure/beat lines, etc.), feasibility vs .lvl beat data + engine hooks, prioritised list",
   "depends_on": "R-109",
-  "notes": "Requested 2026-11-10"
+  "notes": "Requested 2026-11-10 Moved to the stretch goals (phase 9) 2026-11-13 at the user's request; phase 8 is done."
  },
  {
   "id": "R-802",

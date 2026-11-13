@@ -112,6 +112,7 @@ const char* Describe(const std::string& key) {
       {"aspect", "Match Window fills any window shape; 16:9 keeps the original picture with bars at the sides."},
       {"window", "Fullscreen, a window, or a borderless window (no title bar or frame)."},
       {"antialiasing", "Smooths jagged edges. Most visible at lower resolutions."},
+      {"aniso", "Keeps the city's textures sharp when seen at an angle. Higher costs a little speed."},
       {"glow", "A soft glow around fireworks and other bright things."},
       {"citylight", "Buildings near a firework are lit in its colour. Off is the original look."},
       {"waterglow", "The shine on the water takes the colour of the fireworks and moves to where they burst."},

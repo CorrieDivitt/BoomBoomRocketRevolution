@@ -19,12 +19,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 REXCVAR_DEFINE_STRING(dlc_path, "", "BBR",
@@ -141,6 +144,98 @@ void WriteBlankIconSheet(const fs::path& path) {
   for (int y = 0; y < 256; ++y) out.write(row.data(), std::streamsize(row.size()));
 }
 
+// Case-insensitive lookup of a file in a pack (empty path if absent).
+fs::path FindFile(const fs::path& dir, const std::string& file) {
+  if (file.empty()) return {};
+  std::error_code ec;
+  const std::string wanted = Lower(file);
+  for (const auto& entry : fs::directory_iterator(dir, ec)) {
+    if (Lower(entry.path().filename().string()) == wanted) return entry.path();
+  }
+  return {};
+}
+
+// A firework shape: one "x y z" point per line (docs/ANALYSIS.md 5.3); only x and y are drawn.
+std::vector<std::pair<float, float>> ReadModelPoints(const fs::path& path) {
+  std::vector<std::pair<float, float>> points;
+  std::ifstream in(path);
+  std::string line;
+  while (std::getline(in, line)) {
+    float x = 0, y = 0;
+    if (std::sscanf(line.c_str(), "%f %f", &x, &y) == 2) points.push_back({x, y});
+  }
+  return points;
+}
+
+// Draws an unlock-icon sheet like the retail packs' (512x256, 8x4 cells of 64x64, white with
+// the shape in alpha) from firework shape files, cell i = row i / 8, column i % 8. Each shape
+// is drawn as bold strokes: a disc at every point, joined to the next point when it is close.
+// Drawn 4x larger and averaged down for smooth edges. Returns the TGA file's bytes.
+std::string DrawIconSheet(const std::vector<fs::path>& models) {
+  constexpr int kW = 512, kH = 256, kCell = 64, kSS = 4;
+  constexpr float kPad = 5.0f, kMaxRadius = 2.8f, kMinRadius = 1.7f;
+  std::vector<uint8_t> hi(size_t(kW) * kSS * kH * kSS, 0);
+  auto disc = [&](float px, float py, float r) {
+    for (int y = int(py - r); y <= int(py + r); ++y) {
+      if (y < 0 || y >= kH * kSS) continue;
+      for (int x = int(px - r); x <= int(px + r); ++x) {
+        if (x < 0 || x >= kW * kSS) continue;
+        if ((x - px) * (x - px) + (y - py) * (y - py) <= r * r) hi[size_t(y) * kW * kSS + x] = 1;
+      }
+    }
+  };
+  for (size_t i = 0; i < models.size() && i < 32; ++i) {
+    const auto points = ReadModelPoints(models[i]);
+    if (points.size() < 2) continue;
+    float x0 = points[0].first, x1 = x0, y0 = points[0].second, y1 = y0;
+    for (const auto& [x, y] : points) {
+      x0 = std::min(x0, x); x1 = std::max(x1, x); y0 = std::min(y0, y); y1 = std::max(y1, y);
+    }
+    const float extent = std::max(std::max(x1 - x0, y1 - y0), 1e-6f);
+    const float scale = (kCell - 2 * kPad - 2 * kMaxRadius) / extent;
+    const float radius = std::max(kMinRadius, std::min(kMaxRadius, (y1 - y0) * scale * 0.075f));
+    const float ox = float(i % 8) * kCell + kCell * 0.5f, oy = float(i / 8) * kCell + kCell * 0.5f;
+    std::vector<std::pair<float, float>> at;  // cell pixels
+    for (const auto& [x, y] : points) at.push_back({ox + (x - (x0 + x1) * 0.5f) * scale, oy - (y - (y0 + y1) * 0.5f) * scale});
+    std::vector<float> nearest;
+    for (size_t a = 0; a < at.size(); ++a) {
+      float best = 1e30f;
+      for (size_t b = 0; b < at.size(); ++b) {
+        if (a != b) best = std::min(best, std::hypot(at[a].first - at[b].first, at[a].second - at[b].second));
+      }
+      nearest.push_back(best);
+    }
+    std::sort(nearest.begin(), nearest.end());
+    const float join = 2.5f * nearest[nearest.size() / 2];
+    for (size_t k = 0; k < at.size(); ++k) {
+      const auto [x, y] = at[k];
+      disc(x * kSS, y * kSS, radius * kSS);
+      if (k + 1 == at.size()) continue;
+      const auto [x2, y2] = at[k + 1];
+      const float d = std::hypot(x2 - x, y2 - y);
+      if (d > join) continue;
+      const int steps = int(d * kSS) + 1;
+      for (int t = 1; t < steps; ++t) {
+        disc((x + (x2 - x) * t / steps) * kSS, (y + (y2 - y) * t / steps) * kSS, radius * kSS);
+      }
+    }
+  }
+  // 32-bit TGA, bottom-left origin (descriptor 8), BGRA rows from the bottom up, as in the packs.
+  std::string out(18, '\0');
+  const uint8_t header[18] = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x02, 0x00, 0x01, 32, 8};
+  out.assign(reinterpret_cast<const char*>(header), sizeof(header));
+  for (int y = kH - 1; y >= 0; --y) {
+    for (int x = 0; x < kW; ++x) {
+      int sum = 0;
+      for (int j = 0; j < kSS; ++j)
+        for (int k = 0; k < kSS; ++k) sum += hi[size_t(y * kSS + j) * kW * kSS + x * kSS + k];
+      out.push_back(char(255)); out.push_back(char(255)); out.push_back(char(255));
+      out.push_back(char((sum * 255 + kSS * kSS / 2) / (kSS * kSS)));
+    }
+  }
+  return out;
+}
+
 // Title for a music file. The prototype pack's tracks are second versions of songs from
 // the game ("Moonlight_Sonata_2.xma"): they get that song's title with "II".
 std::string TitleForMusic(const std::string& file) {
@@ -170,10 +265,30 @@ std::string TitleForMusic(const std::string& file) {
 // Unfinished packs still carry placeholder texts ("Pack 2 Track 01 [NO TRANSLATE]") in
 // their language files (UTF-16 "KEY = text" lines). Replace those with real titles; texts
 // that are not placeholders are left alone.
+//
+// Boom Rocket Test 2 has a second problem: its English file uses its own keys
+// (IDS_DLC_PACK_2_...), but the French, German, Italian and Spanish files were copied from
+// pack 1 and still say IDS_DLC_PACK_1_.... Those are the Rock Pack's keys, so the prototype's
+// songs had no titles in those languages and its placeholders could stand in for the Rock
+// Pack's real titles. On placeholder lines only, a key with another pack's number is renamed
+// to this pack's own prefix (taken from IdsPackname) before the titles are filled in.
+std::string PackKeyPrefix(const std::string& key) {  // "IDS_DLC_PACK_2_NAME" -> "IDS_DLC_PACK_2_"
+  const std::string head = "IDS_DLC_PACK_";
+  if (!StartsWith(key, head.c_str())) return {};
+  size_t i = head.size();
+  while (i < key.size() && key[i] >= '0' && key[i] <= '9') ++i;
+  if (i == head.size() || i >= key.size() || key[i] != '_') return {};
+  return key.substr(0, i + 1);
+}
+
 void NamePlaceholderTitles(const fs::path& dir, const std::vector<Section>& sections, const std::string& name) {
   std::vector<std::pair<std::string, std::string>> titles;  // text key -> title
+  std::string own_prefix;
   for (const Section& s : sections) {
-    if (s.name == "Pack" && !s.Get("IdsPackname").empty()) titles.push_back({s.Get("IdsPackname"), "Prototype Pack"});
+    if (s.name == "Pack" && !s.Get("IdsPackname").empty()) {
+      titles.push_back({s.Get("IdsPackname"), "Prototype Pack"});
+      own_prefix = PackKeyPrefix(s.Get("IdsPackname"));
+    }
     if (StartsWith(s.name, "Track_") && !s.Get("IdsSongname").empty() && !s.Get("Filename").empty()) {
       titles.push_back({s.Get("IdsSongname"), TitleForMusic(s.Get("Filename"))});
     }
@@ -203,9 +318,17 @@ void NamePlaceholderTitles(const fs::path& dir, const std::vector<Section>& sect
       const size_t eq = narrow.find('=');
       std::string replacement;
       if (eq != std::string::npos && narrow.find("[NO TRANSLATE]") != std::string::npos) {
-        const std::string key = Trim(narrow.substr(0, eq));
+        std::string key = Trim(narrow.substr(0, eq));
+        const std::string prefix = PackKeyPrefix(key);
+        const bool renamed = !own_prefix.empty() && !prefix.empty() && prefix != own_prefix;
+        if (renamed) key = own_prefix + key.substr(prefix.size());
         for (const auto& [text_key, title] : titles) {
           if (key == text_key) replacement = key + " = " + title + "\r\n";
+        }
+        if (replacement.empty() && renamed) {
+          std::string text = narrow.substr(eq);  // "= [FR] Pack 1 Track 06 [NO TRANSLATE]\r\n"
+          while (!text.empty() && (text.back() == '\r' || text.back() == '\n')) text.pop_back();
+          replacement = key + " " + text + "\r\n";
         }
       }
       if (replacement.empty()) {
@@ -311,10 +434,62 @@ void RepairPack(const fs::path& dir, const fs::path& content_type_root, const st
     if (s.drop) notes.push_back("dropped model " + file);
   }
 
-  // The unlock-icon sheet is mandatory too: borrow it from another installed pack, or
-  // make a blank one.
+  // The unlock-icon sheet is mandatory too. A pack that never had unlock art of its own
+  // (its original contents.txt has no UnlockFirework...Coord keys: the prototype) gets a sheet
+  // drawn from its own hidden-firework shapes, and each track and difficulty is pointed at
+  // its shape's cell. This runs at every start, so installs that borrowed a sheet are fixed.
+  // Other packs missing a sheet borrow one from another installed pack, or get a blank one.
   const fs::path icons = dir / "Unlock_firework_Icons.tga";
-  if (!fs::exists(icons, ec)) {
+  std::string original = text;
+  if (fs::exists(dir / "contents.txt.orig", ec)) {
+    std::ifstream in(dir / "contents.txt.orig", std::ios::binary);
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    original = buffer.str();
+  }
+  const bool own_icons = Lower(original).find("unlockfireworkucoord") == std::string::npos;
+  if (own_icons) {
+    std::vector<fs::path> shapes;
+    std::vector<std::tuple<std::string, int, int>> cells;  // lower-case track file, difficulty, cell
+    for (const Section& s : sections) {
+      if (s.drop || !StartsWith(s.name, "Model_")) continue;
+      const std::string track = Lower(s.Get("HiddenInTrack"));
+      const std::string difficulty = s.Get("Difficulty");
+      const fs::path file = FindFile(dir, s.Get("Filename"));
+      if (track.empty() || difficulty.empty() || file.empty() || shapes.size() >= 32) continue;
+      cells.push_back({track, std::atoi(difficulty.c_str()), int(shapes.size())});
+      shapes.push_back(file);
+    }
+    static const char* const kLevels[3] = {"Easy", "Medium", "Hard"};
+    int pointed = 0;
+    for (Section& s : sections) {
+      if (s.drop || !StartsWith(s.name, "Track_")) continue;
+      const std::string track = Lower(s.Get("Filename"));
+      for (const auto& [model_track, difficulty, cell] : cells) {
+        if (model_track != track || difficulty < 0 || difficulty > 2) continue;
+        char u[16], v[16];
+        std::snprintf(u, sizeof(u), "%g", (cell % 8) * 0.125);
+        std::snprintf(v, sizeof(v), "%g", (cell / 8) * 0.25);
+        const std::string ukey = std::string("UnlockFireworkUCoord_") + kLevels[difficulty];
+        const std::string vkey = std::string("UnlockFireworkVCoord_") + kLevels[difficulty];
+        if (s.Get(ukey) != u || s.Get(vkey) != v) { s.Set(ukey, u); s.Set(vkey, v); ++pointed; }
+      }
+    }
+    if (pointed > 0) notes.push_back("pointed " + std::to_string(pointed) + " unlock(s) at the pack's own icons");
+    const std::string sheet = DrawIconSheet(shapes);
+    std::string current;
+    {
+      std::ifstream in(icons, std::ios::binary);
+      std::stringstream buffer;
+      buffer << in.rdbuf();
+      current = buffer.str();
+    }
+    if (current != sheet) {
+      std::ofstream file(icons, std::ios::binary | std::ios::trunc);
+      file.write(sheet.data(), std::streamsize(sheet.size()));
+      notes.push_back("drew Unlock_firework_Icons.tga from the pack's " + std::to_string(shapes.size()) + " shapes");
+    }
+  } else if (!fs::exists(icons, ec)) {
     bool copied = false;
     for (const auto& other : fs::directory_iterator(content_type_root, ec)) {
       const fs::path candidate = other.path() / "Unlock_firework_Icons.tga";

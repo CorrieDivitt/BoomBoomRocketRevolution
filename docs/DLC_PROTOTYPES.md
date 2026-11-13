@@ -36,14 +36,29 @@ What is wrong with it, and what the port already does about it at start-up (`src
 |---|---|
 | No licence bits, so the game ignores the pack | licence mask written |
 | `contents.txt` has no `UnlockFireworkUSize/VSize` and no `UnlockFirework…Coord` keys | added |
-| No `Unlock_firework_Icons.tga` | copied from another pack, or a blank one is made |
+| No `Unlock_firework_Icons.tga` | drawn from the pack's own shapes (see below); other packs without one borrow one, or get a blank one |
 | Track 2 lists `William_Tell_2.xma`, which is not in the pack; `Beethovens_Fifth_2.xma` and its charts are in the pack but not listed | the track is pointed at the unlisted music file |
 | Titles are placeholders (`Pack 2 Track 01 [NO TRANSLATE]`) | replaced: song title + "II", pack "Prototype Pack" |
 
 Still to do for a proper clean-up:
-- Unlock icons: the borrowed sheet shows another pack's fireworks.
+- ~~Unlock icons: the borrowed sheet shows another pack's fireworks.~~ (2026-11-13) The prototype's
+  15 unlockable shapes are Roman numerals XVI–XXX (the hidden-firework numbering carried on from
+  the game's I–XV). A pack whose original `contents.txt` has no `UnlockFirework…Coord` keys now gets
+  `Unlock_firework_Icons.tga` drawn at every start from its own shapes (`DrawIconSheet` in
+  `src/dlc.cpp`: bold white strokes in alpha, 8×4 cells of 64 px like the retail sheets), and each
+  track and difficulty is pointed at its shape's cell. Existing installs that borrowed the Rock
+  Pack's sheet are fixed on the next start; retail packs are never touched. Tested on Linux with
+  the real packs; not yet seen in game.
 - Leaderboard ids 103–138 are the prototype's own; scores for these charts should stay local.
-- Only the English language file has placeholder titles to replace; check the other four in game.
+  Already true: every board is local (`src/leaderboards.cpp`). Keep these ids out of any online
+  service (R-504).
+- ~~Only the English language file has placeholder titles to replace~~ (2026-11-13): all five have
+  them, and the French, German, Italian and Spanish files use `IDS_DLC_PACK_1_*` keys (copied from
+  pack 1) where `contents.txt` asks for `IDS_DLC_PACK_2_*`. So those languages had no titles for
+  the prototype songs, and the prototype's placeholders shared keys with the Rock Pack's real titles.
+  `NamePlaceholderTitles` now renames another pack's key to the pack's own on placeholder lines only,
+  then fills in the titles. Tested on the real files on Linux; not yet run in game (check a
+  prototype song and a Rock Pack song with the game set to French).
 - Decide the final titles ("II" suggests new music; "(Prototype)" would be more accurate).
 
 ## Early Rock Pack build (`_inactive`)

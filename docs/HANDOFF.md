@@ -7,6 +7,19 @@ player sees). The requirements list (`requirements.py` -> csv/json and the dashb
 list; its current state is copied into the **Tracker** section at the end of this file every time
 `python3 docs/requirements.py` runs. `SUBMISSION.md` covers the store listings.
 
+## Session 2026-11-13 (night): tracker tidy-up, no game testing
+Built but **not run** (needs `scripts\build.ps1`, then a look in game):
+- **Prototype DLC (R-112):** French/German/Italian/Spanish titles (the files used pack 1's keys,
+  clashing with the Rock Pack) and unlock icons drawn from the pack's own shapes, both in
+  `src/dlc.cpp`. To check: the prototype's unlock icons, and titles of a prototype and a Rock Pack
+  song with the game in French. Then R-112 is done.
+- **Texture Filtering (R-406):** Video Settings row (Off/2x/4x/8x/16x) on the SDK's
+  `anisotropic_override`; also in the launcher.
+Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
+stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
+R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
+R-109 (Practice, Freestyle, 2P Battle, 2P Endurance not yet seen to the end) and R-110.
+
 ## Latest session (2026-11-12 evening to 2026-11-13)
 Committed locally as `5441f95` and `1cb40fe` (plus the tracker/handoff commit after them); the user
 pushes from their own terminal. Confirmed by the user unless marked otherwise.
@@ -275,7 +288,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-99 requirements: 5 in progress, 31 todo, 63 done. Details and notes per item: docs/requirements.csv or the dashboard.
+99 requirements: 4 in progress, 29 todo, 66 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -290,7 +303,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-008 | No copyrighted game data in repo | P0 | done |
 | R-009 | Static analysis setup (Ghidra/IDA + XEX loader) | P1 | done |
 | **Phase 1** | **Recompile & boot** | | |
-| R-108 | Stub missing XAM UI calls | P1 | in progress |
 | R-109 | All modes playable | P0 | in progress |
 | R-112 | Clean up prototype DLC packs | P2 | in progress |
 | R-110 | All 10 tracks x 3 difficulties complete | P0 | todo |
@@ -301,13 +313,13 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-105 | VFS mounts: GAME:, game:, DLC%d: | P0 | done |
 | R-106 | Full-license / trial flag | P0 | done |
 | R-107 | Save data & profile settings persistence | P0 | done |
+| R-108 | Stub missing XAM UI calls | P1 | done |
 | R-111 | DLC support (owned track packs) | P0 | done |
 | R-113 | Skip start-up logos | P1 | done |
 | **Phase 2** | **Audio & music sync** | | |
 | R-203 | Native low-latency music path | P2 | todo |
 | R-208 | Per-song offset overrides | P2 | todo |
 | R-210 | Audio device & buffer options | P1 | todo |
-| R-211 | Visualizer with user music files | P2 | todo |
 | R-212 | Timing validation across audio/PC setups | P0 | todo |
 | R-201 | XMA1 music & SFX playback | P0 | done |
 | R-202 | Identify the game's song clock | P0 | done |
@@ -316,6 +328,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-206 | Input latency offset setting (ms) | P0 | done |
 | R-207 | Calibration screen (tap to the beat) | P1 | done |
 | R-209 | Sync debug overlay | P1 | done |
+| R-211 | Visualizer with user music files - covered by R-905 | P2 | done |
 | R-213 | Smooth arrow motion (interpolated song clock) | P0 | done |
 | R-214 | Game volume boost | P2 | done |
 | **Phase 3** | **Frame rate & timing** | | |
@@ -327,7 +340,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-306 | High-rate timestamped input | P0 | done |
 | **Phase 4** | **Graphics & resolution** | | |
 | R-405 | Anti-aliasing (MSAA / SMAA / FXAA) | P1 | in progress |
-| R-406 | Anisotropic filtering | P2 | todo |
 | R-408 | Native replacement shaders | P1 | todo |
 | R-412 | D3D9-level renderer replacement | P2 | todo |
 | R-413 | Texture dump & replacement packs | P2 | todo |
@@ -336,6 +348,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-402 | Aspect ratios 16:9 / 16:10 / 21:9 / 32:9 | P0 | done |
 | R-403 | Internal resolution scale | P1 | done |
 | R-404 | Window modes & display select | P0 | done |
+| R-406 | Anisotropic filtering | P2 | done |
 | R-407 | Recover HLSL from .updb shader PDBs | P1 | done |
 | R-409 | HDR bloom & tonemapping for fireworks | P1 | done |
 | R-410 | Improved city lighting | P2 | done |
@@ -364,7 +377,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-708 | Store listings: Quiver Launcher and RecompStore | P1 | todo |
 | R-706 | Licensing decision for project code | P0 | done |
 | **Phase 8** | **Modern rhythm features** | | |
-| R-801 | Research modern rhythm-game features | P1 | todo |
 | R-802 | Note speed / scroll-speed modifier | P2 | done |
 | R-803 | Timing feedback (early/late, ms offset) | P2 | done |
 | R-806 | Average timing on the results screen | P2 | done |
@@ -379,6 +391,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-417 | Fireworks reflected in the water | P2 | todo |
 | R-504 | Online leaderboard service | P1 | todo |
 | R-505 | Score integrity checks | P2 | todo |
+| R-801 | Research modern rhythm-game features | P1 | todo |
 | R-805 | Practice tools (section loop, slow-down) | P2 | todo |
 | R-902 | Accessibility review | P2 | todo |
 | R-903 | VR support | P2 | todo |

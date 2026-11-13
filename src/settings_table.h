@@ -57,6 +57,10 @@ inline const std::vector<Setting>& Settings() {
                  "video"});
     s.push_back({"antialiasing", "swap_post_effect", "Anti-Aliasing",
                  {{"none", "Off"}, {"fxaa", "FXAA"}, {"fxaa_extreme", "FXAA High"}}, 0, "video"});
+    // The SDK's anisotropic_override (0 off, 2 = 4x ... 5 = 16x); the SDK default is 4x.
+    // Read whenever a sampler is set up, so a change applies at once.
+    s.push_back({"aniso", "anisotropic_override", "Texture Filtering",
+                 {{"0", "Off"}, {"2", "2x"}, {"3", "4x"}, {"4", "8x"}, {"5", "16x"}}, 2, "video"});
     s.push_back({"glow", "output_glow", "Glow",
                  {{"0", "Off"}, {"0.3", "Low"}, {"0.6", "Medium"}, {"1", "High"}}, 0, "video"});
     // City lighting (src/city_lighting.cpp, SDK patch 0011): the value is a strength multiplier.
@@ -120,7 +124,7 @@ inline const std::vector<Page>& Pages() {
       // Rows handled by src/profiles.cpp.
       {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
       {"modifiers", "Modifiers", {"scroll_speed", "camera_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
-      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "citylight", "waterglow", "particles", "hdr", "resolution"}},
+      {"video", "Video Settings", {"aspect", "window", "antialiasing", "aniso", "glow", "citylight", "waterglow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
       {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},

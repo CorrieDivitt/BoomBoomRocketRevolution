@@ -46,6 +46,7 @@ in any folder above it. `--dlc_path=<folder>` uses a different DLC folder.
 | Video Settings | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
 | | Window Mode | Fullscreen (default), Windowed, or Borderless Window (a window without its title bar and frame); changes at once |
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
+| | Texture Filtering | Off, 2x, 4x (default), 8x, 16x anisotropic filtering: keeps the city sharp at an angle; changes at once |
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
 | | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
 | | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
