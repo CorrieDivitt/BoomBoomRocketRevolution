@@ -42,6 +42,7 @@ void BbrArrowEaseHook(PPCRegister& f30, PPCRegister& f31, PPCRegister& f11);
 void BbrArrowDriftHook(PPCRegister& r31, PPCRegister& r1);
 
 // Visualizer camera update (sub_82088580) at 0x82088B78, before bl sub_82061018: r1+112 = the
-// eye (x, y, z) about to be set, r31 = game (look-at point at +0x1044C).
+// point the camera is about to be turned to face (x, y, z), r31 = game (camera position at
+// +0x1044C).
 // Implemented in src/visualizer_zoom.cpp (hold A to pull the camera back).
 void BbrVisualizerEyeHook(PPCRegister& r1, PPCRegister& r31);

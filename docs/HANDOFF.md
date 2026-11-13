@@ -18,6 +18,9 @@ Built and confirmed by the user the same day:
 - **Visualizer pull-back (R-909), built, not run:** hold A to move the camera back and up
   (`src/visualizer_zoom.cpp`, mid-asm hook at 0x82088B78). The first try, X widening the field of
   view after the camera function returned, did nothing: the camera is built inside that function.
+  The second try moved the look-at point (taken for the eye) and only tilted the view: in
+  sub_82088580 the camera position is game + 0x1044C, sitting ahead on the path, and r1+112 is
+  what it looks at. Now the position is moved away from the look-at point.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:

@@ -97,8 +97,8 @@ address = 0x8213E490
 name = "BbrAudioFrameHook"
 registers = ["r4"]
 
-# Visualizer camera update (sub_82088580), just before the eye at r1+112 (x, y, z) goes to
-# the camera's position setter sub_82061018; r31 = game. Hold A to pull the camera back
+# Visualizer camera update (sub_82088580), just before the look-at point at r1+112 (x, y, z)
+# goes to sub_82061018, which turns the camera (position at game + 0x1044C) to face it; r31 = game. Hold A to pull the camera back
 # (src/visualizer_zoom.cpp).
 [[midasm_hook]]
 address = 0x82088B78
