@@ -45,8 +45,8 @@ inline const std::vector<Setting>& Settings() {
       input.choices.push_back({std::to_string(ms), std::to_string(ms) + " ms"});
     }
     s.push_back(input);
-    s.push_back({"hit_timing", "hit_timing", "Show Accuracy", {{"true", "On"}, {"false", "Off"}}, 0});
-    s.push_back({"assist_tick", "assist_tick", "Assist Tick", {{"true", "On"}, {"false", "Off"}}, 1});
+    s.push_back({"hit_timing", "hit_timing", "Show Accuracy", {{"true", "On"}, {"false", "Off"}}, 0, "modifiers"});
+    s.push_back({"assist_tick", "assist_tick", "Assist Tick", {{"true", "On"}, {"false", "Off"}}, 1, "modifiers"});
     s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
@@ -92,7 +92,7 @@ inline const std::vector<Setting>& Settings() {
     s.push_back({"keyboard", "mnk_mode", "Use Keyboard", {{"false", "Off"}, {"true", "On"}}, 1, "keyboard"});
     // How strongly the Visualizer reacts to the PC's music (src/visualizer.cpp).
     s.push_back({"visualizer", "visualizer_sensitivity", "Visualizer Sensitivity",
-                 {{"0.5", "Low"}, {"1", "Normal"}, {"2", "High"}, {"4", "Very High"}}, 1, "main"});
+                 {{"0.5", "Low"}, {"1", "Normal"}, {"2", "High"}, {"4", "Very High"}}, 1, "modifiers"});
     // Every rocket hit at 0 ms; songs that used it save no score (src/autoplay.cpp).
     // How fast the song's camera travels (src/camera_speed.cpp); applies from the next song.
     s.push_back({"camera_speed", "camera_speed", "Camera Speed",
@@ -108,8 +108,14 @@ inline const std::vector<Setting>& Settings() {
     // Water Reflections (R-417) is parked and kept out of the menus and settings.ini while it is a
     // test; developers can still turn it on with --water_reflections=true.
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
+    // Frame Rate (frame_rate): Monitor runs one game frame per display refresh; a number runs the
+    // game at that rate from a timer; Unlocked as fast as the PC can (src/settings.cpp ApplyFrameRate).
+    s.push_back({"framerate", "frame_rate", "Frame Rate",
+                 {{"60", "60"}, {"120", "120"}, {"144", "144"}, {"240", "240"}, {"unlocked", "Unlocked"},
+                  {"display", "Monitor"}},
+                 5, "video", true});
     s.push_back({"resolution", "resolution_scale", "Resolution",
-                 {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
+                 {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 0, "video", true});
     return s;
   }();
   return settings;
@@ -118,18 +124,20 @@ inline const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 inline const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "page:keyboard", "visualizer", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:profiles", "page:timing", "page:video", "page:modifiers", "page:keyboard", "skip_intro", "layout"}},
       // Rows other than "keyboard" handled by src/keyboard.cpp.
       {"keyboard", "Keyboard", {"keyboard", "keyboard_dpad", "action:bind_a", "action:bind_b", "action:bind_x",
                                 "action:bind_y", "action:bind_lb", "action:bind_rb", "action:bind_triggers",
                                 "action:bind_start", "action:keys_reset"}},
       // Rows handled by src/profiles.cpp.
       {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
-      {"modifiers", "Modifiers", {"scroll_speed", "camera_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
-      {"video", "Video Settings", {"aspect", "window", "antialiasing", "aniso", "glow", "citylight", "waterglow", "particles", "hdr", "resolution"}},
+      {"modifiers", "Modifiers", {"scroll_speed", "hit_timing", "assist_tick", "autoplay", "no_background", "camera_speed",
+                                  "rocket_acceleration", "horizontal_drift", "ddr_mode", "visualizer"}},
+      {"video", "Video Settings", {"resolution", "window", "aspect", "framerate", "hdr", "antialiasing", "aniso", "particles",
+                                   "citylight", "waterglow", "glow"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
-      {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},
+      {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset"}},
   };
   return pages;
 }

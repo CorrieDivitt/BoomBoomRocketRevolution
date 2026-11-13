@@ -29,5 +29,8 @@ __pycache__/
 .vscode/
 *.user
 
-# Calibration metronome sounds are supplied by the user (see calibration_sounds/README.txt)
+# Calibration metronome sounds: beat.wav and subbeat.wav ship with the release (royalty-free);
+# any other WAVs in the folder are the user's own.
 /calibration_sounds/*.wav
+!/calibration_sounds/beat.wav
+!/calibration_sounds/subbeat.wav

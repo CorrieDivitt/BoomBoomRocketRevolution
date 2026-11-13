@@ -83,7 +83,7 @@ are not in the client code; Steam's library sizes (capsule 600x900, header 920x4
 ## Still to do before submitting
 1. Release 1.0 on GitHub with the packaged zip (R-707). Both catalogs read the release.
 2. Screenshots and a banner or logo of our own.
-3. Decide the AI-use answer, and say the same in the README.
+3. ~~Decide the AI-use answer~~ Decided 2026-11-13: "Yes, this project uses AI" (README section "AI use").
 4. A short "Requirements / How to install" section in the README that matches the launcher.
 5. Say where players can still get the game. It was delisted from the Xbox 360 store in early 2021; the
    Xbox One backward-compatible listing is what remains, so most players will bring a copy from an

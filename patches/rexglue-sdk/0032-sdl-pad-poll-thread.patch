@@ -1,0 +1,78 @@
+--- a/include/rex/input/sdl/sdl_input_driver.h
++++ b/include/rex/input/sdl/sdl_input_driver.h
+@@ -14,6 +14,7 @@
+ #include <atomic>
+ #include <mutex>
+ #include <optional>
++#include <thread>
+ #include <vector>
+ 
+ #include <rex/input/input_driver.h>
+@@ -106,6 +107,10 @@
+   std::vector<ControllerState> controllers_;
+   std::mutex controllers_mutex_;
+   std::mutex event_queue_mutex_;
++  // [bbrr] Reads the pads every millisecond on its own thread (SDL_UpdateGamepads), so button
++  // events arrive when they happen instead of whenever the UI thread next pumps SDL events.
++  std::thread poll_thread_;
++  std::atomic<bool> poll_running_{false};
+   std::vector<SDL_Event> pending_events_;
+   // Never rewound, so a handle held past a disconnect resolves to nothing.
+   uint64_t next_device_id_ = 1;
+--- a/src/input/sdl/sdl_input_driver.cpp
++++ b/src/input/sdl/sdl_input_driver.cpp
+@@ -13,6 +13,7 @@
+ #include <array>
+ #include <bit>
+ #include <cctype>
++#include <chrono>
+ #include <filesystem>
+ #include <string_view>
+ 
+@@ -24,6 +25,8 @@
+ #include <rex/logging.h>
+ #include <rex/ui/virtual_key.h>
+ 
++REXCVAR_DEFINE_BOOL(hid_sdl_poll_thread, true, "Input",
++                    "Read SDL pads every millisecond on their own thread (off: only when the UI thread pumps events)");
+ REXCVAR_DEFINE_STRING(hid_mappings_file, "gamecontrollerdb.txt", "Input",
+                       "Path to SDL gamecontroller mappings file");
+ 
+@@ -165,7 +168,10 @@
+       controllers_(),
+       controllers_mutex_() {}
+ 
+-SDLInputDriver::~SDLInputDriver() {}
++SDLInputDriver::~SDLInputDriver() {
++  poll_running_ = false;
++  if (poll_thread_.joinable()) poll_thread_.join();
++}
+ 
+ X_STATUS SDLInputDriver::Setup() {
+   if (!TestSDLVersion()) {
+@@ -237,11 +243,25 @@
+         }
+       }
+       REXLOG_INFO("SDL input driver initialized successfully");
++      // [bbrr] Before this, SDL read the pads only when the UI thread pumped events, which on a
++      // slow PC could be several frames apart: presses arrived late and quick ones were lost.
++      if (REXCVAR_GET(hid_sdl_poll_thread) && !poll_running_.exchange(true)) {
++        poll_thread_ = std::thread([this]() {
++          while (poll_running_.load(std::memory_order_relaxed)) {
++            SDL_UpdateGamepads();
++            std::this_thread::sleep_for(std::chrono::milliseconds(1));
++          }
++        });
++        REXLOG_INFO("[bbrr] SDL pads are read every millisecond on their own thread");
++      }
+     });
+   }
+ }
+ 
+ void SDLInputDriver::OnClosing(rex::ui::UIEvent&) {
++  // [bbrr] Stop reading the pads before SDL's gamepad subsystem goes away.
++  poll_running_ = false;
++  if (poll_thread_.joinable()) poll_thread_.join();
+   if (attached_window_) {
+     attached_window_->RemoveListener(this);
+     if (sdl_pumpevents_queued_) {

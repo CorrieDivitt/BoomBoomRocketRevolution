@@ -32,6 +32,10 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 | `scripts/` | Setup scripts |
 | `thirdparty/rexglue-sdk` | ReXGlue SDK (submodule) |
 
+## AI use
+Yes, this project uses AI. Much of the code and documentation was written with Claude (Anthropic),
+directed and tested in play by the project owner.
+
 ## Credits
 ReXGlue SDK, Xenia, XenonRecomp/XenosRecomp, and the Xbox 360 preservation community. Boom Boom Rocket is © Electronic Arts; this project is not affiliated with or endorsed by EA, Bizarre Creations or Microsoft.
 

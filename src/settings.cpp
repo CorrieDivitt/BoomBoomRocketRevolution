@@ -50,8 +50,9 @@ REXCVAR_DEFINE_STRING(window_mode, "fullscreen", "BBR",
                       "and frame). Sets --fullscreen and --window_borderless");
 
 REXCVAR_DEFINE_STRING(frame_rate, "display", "BBR",
-                      "Frames per second: display (match the main display's refresh rate) or a number. "
-                      "--video_mode_refresh_rate on the command line overrides it");
+                      "Frame Rate: display (one frame per refresh of the main display), a number of frames "
+                      "per second (60, 120, 144, 240), or unlocked. --video_mode_refresh_rate on the command "
+                      "line overrides it");
 
 namespace bbr {
 
@@ -131,9 +132,8 @@ std::string Trim(std::string v) {
   return v.substr(i);
 }
 
-// Which choice matches the cvar's current value (numbers compare by value).
-size_t CurrentChoice(const Setting& s) {
-  const std::string now = rex::cvar::GetFlagByName(s.cvar);
+// Which choice matches a value (numbers compare by value).
+size_t ChoiceFor(const Setting& s, const std::string& now) {
   for (size_t i = 0; i < s.choices.size(); ++i) if (s.choices[i].value == now) return i;
   char* end = nullptr;
   const double number = std::strtod(now.c_str(), &end);
@@ -149,6 +149,21 @@ size_t CurrentChoice(const Setting& s) {
     if (best_error < 1e17) return best;
   }
   return s.default_choice;
+}
+
+// Which choice matches the cvar's current value.
+size_t CurrentChoice(const Setting& s) { return ChoiceFor(s, rex::cvar::GetFlagByName(s.cvar)); }
+
+// The value a cvar will start with. Cvars of the GPU plugin are only registered after the
+// settings are loaded; until then SetAtBoot leaves their value in a REX_<NAME> environment
+// variable, which the plugin picks up when it registers them.
+std::string BootValue(const std::string& cvar) {
+  std::string value = rex::cvar::GetFlagByName(cvar);
+  if (!value.empty()) return value;
+  std::string env = "REX_";
+  for (char c : cvar) env.push_back(char(std::toupper(static_cast<unsigned char>(c))));
+  const char* from_env = std::getenv(env.c_str());
+  return from_env ? from_env : "";
 }
 
 // Window Mode is one setting for two SDK cvars. A --fullscreen given on the command line
@@ -206,12 +221,16 @@ void UpdateGameVolume() {
 }
 
 
-// Sets the runtime's guest refresh rate. There is no menu setting for it: the game runs
-// at the main display's refresh rate, and (with the SDK patch in patches/rexglue-sdk)
-// each game frame is started on a real display refresh, so motion does not judder.
-// --frame_rate=<number> or --video_mode_refresh_rate on the command line override it;
-// --vsync=false removes the limit, --vblank_display_sync=false goes back to a timer.
-void ApplyFrameRate();
+// Sets the runtime's guest refresh rate from Frame Rate (frame_rate, Video Settings; applies at the
+// next start).
+//   display ("Monitor"): one game frame per refresh of the main display. With the SDK patch in
+//     patches/rexglue-sdk each frame starts on a real display refresh (DwmFlush), so motion does not
+//     judder. On a fast monitor with a slow PC this asks for more frames than the PC can make.
+//   60 / 120 / 144 / 240: that many frames a second from an evenly spaced timer (or from the
+//     display's refresh when it has that rate anyway).
+//   unlocked: no limit (--vsync=false); as many frames as the PC can make.
+// --video_mode_refresh_rate, --vsync and --vblank_display_sync on the command line still win.
+double DisplayRefreshRate();
 
 // Refresh rate of the main display in Hz (0 if unknown).
 double DisplayRefreshRate() {
@@ -226,16 +245,44 @@ double DisplayRefreshRate() {
 }
 
 void ApplyFrameRate() {
-  if (rex::cvar::GetFlagSource("video_mode_refresh_rate") == rex::cvar::Source::kCommandLine) return;
+  using rex::cvar::Source;
+  // vsync and vblank_display_sync belong to the GPU plugin, which registers its cvars only after
+  // this runs: SetAtBoot passes the value on through the environment (a plain SetFlagByName
+  // would be lost, as it was in the first version of this setting).
+  auto set_unless_given = [](const char* cvar, const char* value) {
+    if (rex::cvar::GetFlagSource(cvar) != Source::kCommandLine) SetAtBoot(cvar, value);
+  };
+  if (rex::cvar::GetFlagSource("video_mode_refresh_rate") == Source::kCommandLine) return;
   const std::string wanted = rex::cvar::GetFlagByName("frame_rate");
+  const double display = DisplayRefreshRate();
   double hz = std::strtod(wanted.c_str(), nullptr);
-  if (wanted == "display" || hz < 24.0) {
-    hz = DisplayRefreshRate();
-    if (hz < 24.0) hz = 60.0;
-  }
+  const bool unlocked = wanted == "unlocked";
+  const bool match_display = !unlocked && (wanted == "display" || hz < 24.0);
+  if (unlocked || match_display) hz = display >= 24.0 ? display : 60.0;
   hz = std::min(hz, 240.0);  // the runtime's upper limit
+  // Tick from the display's refresh only when it has the rate asked for; otherwise from the timer.
+  const bool on_display = match_display || (display >= 24.0 && std::fabs(hz - display) < 1.5);
+  set_unless_given("vsync", unlocked ? "false" : "true");
+  set_unless_given("vblank_display_sync", on_display ? "true" : "false");
   rex::cvar::SetFlagByName("video_mode_refresh_rate", std::to_string(hz));
-  REXLOG_INFO("[settings] frame rate {} -> {:.0f} fps", wanted, hz);
+  if (unlocked) {
+    REXLOG_INFO("[settings] frame rate unlocked (display {:.0f} Hz)", display);
+  } else {
+    REXLOG_INFO("[settings] frame rate {} -> {:.0f} fps, {} (display {:.0f} Hz)", wanted, hz,
+                on_display ? "on the display's refresh" : "from a timer", display);
+  }
+}
+
+// One line with every Video Settings value, so a log shows what the game ran with.
+void LogVideoSettings() {
+  std::string line;
+  for (const Setting& s : Settings()) {
+    if (s.page != "video") continue;
+    if (!line.empty()) line += ", ";
+    line += s.title + " " + s.choices[ChoiceFor(s, BootValue(s.cvar))].label;
+  }
+  if (const Setting* layout = Find("layout")) line += ", Menu Layout " + layout->choices[ChoiceFor(*layout, BootValue(layout->cvar))].label;
+  REXLOG_INFO("[settings] video: {}", line);
 }
 
 namespace {
@@ -298,6 +345,7 @@ void LoadSettings() {
   if (!in) {
     snapshot();
     ApplyFrameRate();
+    LogVideoSettings();
     return;
   }
   std::string line;
@@ -330,6 +378,7 @@ void LoadSettings() {
   snapshot();
   REXLOG_INFO("[settings] loaded {} setting(s) from {}", applied, FilePath().string());
   ApplyFrameRate();
+  LogVideoSettings();
 }
 
 void NoGameFiles() {
@@ -550,7 +599,7 @@ std::string SettingsStrings() {
                     "BBRR_SPEED_HINT = ~~{LB}~~ Change ~~{RB}~~\n"
                     "BBRR_BPM = BPM\n"
                     "BBRR_LENGTH = Length\n"
-                    "BBRR_RESTART_NOTE = A new Resolution applies after a restart\n"
+                    "BBRR_RESTART_NOTE = A new Resolution or Frame Rate applies after a restart\n"
                     "BBRR_RESTART_TITLE = Restart needed\n"
                     "BBRR_RESTART_INFO = Your settings are saved. Some of the changes only take effect after a restart. Restart the game now?\n"
                     "BBRR_CAL_SOUND_INTRO = Sound test. Press ~~{A}~~ on every beat\n"
@@ -572,7 +621,11 @@ std::string SettingsStrings() {
                     "BBRR_RESTART_SONG_INFO = Are you sure you want to restart this song?  Doing so will mean your current score will not be saved.\n"
                     "BBRR_EXIT_GAME_INFO = Close Boom Boom Rocket and return to Windows.\n"
                     "BBRR_X_RESTART = ~~{X}~~ Restart\n"
-                    "BBRR_B_LATER = Not now ~~{B}~~\n";
+                    "BBRR_B_LATER = Not now ~~{B}~~\n"
+                    "BBRR_QUIT_TITLE = Exit Game\n"
+                    "BBRR_QUIT_INFO = Close Boom Boom Rocket and return to Windows?\n"
+                    "BBRR_QUIT_CANCEL = ~~{B}~~ Cancel\n"
+                    "BBRR_QUIT_CONFIRM = Exit ~~{A}~~\n";
   for (const Page& p : Pages()) out += "BBRR_T_page_" + p.name + " = " + p.title + "\n";
   for (int i = 0; i <= 16; ++i) out += "BBRR_CAL_TAP_" + std::to_string(i) + " = " + std::to_string(i) + " / 16\n";
   for (const Setting& s : Settings()) {

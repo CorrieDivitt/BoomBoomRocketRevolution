@@ -43,7 +43,32 @@ foreach ($exe in @("BoomBoomRocketRevolution.exe", "boomboomrocket.exe")) {
   if (-not (Test-Path $path)) { throw "$exe is missing from $Build. Build first (or leave out -SkipBuild)." }
   Copy-Item $path $Stage
 }
-Get-ChildItem $Build -Filter *.dll | Copy-Item -Destination $Stage
+# TracyClient.dll is the SDK's profiler: nothing loads it in these builds, so it stays out.
+Get-ChildItem $Build -Filter *.dll | Where-Object { $_.Name -ne "TracyClient.dll" } | Copy-Item -Destination $Stage
+
+# The Visual C++ runtime (msvcp140.dll, vcruntime140.dll, ...), next to the programs so they start
+# on PCs without the Visual C++ Redistributable installed. Microsoft allows this app-local copy.
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+$crt = Get-ChildItem (Join-Path $vs "VC\Redist\MSVC") -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -match '^\d+\.' } | Sort-Object { [version]$_.Name } -Descending |
+  ForEach-Object { Get-ChildItem (Join-Path $_.FullName "x64") -Directory -Filter "Microsoft.VC*.CRT" -ErrorAction SilentlyContinue } |
+  Select-Object -First 1
+if (-not $crt) { throw "Visual C++ runtime files not found under $vs\VC\Redist\MSVC (install the MSVC build tools' redistributable component)." }
+Get-ChildItem $crt.FullName -Filter *.dll | Copy-Item -Destination $Stage
+Write-Host "Visual C++ runtime from $($crt.FullName)"
+
+# Controller mappings for pads SDL does not know by itself (loaded from the game's folder).
+Copy-Item (Join-Path $Root "thirdparty\SDL_GameControllerDB\gamecontrollerdb.txt") $Stage
+
+# Calibration metronome sounds (royalty-free): beat.wav, subbeat.wav and the folder's README.
+$Sounds = Join-Path $Stage "calibration_sounds"
+New-Item -ItemType Directory -Force -Path $Sounds | Out-Null
+foreach ($f in @("beat.wav", "subbeat.wav", "README.txt")) {
+  $path = Join-Path $Root "calibration_sounds\$f"
+  if (-not (Test-Path $path)) { throw "calibration_sounds\$f is missing." }
+  Copy-Item $path $Sounds
+}
 
 # The port's menu scripts (its own Lua, read from a ui_scripts folder next to the game).
 Copy-Item (Join-Path $Root "ui_scripts") (Join-Path $Stage "ui_scripts") -Recurse
@@ -68,7 +93,12 @@ game: you need your own copy.
 Video settings, Menu Layout and Skip Intro can be set in the launcher's Game Settings tab
 or in the game under Help & Options > BBRR Settings. Everything else is in USER_GUIDE.md.
 
-Saves, settings and profiles are kept in Documents\boomboomrocket.
+Needs Windows 10 or 11 (64-bit) and a DirectX 12 graphics card. An Xbox controller is
+recommended; PlayStation and most other controllers work too, as does the keyboard.
+
+Saves, settings and profiles are kept in Documents\boomboomrocket. If something goes wrong,
+the logs (one per start) and any crash dumps are in Documents\boomboomrocket\logs: send the
+newest log, and the crash dump if there is one.
 
 Project page: https://github.com/CorrieDivitt/BoomBoomRocketRevolution
 "@ | Set-Content -Encoding UTF8 (Join-Path $Stage "README.txt")

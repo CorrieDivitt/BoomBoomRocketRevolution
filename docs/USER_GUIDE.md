@@ -18,8 +18,8 @@ Run `BoomBoomRocketRevolution.exe`, the launcher.
 3. When the launcher says **Ready to install**, press *Install*. Everything goes into the
    launcher's own folder: `Game Files` and `DLC`. Packs can be removed again in the DLC list.
 
-**Game Settings tab:** Player 1's gamertag, the Video Settings page of BBRR Settings, plus Menu Layout and Skip
-Intro. Changes are saved at once (Documents\boomboomrocket\settings.ini) and used the next
+**Game Settings tab:** Player 1's gamertag, the Video Settings page of BBRR Settings, plus Skip Intro
+and Menu Layout. Changes are saved at once (Documents\boomboomrocket\settings.ini) and used the next
 time the game starts; the in-game menu changes the same settings.
 
 **Play** starts the game (`boomboomrocket.exe`), and the launcher closes unless you untick that
@@ -43,37 +43,38 @@ in any folder above it. `--dlc_path=<folder>` uses a different DLC folder.
 | | Player 1 Controller | Which connected controller plays as Player 1 (Left/Right through their names); the others follow in the order they were connected. Remembered for next time, and used again whenever that controller is connected. Takes effect when the page is saved (A) - after that the other controller drives the menus if you picked it |
 | | Rename Player 1 / 2 | A opens a text box (keyboard) with the player's gamertag; Enter saves the new name (up to 15 characters). The profile keeps its data |
 | | New Profile | A opens a text box for the new profile's gamertag; it then appears in the Player 1 / Player 2 lists (up to 8 profiles). Profiles are kept in Documents\boomboomrocket\profiles.ini |
-| Video Settings | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
-| | Window Mode | Fullscreen (default), Windowed, or Borderless Window (a window without its title bar and frame); changes at once |
-| | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
-| | Texture Filtering | Off, 2x, 4x (default), 8x, 16x anisotropic filtering: keeps the city sharp at an angle; changes at once |
-| | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
-| | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
-| | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
-| | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
-| | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
-| | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |
 | Calibration | Auto Calibration | Two short tap tests (sound, then picture) that set the two offsets below |
 | | Audio Offset | Moves the notes against the music. Positive = notes arrive later |
 | | Input Offset | Moves how presses are judged. Positive = presses count as made earlier |
+| Video Settings | Resolution | 720p (default, the Xbox 360's own resolution), 1440p, 2160p, 2880p; higher is sharper but needs a stronger graphics card (a GTX 1650 managed about 35 fps at 1440p). Needs a restart, the game offers one |
+| | Window Mode | Fullscreen (default), Windowed, or Borderless Window (a window without its title bar and frame); changes at once |
+| | Aspect Ratio | Match Window (default), 16:9, 21:9, 32:9 |
+| | Frame Rate | 60, 120, 144, 240, Unlocked, or Monitor (default: one frame per refresh of your display). On a slower PC with a high-refresh monitor, a fixed rate the PC can always reach (often 60) plays more steadily than Monitor. Unlocked runs as fast as the PC can. Needs a restart, the game offers one |
+| | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
+| | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
+| | Texture Filtering | Off, 2x, 4x (default), 8x, 16x anisotropic filtering: keeps the city sharp at an angle; changes at once |
+| | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
+| | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
+| | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
+| | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
+| Modifiers | Scroll Speed | 0.25x to 4x in steps of 0.25 (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step (hold the button to keep going), without pausing; the new speed shows briefly in the middle of the screen and is saved |
 | | Show Accuracy | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
 | | Assist Tick | Plays a click at the exact moment of every rocket |
-| Modifiers | Scroll Speed | 0.25x to 4x in steps of 0.25 (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step (hold the button to keep going), without pausing; the new speed shows briefly in the middle of the screen and is saved |
+| | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. While the song plays your own A, B, X and Y presses are ignored (they work again in the pause menu). For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and earns no achievements; and once it has been used the game does not save its profile again until it is restarted |
+| | Background | Default or Off: when Off, during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
 | | Camera Speed | 100 (default) down to 0 in steps of 10: how fast the camera travels through the city during a song, in percent. Lower values mean less background movement, for anyone who finds the moving city disorienting; at 0 the camera stays still. The launch and burst points slow down with it, so the arrows still reach the line on time. Applies from the next song |
 | | Rocket Acceleration | Default (the game's own movement) or Static (arrows move at one even speed along their path the whole way up). Changes at once, also during a song |
 | | Horizontal Drift | Default (the original): arrows drift sideways towards where their firework will go off. Off: each arrow climbs straight up and stays in the screen column where it first appears, even when the camera swings, so none come in from the sides. Changes at once |
 | | DDR Mode | Off (default) or On: a novelty mode like DDR. Arrows climb straight up in four lanes in the middle of the screen, sorted by button: Left (X), Down (A), Up (Y), Right (B). Two arrows of the same button on the same beat share a lane and overlap. Changes at once |
-| | Background | Default or Off: when Off, during a song the city and sky are not drawn, so the arrows, fireworks and HUD are on black - for practising without distractions. Menus keep their city |
-| | Autoplay | Off (default) or On: every rocket is hit automatically at exactly the right moment. While the song plays your own A, B, X and Y presses are ignored (they work again in the pause menu). For showing the game off and for testing - a song in which Autoplay was on at any moment saves no score, locally or on the leaderboards, and earns no achievements; and once it has been used the game does not save its profile again until it is restarted |
+| | Visualizer Sensitivity | Low, Normal (default), High, Very High: how strongly the Visualizer reacts to the music playing on the PC (Single Player > Visualizer, with music playing in any app). The music's loudness is evened out first, so the PC's volume does not matter |
 | Keyboard | Use Keyboard | On (default) or Off: play with the keyboard. Default keys: W A S D are the face buttons where they sit on a pad (W = Y, A = X, S = A, D = B), arrow keys the d-pad, Enter also A, Backspace also B, Esc Start (pause), Q / E LB / RB (scroll speed), Space both triggers (Bonus Run), Tab Back |
 | | D-pad | Arrow Keys, Numpad 8 4 2 6 or I J K L |
 | | A, B, X, Y, LB, RB, Triggers, Start | Each row shows its key. Press A (S or Enter) on a row, then the new key: it becomes that button's only key and is taken off any other button. Esc cancels (except on the Start row). The keys are also in settings.ini |
 | | Reset Keys | A puts the default keys back |
-| | Visualizer Sensitivity | Low, Normal (default), High, Very High: how strongly the Visualizer reacts to the music playing on the PC (Single Player > Visualizer, with music playing in any app). The music's loudness is evened out first, so the PC's volume does not matter |
-| | Skip Intro | Skips the start-up logos |
-| | Menu Layout | Screen Edges (menus follow the window's edges on wide screens) or Centred |
+| Skip Intro | | Skips the start-up logos |
+| Menu Layout | | Screen Edges (menus follow the window's edges on wide screens) or Centred |
 
-The frame rate follows your display automatically; there is nothing to set.
+The frame rate follows your display unless Frame Rate (Video Settings) says otherwise.
 
 ### Getting the timing right
 1. Run **Auto Calibration** once. Tap A on every beat of the sound test, then every time a bar
@@ -83,8 +84,9 @@ The frame rate follows your display automatically; there is nothing to set.
 3. If the rockets look out of step with the music itself, change Audio Offset instead.
 
 ### Your own sounds
-Short WAV files in a `calibration_sounds` folder replace the built-in clicks: `beat.wav` and
-`subbeat.wav` for the calibration test, `tick.wav` for the assist tick. See the README in that folder.
+The game comes with a `calibration_sounds` folder holding `beat.wav` and `subbeat.wav`, the
+metronome for the calibration test. Short WAV files of your own can replace them, and a `tick.wav`
+there replaces the assist tick; without a file the built-in click is used. See the README in that folder.
 
 ## Song lists
 Each song's bar shows its length at the left and its tempo at the right. The tempo is the song's
@@ -119,7 +121,12 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--hdr_paper_white_nits=<n>` / `--hdr_peak_nits=<n>` | HDR: brightness of ordinary white (default 200) and of the brightest highlights (default: what the display reports) |
 
 ## Files
-- `boomboomrocket.log`, in the folder the game was started from: what happened in the last run.
+- `logs`, in the `boomboomrocket` folder inside your user folder (next to `settings.ini`): one log per
+  start (`boomboomrocket_001.log`, ...; the newest 20 are kept) and, after a crash, a crash dump
+  (`crash_<date>_<time>.dmp`; the newest 5 are kept). When reporting a problem, send the newest log
+  and any crash dump. `--log_file=<path>` writes a single log there instead.
+- `gamecontrollerdb.txt`, next to the game: button mappings for controllers Windows and SDL do not
+  know by themselves (from SDL_GameControllerDB). Replace it with a newer copy if a pad's buttons are wrong.
 - `settings.ini`, in the `boomboomrocket` folder inside your user folder: the saved settings.
   Delete it to return to the defaults.
 - `cache`, in the same folder: saved shaders. Safe to delete; the game clears it by itself if the

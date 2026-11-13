@@ -6,9 +6,43 @@
 --   * "Downloadable Content" is left out (packs are picked up from the DLC folder).
 --   * "Return to Arcade" is shown as "Exit Game".
 --   * "Leaderboards" is no longer greyed out (see Init).
+--   * "Exit Game" asks first ("Close Boom Boom Rocket and return to Windows?").
 
 System.LoadLuaScript("Options\\BBRR_online.lua")
 System.LoadLuaScript("orig:Main\\MainMenu.lua")
+
+-- Exit Game: on the Xbox, "Return to Arcade" went straight back to the dashboard. On a PC that
+-- closes the game, so it is easy to do by accident with one press too many: the game's own
+-- pop-up box asks first. A quits, B goes back to the menu.
+if Game ~= nil and Game.ReturnToArcade ~= nil and BBRR_RealReturnToArcade == nil then
+  BBRR_RealReturnToArcade = Game.ReturnToArcade
+end
+if BBRR_RealReturnToArcade ~= nil and UIText.BBRR_QUIT_TITLE ~= nil and CustomPopup ~= nil then
+  -- pcall: should Game not take new fields, the menu keeps working without the question.
+  pcall(function() Game.ReturnToArcade = function(...)
+    CustomPopup.Data.BBRR_QUIT = {
+      darken = true,
+      message_text_ID = UIText.BBRR_QUIT_TITLE,
+      info_text_ID = UIText.BBRR_QUIT_INFO,
+      left_text_ID = UIText.BBRR_QUIT_CANCEL,
+      right_text_ID = UIText.BBRR_QUIT_CONFIRM,
+      message_CB = function(popup_message, popup_pad, popup_data)
+        if popup_message == "BUTTON_NEXT" then
+          PlayNextSound()
+          pcall(gcinfo, "bbrr.log", "Exit Game confirmed")
+          BBRR_RealReturnToArcade()
+          return true
+        elseif popup_message == "BUTTON_BACK" then
+          PlayBackSound()
+          Screen.CancelPopup()
+          return true
+        end
+        return false
+      end
+    }
+    SetupCustomPopup("BBRR_QUIT")
+  end end)
+end
 
 local original_Init = Init
 local original_Update = Update

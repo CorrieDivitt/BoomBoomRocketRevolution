@@ -117,6 +117,7 @@ const char* Describe(const std::string& key) {
       {"citylight", "Buildings near a firework are lit in its colour. Off is the original look."},
       {"waterglow", "The shine on the water takes the colour of the fireworks and moves to where they burst."},
       {"particles", "How many sparks each firework throws, as a multiple of the original (1x)."},
+      {"framerate", "Monitor matches your display's refresh rate. On a slower PC with a fast monitor, pick a lower fixed rate such as 60 for steady play."},
       {"hdr", "For HDR displays with HDR switched on in Windows."},
       {"resolution", "The resolution the game draws at. Higher is sharper and slower."},
       {"layout", "Where the menus sit on wide screens: at the screen edges, or centred as on a 16:9 TV."},
@@ -126,14 +127,14 @@ const char* Describe(const std::string& key) {
   return it == text.end() ? "" : it->second;
 }
 
-// The settings the launcher offers: the Video Settings page, then Menu Layout and Skip Intro.
+// The settings the launcher offers: the Video Settings page, then Skip Intro and Menu Layout.
 std::vector<const Setting*> LauncherSettings() {
   std::vector<std::string> keys;
   for (const auto& page : bbr::settings_table::Pages()) {
     if (page.name == "video") keys = page.rows;
   }
-  keys.push_back("layout");
   keys.push_back("skip_intro");
+  keys.push_back("layout");
   std::vector<const Setting*> out;
   for (const std::string& key : keys) {
     for (const Setting& s : bbr::settings_table::Settings()) {
@@ -697,7 +698,7 @@ struct App {
           ImGui::TableNextColumn();
           ImGui::Dummy(ImVec2(0, base_size * 0.2f));
           ImGui::PushFont(bold, 0.0f);
-          ImGui::TextColored(kAccent, "Menus");
+          ImGui::TextColored(kAccent, "General");
           ImGui::PopFont();
         } else if (s == settings.front()) {
           ImGui::TableNextRow();

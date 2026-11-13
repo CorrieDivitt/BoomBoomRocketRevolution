@@ -326,8 +326,8 @@
  },
  {
   "id": "R-203",
-  "phase": 2,
-  "phase_name": "Audio & music sync",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Audio",
   "title": "Native low-latency music path",
   "priority": "P2",
@@ -335,7 +335,7 @@
   "effort": "L",
   "acceptance": "Songs pre-decoded to PCM and played via WASAPI (SDL3); reported output latency < 20 ms",
   "depends_on": "R-201",
-  "notes": "Demoted from P0: sync is solved by compensating the host audio queue (R-204). Only worth doing for lower sound latency; --audio_maxqframes=4 already halves the queue"
+  "notes": "Demoted from P0: sync is solved by compensating the host audio queue (R-204). Only worth doing for lower sound latency; --audio_maxqframes=4 already halves the queue Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-204",
@@ -391,8 +391,8 @@
  },
  {
   "id": "R-208",
-  "phase": 2,
-  "phase_name": "Audio & music sync",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Sync",
   "title": "Per-song offset overrides",
   "priority": "P2",
@@ -400,7 +400,7 @@
   "effort": "S",
   "acceptance": "Optional per-track offset table in user config",
   "depends_on": "R-205",
-  "notes": "Ride of the Valkyries Easy already ships SongOffset 0.03"
+  "notes": "Ride of the Valkyries Easy already ships SongOffset 0.03 Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-209",
@@ -417,8 +417,8 @@
  },
  {
   "id": "R-210",
-  "phase": 2,
-  "phase_name": "Audio & music sync",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Audio",
   "title": "Audio device & buffer options",
   "priority": "P1",
@@ -426,7 +426,7 @@
   "effort": "S",
   "acceptance": "Choose device, buffer size, exclusive/shared mode, volume sliders",
   "depends_on": "R-203",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-211",
@@ -448,11 +448,11 @@
   "category": "Sync",
   "title": "Timing validation across audio/PC setups",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Measured offset/drift on USB headset, onboard audio, HDMI/TV, Bluetooth, low-end PC; results logged",
   "depends_on": "R-204",
-  "notes": "User plans to test multiple devices"
+  "notes": "User plans to test multiple devices Marked done for now 2026-11-13 at the user's request after testing the release package on a second PC (GTX 1650 / i5-12400F, 120-165 Hz monitor, PS5 pad): Frame Rate setting added, PS5 / SDL pad presses no longer lost or late (SDK patches 0031-0032), default Resolution now 720p."
  },
  {
   "id": "R-213",
@@ -504,7 +504,7 @@
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built. Tracker clean-up 2026-11-12: left open: the user will test frame rate more."
+  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built. Tracker clean-up 2026-11-12: left open: the user will test frame rate more. 2026-11-13: tested on a GTX 1650 / i5-12400F PC with a 165 Hz monitor: about 86 fps at 720p (low settings), 35 fps at 1440p; frames were asked for at 165 Hz. Added Frame Rate in Video Settings (60 / 120 / 144 / 240 / Unlocked / Monitor, restart; fixed rates use the timer unless the display has that rate). Built, not run."
  },
  {
   "id": "R-303",
@@ -534,8 +534,8 @@
  },
  {
   "id": "R-305",
-  "phase": 3,
-  "phase_name": "Frame rate & timing",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Timing",
   "title": "Low-latency presentation",
   "priority": "P1",
@@ -543,7 +543,7 @@
   "effort": "M",
   "acceptance": "Flip-model swapchain, waitable object, max 1 frame queued",
   "depends_on": "R-304",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-306",
@@ -643,11 +643,11 @@
   "category": "Graphics",
   "title": "Anti-aliasing (MSAA / SMAA / FXAA)",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Selectable AA; fireworks trails stay crisp",
   "depends_on": "R-401",
-  "notes": " FXAA (Off / FXAA / FXAA High, live) has been in Video Settings since 2026-11-10 and was confirmed working by the user 2026-11-12 (clear at 720p, hard to see at high resolutions). Left: proper MSAA or SMAA support (requested 2026-11-12). First step: SDK patch 0008 logs the game's render target formats and multisampling ('[bbrr] render target' lines)."
+  "notes": " FXAA (Off / FXAA / FXAA High, live) has been in Video Settings since 2026-11-10 and was confirmed working by the user 2026-11-12 (clear at 720p, hard to see at high resolutions). Left: proper MSAA or SMAA support (requested 2026-11-12). First step: SDK patch 0008 logs the game's render target formats and multisampling ('[bbrr] render target' lines). Marked done 2026-11-13 at the user's request with FXAA (Off / FXAA / FXAA High); MSAA / SMAA not built."
  },
  {
   "id": "R-406",
@@ -677,8 +677,8 @@
  },
  {
   "id": "R-408",
-  "phase": 4,
-  "phase_name": "Graphics & resolution",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Shaders",
   "title": "Native replacement shaders",
   "priority": "P1",
@@ -686,7 +686,7 @@
   "effort": "L",
   "acceptance": "Loose + embedded shaders replaced with native HLSL equivalents, pixel-matched",
   "depends_on": "R-407",
-  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): all game shaders are covered by the 9 recovered sources; replacement would be a hash-keyed table in the SDK's pipeline cache (does not exist yet)."
+  "notes": "Researched 2026-11-11 (docs/GRAPHICS.md): all game shaders are covered by the 9 recovered sources; replacement would be a hash-keyed table in the SDK's pipeline cache (does not exist yet). Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-409",
@@ -729,8 +729,8 @@
  },
  {
   "id": "R-412",
-  "phase": 4,
-  "phase_name": "Graphics & resolution",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Graphics",
   "title": "D3D9-level renderer replacement",
   "priority": "P2",
@@ -738,12 +738,12 @@
   "effort": "XL",
   "acceptance": "Statically linked D3D9 calls hooked to a native renderer (bypassing GPU emulation)",
   "depends_on": "R-408",
-  "notes": "Long-term path for full fidelity"
+  "notes": "Long-term path for full fidelity Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-413",
-  "phase": 4,
-  "phase_name": "Graphics & resolution",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Textures",
   "title": "Texture dump & replacement packs",
   "priority": "P2",
@@ -751,7 +751,7 @@
   "effort": "M",
   "acceptance": "XPR2/DDS/TGA textures dumpable and overridable by hash",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-414",
@@ -885,8 +885,8 @@
  },
  {
   "id": "R-603",
-  "phase": 6,
-  "phase_name": "Input, UX & settings",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Input",
   "title": "Button glyph swap",
   "priority": "P2",
@@ -894,7 +894,7 @@
   "effort": "M",
   "acceptance": "UI shows Xbox/PlayStation/keyboard prompts to match device",
   "depends_on": "R-602",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals (phase 9) 2026-11-13 at the user's request."
  },
  {
   "id": "R-604",

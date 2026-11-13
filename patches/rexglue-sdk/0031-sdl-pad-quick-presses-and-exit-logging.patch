@@ -1,0 +1,93 @@
+--- a/include/rex/input/sdl/sdl_input_driver.h
++++ b/include/rex/input/sdl/sdl_input_driver.h
+@@ -67,6 +67,11 @@
+     DeviceId id;
+     // Per pad rather than per guest user, so it survives reassignment.
+     KeystrokeState keystroke;
++    // [bbrr] Buttons pressed since the game last read this pad, and when each went down (SDL
++    // nanosecond ticks). SDL events are applied in batches between the game's reads, so a quick
++    // tap could otherwise go down and up again without the game ever seeing it.
++    uint16_t held_presses;
++    uint64_t press_time_ns[16];
+   };
+ 
+   // WindowListener
+--- a/src/input/sdl/sdl_input_driver.cpp
++++ b/src/input/sdl/sdl_input_driver.cpp
+@@ -11,6 +11,7 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <bit>
+ #include <cctype>
+ #include <filesystem>
+ #include <string_view>
+@@ -340,6 +341,27 @@
+     controller->state_changed = false;
+   }
+   std::memcpy(out_state, &controller->state, sizeof(*out_state));
++  if (is_active && controller->held_presses) {
++    // [bbrr] Report every press since the last read, even one already released. A press stays
++    // down until it has been read and kMinPressNs have passed since it went down, so a game that
++    // reads the pad more than once a frame still sees it; then it drops on the next read.
++    constexpr uint64_t kMinPressNs = 25'000'000;
++    const uint16_t buttons_now = controller->state.gamepad.buttons;  // stored big-endian
++    out_state->gamepad.buttons = static_cast<uint16_t>(buttons_now | controller->held_presses);
++    const uint64_t now = SDL_GetTicksNS();
++    uint16_t keep = 0;
++    for (int b = 0; b < 16; ++b) {
++      const uint16_t bit = static_cast<uint16_t>(1u << b);
++      if ((controller->held_presses & bit) && now - controller->press_time_ns[b] < kMinPressNs) {
++        keep |= bit;
++      }
++    }
++    // A press that ends here while the button is already up changes what the next read sees.
++    if (static_cast<uint16_t>(controller->held_presses & ~keep & ~buttons_now) != 0) {
++      controller->state_changed = true;
++    }
++    controller->held_presses = keep;
++  }
+   if (!is_active) {
+     // Simulate an "untouched" controller. When we become active again the
+     // pressed buttons aren't lost and will be visible again.
+@@ -746,6 +768,9 @@
+       return;
+     }
+     xbuttons |= xbutton;
++    // [bbrr] Keep the press visible to the game even if the release arrives before its next read.
++    controller.held_presses |= xbutton;
++    controller.press_time_ns[std::countr_zero(static_cast<uint16_t>(xbutton))] = event.gbutton.timestamp;
+   } else {
+     xbuttons &= ~xbutton;
+   }
+--- a/src/kernel/xam/xam_info.cpp
++++ b/src/kernel/xam/xam_info.cpp
+@@ -281,6 +281,7 @@
+       loader_data.launch_path = path;
+     }
+   } else {
++    REXLOG_WARN("[bbrr] the game asked to exit to the dashboard (XamLoaderLaunchTitle)");
+     assert_always("Game requested exit to dashboard via XamLoaderLaunchTitle");
+   }
+ 
+@@ -289,6 +290,7 @@
+ }
+ 
+ void XamLoaderTerminateTitle_entry() {
++  REXLOG_WARN("[bbrr] the game asked to end (XamLoaderTerminateTitle)");
+   // This function does not return.
+   REX_KERNEL_STATE()->TerminateTitle();
+ }
+--- a/src/kernel/xboxkrnl/xboxkrnl_debug.cpp
++++ b/src/kernel/xboxkrnl/xboxkrnl_debug.cpp
+@@ -144,8 +144,8 @@
+ }
+ 
+ void KeBugCheckEx_entry(u32 code, u32 param1, u32 param2, u32 param3, u32 param4) {
+-  REXKRNL_DEBUG("*** STOP: 0x{:08X} (0x{:08X}, 0x{:08X}, 0x{:08X}, 0x{:08X})", code, param1, param2,
+-                param3, param4);
++  REXLOG_ERROR("[bbrr] the game stopped with KeBugCheck: 0x{:08X} (0x{:08X}, 0x{:08X}, 0x{:08X}, 0x{:08X})",
++               code, param1, param2, param3, param4);
+   fflush(stdout);
+   rex::debug::Break();
+   assert_always();

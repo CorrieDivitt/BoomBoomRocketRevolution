@@ -29,6 +29,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/city_lighting.cpp
     src/camera_speed.cpp
     src/settings.cpp
+    src/crash_report.cpp
     src/profiles.cpp
     src/visualizer.cpp
     src/visualizer_zoom.cpp
@@ -50,8 +51,18 @@ if(WIN32)
 endif()
 
 
-# Release version, shown by the launcher (scripts\package.ps1 -Version overrides it).
+# Release version, shown by the launcher and at the top of each log (scripts\package.ps1 -Version overrides it).
 set(BBRR_VERSION "1.0.0-dev" CACHE STRING "Version of Boom Boom Rocket Revolution")
+target_compile_definitions(boomboomrocket PRIVATE BBRR_VERSION_STRING="${BBRR_VERSION}")
+if(WIN32)
+    # src/crash_report.cpp: crash dumps.
+    target_link_libraries(boomboomrocket PRIVATE dbghelp)
+endif()
+# Controller mappings (thirdparty/SDL_GameControllerDB), loaded from the game's own folder.
+add_custom_command(TARGET boomboomrocket POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/SDL_GameControllerDB/gamecontrollerdb.txt"
+        "$<TARGET_FILE_DIR:boomboomrocket>/gamecontrollerdb.txt")
 
 # The launcher (launcher/): sets up the player's own game files and DLC next to itself,
 # offers the video settings, and starts the game. Dear ImGui on Direct3D 11, built from the

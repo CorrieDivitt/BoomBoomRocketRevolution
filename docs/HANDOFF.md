@@ -1,4 +1,4 @@
-# Handoff notes (updated 2026-11-13, after the launcher and release-prep session)
+# Handoff notes (updated 2026-11-13, after the menus, logging and second-PC session)
 
 For whoever picks the project up next, human or Claude. The other docs go deeper on one subject
 each: `PLAN.md` (phases), `TIMING.md` (song clock, judging, end of song), `GRAPHICS.md` (shaders,
@@ -6,6 +6,38 @@ HDR, particles), `DLC_PROTOTYPES.md`, `ANALYSIS.md` (game internals), `USER_GUID
 player sees). The requirements list (`requirements.py` -> csv/json and the dashboard) is the task
 list; its current state is copied into the **Tracker** section at the end of this file every time
 `python3 docs/requirements.py` runs. `SUBMISSION.md` covers the store listings.
+
+## Session 2026-11-13 (evening): menus, logging, release package, second-PC testing
+All built and tested by the user unless marked otherwise.
+- **BBRR menu order** (`src/settings_table.h` Pages): Profiles, Calibration (Auto Calibration, Audio /
+  Input Offset), Video Settings (Resolution, Window Mode, Aspect Ratio, Frame Rate, HDR, AA, Texture
+  Filtering, Particle Density, City Lighting, Water Glow, Glow), Modifiers (Scroll Speed, Show Accuracy,
+  Assist Tick, Autoplay, Background, Camera Speed, Rocket Acceleration, Horizontal Drift, DDR Mode,
+  Visualizer Sensitivity), Keyboard, then Skip Intro and Menu Layout at the top level. The launcher's
+  Game Settings tab: the Video Settings rows, then a "General" heading with Skip Intro and Menu Layout.
+- **Logging for release:** logs in `Documents\boomboomrocket\logs` (newest 20), crash dumps
+  `crash_<date>_<time>.dmp` there (newest 5) from `src/crash_report.cpp` (unhandled exceptions and
+  abort; `--crash_test=true` crashes on purpose, confirmed working). Each log starts with version, exe
+  build time, Windows / CPU / memory and a `[settings] video:` line. The game ending itself is logged
+  (`[bbrr] the game asked ...`, `the game's main thread has ended`; SDK patch 0031). The per-second
+  City Lighting line is gone (SDK patch 0030). `--log_file` still writes one fixed file.
+- **Package** (`scripts\package.ps1`): ships the Visual C++ runtime DLLs app-local, `gamecontrollerdb.txt`
+  (SDL_GameControllerDB, loaded from the exe folder), `calibration_sounds\beat.wav` / `subbeat.wav`
+  (royalty-free, now committed); leaves out TracyClient.dll. README.txt lists requirements and the logs.
+- **Frame Rate** (Video Settings, restart): 60 / 120 / 144 / 240 / Unlocked / Monitor (default). Fixed
+  rates tick the guest vblank from a timer (or the display when it has that rate); Unlocked = vsync off.
+  vsync / vblank_display_sync belong to the GPU plugin, registered after settings load, so they are set
+  through `SetAtBoot` (environment); a plain SetFlagByName was silently lost (first version).
+- **SDL pads (PS5 etc.):** presses were lost or late on slow PCs because SDL only read the pads when the
+  UI thread pumped events. Patch 0031 keeps each press until the game has read it (min 25 ms); patch 0032
+  reads SDL pads every 1 ms on their own thread (`--hid_sdl_poll_thread=false` turns it off). Confirmed
+  on the second PC: one miss in a whole song at 60 fps.
+- **Exit Game** on the main menu asks first (game's pop-up; A exits, B cancels; `ui_scripts/Main/MainMenu.lua`).
+- **Second PC** (GTX 1650, i5-12400F, 120-165 Hz): ~86 fps at 720p, ~33 fps at 1440p. Default Resolution
+  is now 720p. Hardware testing (R-212) marked done for now.
+- **Known, not planned:** Freestyle mode (arrows can be fired at any time) shows large early "hits" in
+  the log and skips the scroll-speed setup; the user said not to worry about that mode.
+- **AI use:** "Yes, this project uses AI" (README section AI use).
 
 ## Session 2026-11-13 (night): tracker tidy-up, no game testing
 Built and confirmed by the user the same day:
@@ -282,9 +314,13 @@ Offset if notes look out of step with the music). Positive Audio Offset = notes 
   form; `.\scripts\x.ps1` fails on the user's machine.
 - Code is edited in the Linux sandbox that sees `F:\Boom Boom Rocket`; it cannot run Windows
   builds. The user builds with `powershell -ExecutionPolicy Bypass -File scripts\build.ps1` and
-  tests; the log is `boomboomrocket.log` in the project folder and is the main source of evidence.
+  tests; the logs are the main source of evidence. Since 2026-11-13 each start writes
+  `Documents\boomboomrocket\logs\boomboomrocket_NNN.log` (newest 20 kept) and a crash writes
+  `crash_<date>_<time>.dmp` there (newest 5 kept; `src/crash_report.cpp`; `--crash_test=true` crashes on purpose to check it); `--log_file=<path>` gives one
+  fixed file instead (the older `boomboomrocket.log` in the project folder came from that).
 - Give commands one per code block. Say plainly when something is built but not run.
-- Never commit `Game Files`, `DLC` or `calibration_sounds\*.wav`. Commit author
+- Never commit `Game Files` or `DLC`. Of `calibration_sounds\*.wav`, only `beat.wav` and `subbeat.wav`
+  (royalty-free, shipped in the release since 2026-11-13) are committed. Commit author
   `CorrieDivitt <CorrieDivitt@users.noreply.github.com>`.
 - Game code is hooked with `REX_HOOK_RAW(sub_X)` (works for virtual calls too, the function table
   uses the same symbol) and `[[midasm_hook]]` entries in `config/default.toml`; SDK changes live in
@@ -314,7 +350,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-101 requirements: 3 in progress, 30 todo, 68 done. Details and notes per item: docs/requirements.csv or the dashboard.
+101 requirements: 2 in progress, 29 todo, 70 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -343,10 +379,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-112 | Clean up prototype DLC packs | P2 | done |
 | R-113 | Skip start-up logos | P1 | done |
 | **Phase 2** | **Audio & music sync** | | |
-| R-203 | Native low-latency music path | P2 | todo |
-| R-208 | Per-song offset overrides | P2 | todo |
-| R-210 | Audio device & buffer options | P1 | todo |
-| R-212 | Timing validation across audio/PC setups | P0 | todo |
 | R-201 | XMA1 music & SFX playback | P0 | done |
 | R-202 | Identify the game's song clock | P0 | done |
 | R-204 | Audio-clock-driven beat timeline | P0 | done |
@@ -355,25 +387,22 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-207 | Calibration screen (tap to the beat) | P1 | done |
 | R-209 | Sync debug overlay | P1 | done |
 | R-211 | Visualizer with user music files - covered by R-905 | P2 | done |
+| R-212 | Timing validation across audio/PC setups | P0 | done |
 | R-213 | Smooth arrow motion (interpolated song clock) | P0 | done |
 | R-214 | Game volume boost | P2 | done |
 | **Phase 3** | **Frame rate & timing** | | |
 | R-302 | Unlocked frame rate (120/144/240+) | P0 | in progress |
-| R-305 | Low-latency presentation | P1 | todo |
 | R-301 | Determine game loop timing model | P0 | done |
 | R-303 | Fixed-step sim with render interpolation | P1 | done |
 | R-304 | Frame pacing matched to the display | P0 | done |
 | R-306 | High-rate timestamped input | P0 | done |
 | **Phase 4** | **Graphics & resolution** | | |
-| R-405 | Anti-aliasing (MSAA / SMAA / FXAA) | P1 | in progress |
-| R-408 | Native replacement shaders | P1 | todo |
-| R-412 | D3D9-level renderer replacement | P2 | todo |
-| R-413 | Texture dump & replacement packs | P2 | todo |
 | R-415 | Ultrawide menu/HUD layout pass | P1 | todo |
 | R-401 | Arbitrary resolutions | P0 | done |
 | R-402 | Aspect ratios 16:9 / 16:10 / 21:9 / 32:9 | P0 | done |
 | R-403 | Internal resolution scale | P1 | done |
 | R-404 | Window modes & display select | P0 | done |
+| R-405 | Anti-aliasing (MSAA / SMAA / FXAA) | P1 | done |
 | R-406 | Anisotropic filtering | P2 | done |
 | R-407 | Recover HLSL from .updb shader PDBs | P1 | done |
 | R-409 | HDR bloom & tonemapping for fireworks | P1 | done |
@@ -387,7 +416,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-503 | Implement XUserReadStats / XSessionWriteStats / stats enumerator | P0 | done |
 | R-506 | Player identity / profile | P1 | done |
 | **Phase 6** | **Input, UX & settings** | | |
-| R-603 | Button glyph swap | P2 | todo |
 | R-601 | Controller support (XInput, DualSense, Switch Pro) | P0 | done |
 | R-602 | Keyboard support & rebinding | P0 | done |
 | R-604 | Local 2-player | P1 | done |
@@ -414,9 +442,17 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-812 | DDR Mode | P2 | done |
 | **Phase 9** | **Stretch goals (post-1.0)** | | |
 | R-114 | Endurance mode: issues found in testing | P1 | todo |
+| R-203 | Native low-latency music path | P2 | todo |
+| R-208 | Per-song offset overrides | P2 | todo |
+| R-210 | Audio device & buffer options | P1 | todo |
+| R-305 | Low-latency presentation | P1 | todo |
+| R-408 | Native replacement shaders | P1 | todo |
+| R-412 | D3D9-level renderer replacement | P2 | todo |
+| R-413 | Texture dump & replacement packs | P2 | todo |
 | R-417 | Fireworks reflected in the water - parked | P2 | todo |
 | R-504 | Online leaderboard service | P1 | todo |
 | R-505 | Score integrity checks | P2 | todo |
+| R-603 | Button glyph swap | P2 | todo |
 | R-801 | Research modern rhythm-game features | P1 | todo |
 | R-805 | Practice tools (section loop, slow-down) | P2 | todo |
 | R-902 | Accessibility review | P2 | todo |

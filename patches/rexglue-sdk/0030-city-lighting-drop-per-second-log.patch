@@ -1,0 +1,34 @@
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2480,8 +2480,6 @@
+ BbrrLight bbrr_lights[6];
+ uint32_t bbrr_light_count = 0;
+ uint64_t bbrr_lights_frame = ~uint64_t(0);
+-uint32_t bbrr_light_log_lines = 0;
+-uint64_t bbrr_light_log_frame = 0;
+ 
+ struct BbrrBox {
+   float lo[3];
+@@ -2729,22 +2727,6 @@
+   if (!(weight_sum > 0.0f) || !std::isfinite(weight_sum)) return;
+   for (int k = 0; k < 3; ++k) f.centre[k] /= weight_sum;
+   f.valid = std::isfinite(f.centre[0] + f.centre[1] + f.centre[2] + f.total[0] + f.total[1] + f.total[2]);
+-
+-  if (f.valid && bbrr_light_log_lines < 120 && bbrr_frame >= bbrr_light_log_frame) {
+-    bbrr_light_log_frame = bbrr_frame + 120;
+-    ++bbrr_light_log_lines;
+-    char line[384];
+-    std::snprintf(line, sizeof(line),
+-                  "%u lights (strengths %.2f %.2f %.2f %.2f %.2f %.2f %.2f), centre (%.0f %.0f %.0f), total colour "
+-                  "(%.3g %.3g %.3g), game flash %.4g, setting %.3g",
+-                  f.count, double(f.count > 0 ? f.lights[0].strength : 0), double(f.count > 1 ? f.lights[1].strength : 0),
+-                  double(f.count > 2 ? f.lights[2].strength : 0), double(f.count > 3 ? f.lights[3].strength : 0),
+-                  double(f.count > 4 ? f.lights[4].strength : 0), double(f.count > 5 ? f.lights[5].strength : 0),
+-                  double(f.count > 6 ? f.lights[6].strength : 0), double(f.centre[0]), double(f.centre[1]),
+-                  double(f.centre[2]), double(f.total[0]), double(f.total[1]), double(f.total[2]),
+-                  double(game_strength[0]), double(strength));
+-    REXLOG_INFO("[bbrr] city light: {}", line);
+-  }
+ }
+ 
+ // Gives a city draw its own light. Returns false when there is nothing to change.
