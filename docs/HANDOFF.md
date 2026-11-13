@@ -35,7 +35,9 @@ Built and confirmed by the user the same day:
   whether a re-issued draw shows at all: it did. **Patch 0027** drops that test and widens the
   scissor for the reflected copy; tested, no change (the scissor was already the whole screen).
   **Patch 0028** (test) drew the fireworks unflipped on the water: they showed. So the flipped
-  copy is lost at the far plane; **patch 0029** pins its depth to mid-range. Built, not run.
+  copy is lost at the far plane; **patch 0029** pinned its depth to mid-range: no change.
+  **Patch 0030** (last try; the user will park R-417 if it fails) flips the fireworks on screen
+  about the water line instead. Built, not run.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:

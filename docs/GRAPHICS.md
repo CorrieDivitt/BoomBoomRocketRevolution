@@ -234,6 +234,11 @@ How it could be done, cheapest first:
    plane (probe depth 0.999..1.000), so they are clipped. Patch 0029 removes the test copy and pins
    the reflected copy's depth to the middle of the range (clip z = 0.5 w): no depth test, and spark
    size comes from the vertex, so nothing else depends on it.
+   Test of 0029: no change, though the probe shows depth 0.5 and all sampled copy sparks on screen.
+   Still unexplained why an unflipped copy moved onto the water shows and the 3D-flipped one does
+   not. Patch 0030 (last try before parking): a screen-space flip of the normal fireworks about the
+   row of the water point under the sparks' average position (clip y' = 2 line w - y), keeping the
+   normal depth and w. Logged as `screen flip about row`.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
