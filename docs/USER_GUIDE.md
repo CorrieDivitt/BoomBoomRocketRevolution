@@ -50,7 +50,6 @@ in any folder above it. `--dlc_path=<folder>` uses a different DLC folder.
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
 | | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
 | | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
-| | Water Reflections (test) | Off (default) or On: an experiment that draws the firework bursts reflected in the water. For now they also show over things that should hide them; changes at once |
 | | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |

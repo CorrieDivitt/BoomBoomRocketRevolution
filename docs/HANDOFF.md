@@ -22,8 +22,9 @@ Built and confirmed by the user the same day:
   The second try moved the look-at point (taken for the eye) and only tilted the view: in
   sub_82088580 the camera position is game + 0x1044C, sitting ahead on the path, and r1+112 is
   what it looks at. Now the position is moved away from the look-at point.
-- **Water Reflections (test) is back** in Video Settings (off by default), at the user's request,
-  to look at from the pulled-back Visualizer view (R-417). Seen working only from steep views;
+- **Water Reflections (R-417, parked):** brought back as a test option for the pulled-back
+  Visualizer view, then **taken out of Video Settings and the launcher again** at the user's request
+  while it is a test (settings.ini values ignored; `--water_reflections=true` still turns it on). Seen working only from steep views;
   **SDK patch 0022** (run `scripts\patch-sdk.ps1`) gives the mirrored bursts their own reflected
   matrix; tested, no real change (the mirror matrix was already a plain reflection). **Patch 0023**
   turns user clip planes off for the copy; tested, no change (there were none). **Patch 0024** logs
@@ -72,7 +73,7 @@ pushes from their own terminal. Confirmed by the user unless marked otherwise.
 - **Store prep (R-708):** `docs/SUBMISSION.md` with Quiver catalog values (folderName
   `BoomBoomRocket-Revolution`, asset filter `*windows-x64.zip`, exe `BoomBoomRocketRevolution.exe`)
   and RecompStore text. Open: screenshots/logo of our own, the AI-use answer, README install section.
-- **Water Reflections:** option removed, forced off in code (R-417, post-release). Brought back as a test option 2026-11-13.
+- **Water Reflections:** option removed (R-417, post-release). Briefly back as a test option 2026-11-13, removed again the same day; command line only.
 - **Endurance (R-114):** song clock now keeps its measured tempo across pauses and lap loops
   (camera stutter after a pause); Autoplay still misses the first notes of each lap: parked by the
   user as a known post-release bug.

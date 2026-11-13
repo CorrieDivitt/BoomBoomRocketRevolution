@@ -105,9 +105,8 @@ inline const std::vector<Setting>& Settings() {
     // Fireworks and the water (src/city_lighting.cpp, SDK patch 0019).
     s.push_back({"waterglow", "water_glow", "Water Glow",
                  {{"0", "Off"}, {"0.5", "Low"}, {"1", "Medium"}, {"2", "High"}}, 3, "video"});
-    // Experimental (R-417): bursts mirrored in the water, also over things that should hide them.
-    s.push_back({"waterrefl", "water_reflections", "Water Reflections (test)", {{"false", "Off"}, {"true", "On"}}, 0,
-                 "video"});
+    // Water Reflections (R-417) is parked and kept out of the menus and settings.ini while it is a
+    // test; developers can still turn it on with --water_reflections=true.
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
@@ -127,7 +126,7 @@ inline const std::vector<Page>& Pages() {
       // Rows handled by src/profiles.cpp.
       {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
       {"modifiers", "Modifiers", {"scroll_speed", "camera_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
-      {"video", "Video Settings", {"aspect", "window", "antialiasing", "aniso", "glow", "citylight", "waterglow", "waterrefl", "particles", "hdr", "resolution"}},
+      {"video", "Video Settings", {"aspect", "window", "antialiasing", "aniso", "glow", "citylight", "waterglow", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
       {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},

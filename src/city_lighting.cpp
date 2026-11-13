@@ -49,7 +49,7 @@ REXCVAR_DEFINE_DOUBLE(water_glow, 2.0, "BBR",
 // the mirror camera (SDK patch 0019). The bursts have no depth test, so the mirrored copy also
 // paints over things that should hide it; offered again 2026-11-13 as a test option.
 REXCVAR_DEFINE_BOOL(water_reflections, false, "BBR",
-                    "Water Reflections (test): the firework bursts are drawn again with the mirror camera, so "
+                    "Water Reflections (test, parked, not in the menus): the firework bursts are drawn again with the mirror camera, so "
                     "they show in the water (they also show over things that should hide them)");
 // Read by the GPU side (SDK patch 0020) once a frame.
 REXCVAR_DEFINE_DOUBLE(water_glow_spread, 20.0, "BBR",
