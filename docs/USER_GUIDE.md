@@ -94,9 +94,10 @@ and raise it there too.
 
 ## Visualizer
 **Single Player > Visualizer** sets off fireworks to whatever music is playing on the PC. Hold
-**RB** to zoom in, as in the original. Hold **X** to zoom out: the view widens to as if the
-camera had backed off four times as far as RB brings it in (`--visualizer_zoom_out=<n>` changes
-the four; 0 turns it off). Let go and the view eases back.
+**RB** to zoom in, as in the original. Hold **A** to pull the camera back and up for a wide view
+of the city with the fireworks in the distance; let go and it glides back.
+`--visualizer_pull_back=<n>` and `--visualizer_pull_back_lift=<n>` set how far back and how far
+up it goes (defaults 6000 and 1500; 0 for both turns it off).
 
 ## Command-line options
 Settings can also be given when starting the game; these win over the saved settings.

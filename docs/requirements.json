@@ -1174,13 +1174,13 @@
   "phase": 9,
   "phase_name": "Stretch goals (post-1.0)",
   "category": "Feature",
-  "title": "Visualizer zoom out (X)",
+  "title": "Visualizer camera pull-back (A)",
   "priority": "P2",
   "status": "in_progress",
   "effort": "S",
-  "acceptance": "In the Visualizer, holding X zooms out by 4x the distance RB zooms in; releasing eases back, like RB",
+  "acceptance": "In the Visualizer, holding A moves the camera back (and up) for a wide view of the city and fireworks; releasing eases it back",
   "depends_on": "R-905",
-  "notes": "Requested 2026-11-13. Built 2026-11-13, not yet run: src/visualizer_zoom.cpp hooks the Visualizer camera update (sub_82088580). The game's RB zoom is a lens zoom: z at game+0x12E60 (0.03 an update, 0..1), field of view 2*atan(tan(22.5 deg)*2850/(2500+1600z)) at game+0x103FC, 50.6 deg at rest, 32.1 deg at full RB (the camera looks 39% closer). X (pad byte +134, control 6) eases a second amount in the same way and widens the view as if the camera backed off 4x that: 100.8 deg at full X. --visualizer_zoom_out sets the multiple (0 = off)."
+  "notes": "Requested 2026-11-13. First try (X widening the field of view after sub_82088580 returned) did nothing in game: the camera is set up inside that function, so the change came too late. The user then asked for A to physically move the camera back. Built 2026-11-13, not yet run: mid-asm hook BbrVisualizerEyeHook at 0x82088B78 (just before the eye at r1+112 goes to sub_82061018) pushes the eye back along the view direction (towards the look-at point at game+0x1044C) by --visualizer_pull_back (6000) and up by --visualizer_pull_back_lift (1500), eased at the game's zoom step (0.03 an update), skipped while paused. The game's RB zoom is a lens zoom: z at game+0x12E60, d = 2500 + 1600z is both the look-at distance and the field of view's divisor. Defaults are a guess at the scale; the log prints eye and look-at when A is first pressed, to tune from."
  },
  {
   "id": "R-801",
