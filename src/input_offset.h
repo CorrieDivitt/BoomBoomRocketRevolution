@@ -8,8 +8,8 @@ namespace bbr {
 //   "bbrr.hit.summary" -> "1" after writing the finished song's timing line (average, spread,
 //                         early and late counts) into stored string STR126; "0" if none
 //   "bbrr.hit.advice"  -> "1" after writing which way to move Input Offset into stored string STR118
-//                         (song clearly early or late: 20+ hits, average 15+ ms off, 70%+
-//                         on one side); "0" if no suggestion. Works with Show Accuracy off too
+//                         (20+ hits and one side, early or late, has more than 1.5 times as
+//                         many as the other, whatever the average); "0" if no suggestion. Works with Show Accuracy off too
 //   "bbrr.hit.poll"    -> "" or "slot,x,grade" for the next hit not yet shown: the text is
 //                         in stored string STR<slot>, x is a 640x480 layout coordinate,
 //                         grade is the judgement (6 Perfect, 5 Awesome, 3 Good, 1 OK)

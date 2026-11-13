@@ -49,7 +49,7 @@ end
 
 -- After an Autoplay song the game's profile save is skipped. The screen also waits for that
 -- save before it lets go of the controller when the game ends an Xbox Live session (with
--- Leaderboards Test on), so it is told the save has started - nothing is saved, as
+-- the leaderboards on), so it is told the save has started - nothing is saved, as
 -- save_needed is false - or the results screen ignores every button for 60 seconds.
 function SkipSave()
   if no_save and GUI ~= nil then

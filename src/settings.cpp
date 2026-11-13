@@ -90,11 +90,6 @@ const std::vector<Setting>& Settings() {
     s.push_back({"assist_tick", "assist_tick", "Assist Tick", {{"true", "On"}, {"false", "Off"}}, 1});
     s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
-    // An experiment (SDK patch 0017): tell the game its players are signed in to Xbox Live, so
-    // its own leaderboard code runs - scores written at the end of a song, tables read back -
-    // against the scores kept on this PC (src/leaderboards.cpp). Needs a restart.
-    s.push_back({"livemode", "profiles_signed_in_to_live", "Leaderboards Test", {{"false", "Off"}, {"true", "On"}}, 0,
-                 "main", true});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
                  {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0, "video"});
     s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video"});
@@ -157,7 +152,7 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "page:keyboard", "visualizer", "skip_intro", "layout", "livemode"}},
+      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "page:keyboard", "visualizer", "skip_intro", "layout"}},
       // Rows other than "keyboard" handled by src/keyboard.cpp.
       {"keyboard", "Keyboard", {"keyboard", "keyboard_dpad", "action:bind_a", "action:bind_b", "action:bind_x",
                                 "action:bind_y", "action:bind_lb", "action:bind_rb", "action:bind_triggers",

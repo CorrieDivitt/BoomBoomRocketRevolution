@@ -185,7 +185,7 @@ song start by sliding its start point along the straight path (`0x820687C0`: sta
 same end whose path passes through start' (any note kind). Log: `[modifiers] first note at ...`.
 
 **Offset suggestion (R-807).** `bbrr.hit.advice` (src/input_offset.cpp) writes STR118 when the
-song had 20+ hits, an average 15+ ms from zero and 70%+ of hits on that side; it says which way to
+song had 20+ hits and one side (early or late) outnumbers the other by more than 1.5 times, whatever the average (changed 2026-11-12); it says which way to
 move Input Offset (raise for late, lower for early) and the current setting, no target number
 (changed 2026-11-12: one song is too rough to aim at a value). Shown below the timing line (or in
 its place when Hit Timing is off) by ui_scripts/Ingame/LevelBreakdown.lua. Every results screen

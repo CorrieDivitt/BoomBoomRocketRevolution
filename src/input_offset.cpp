@@ -280,8 +280,11 @@ constexpr uint32_t kAdviceSlot = 118;   // stored string that carries the offset
 // When a suggestion is worth showing (R-807): enough hits, a clearly one-sided result and an
 // average well away from zero. The Input Offset menu goes from -100 to +100 ms in 5 ms steps.
 constexpr int kAdviceMinHits = 20;
-constexpr double kAdviceMinAverageMs = 15.0;
-constexpr double kAdviceMinShare = 0.70;
+// A suggestion is shown when one side outnumbers the other by more than this (1.5 = 50% more
+// late hits than early ones, or the other way round), whatever the average: a good player
+// can keep a small average while compensating for an offset that is off, and the lean of the
+// hits still shows it (changed 2026-11-12; it used to need an average 15 ms off as well).
+constexpr double kAdviceMinLean = 1.5;
 constexpr double kOffsetLimitMs = 100.0;
 
 // How far the music that is heard trails the song clock (same sum as src/song_clock.cpp).
@@ -559,7 +562,7 @@ std::string bbr::HitCommand(const std::string& command) {
     return "1";
   }
   if (command == "bbrr.hit.advice") {
-    // Results screen: if the song's hits were clearly early or clearly late, write a
+    // Results screen: if the song's hits lean clearly early or clearly late, write a
     // suggestion (which way to move Input Offset) into its stored string. Shown whether Show Accuracy is on or not.
     SongStats song;
     {
@@ -569,11 +572,12 @@ std::string bbr::HitCommand(const std::string& command) {
     uint8_t* base = bbr::GuestBase();
     if (!base || song.count == 0) return "0";
     const double mean = song.sum / song.count;  // + early, - late
-    const bool late = mean < 0.0;
-    const double share = double(late ? song.late : song.early) / song.count;
-    if (song.count < kAdviceMinHits || std::fabs(mean) < kAdviceMinAverageMs || share < kAdviceMinShare) {
-      REXLOG_INFO("[input] offset advice: none ({} hits, avg {:+.1f} ms, {:.0f}% {})", song.count, mean,
-                  share * 100.0, late ? "late" : "early");
+    const bool late = song.late > song.early;
+    const int more = late ? song.late : song.early, less = late ? song.early : song.late;
+    const double share = double(more) / song.count;
+    if (song.count < kAdviceMinHits || more == 0 || double(more) <= kAdviceMinLean * double(less)) {
+      REXLOG_INFO("[input] offset advice: none ({} hits, avg {:+.1f} ms, {} early / {} late)", song.count, mean,
+                  song.early, song.late);
       return "0";
     }
     // Late hits: raise Input Offset; early hits: lower it. Only the direction is given, not a
@@ -590,8 +594,8 @@ std::string bbr::HitCommand(const std::string& command) {
                     late ? "late" : "early", late ? "raising" : "lowering", now_ms);
     }
     std::memcpy(base + kTextManager + kAdviceSlot * 256, text, std::strlen(text) + 1);
-    REXLOG_INFO("[input] offset advice over {} hits ({:.0f}% {}): {}", song.count, share * 100.0,
-                late ? "late" : "early", text);
+    REXLOG_INFO("[input] offset advice over {} hits ({} early / {} late, {:.0f}% {}, avg {:+.1f} ms): {}", song.count,
+                song.early, song.late, share * 100.0, late ? "late" : "early", mean, text);
     return "1";
   }
   if (command == "bbrr.hit.poll") {
