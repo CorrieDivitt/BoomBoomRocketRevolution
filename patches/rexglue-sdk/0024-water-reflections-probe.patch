@@ -1,0 +1,148 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -30,6 +30,7 @@
+ #include <rex/graphics/d3d12/shader.h>
+ #include <rex/graphics/flags.h>
+ #include <rex/graphics/hidden_shaders.h>
++#include <rex/graphics/pipeline/shader/interpreter.h>
+ #include <rex/graphics/registers.h>
+ #include <rex/graphics/util/draw.h>
+ #include <rex/graphics/xenos.h>
+@@ -2898,6 +2899,115 @@
+ bool bbrr_mirror_measured = false;  // this frame's mirror matrix already compared
+ int bbrr_matrix_layout = 0;         // 0 unknown, 1 one output per register, 2 one input per register
+ 
++// Patch 0024: a probe for the reflected copy. Runs the burst vertex shader on the CPU for a
++// sample of the draw's sparks (with whatever constants are in the register file) and reports
++// where they land: how many are in front of the camera and inside the screen, their pixel rows
++// and columns, depth and point size. Logged for the normal draw and the copy every few seconds.
++struct BbrrProbeSink : ShaderInterpreter::ExportSink {
++  float position[4] = {};
++  bool has_position = false;
++  float size = 0.0f;
++  bool has_size = false;
++  void Reset() {
++    has_position = false;
++    has_size = false;
++  }
++  void Export(ucode::ExportRegister export_register, const float* value, uint32_t value_mask) override {
++    if (export_register == ucode::ExportRegister::kVSPosition) {
++      for (int k = 0; k < 4; ++k) {
++        if (value_mask & (1u << k)) position[k] = value[k];
++      }
++      has_position = true;
++    } else if (export_register == ucode::ExportRegister::kVSPointSizeEdgeFlagKillVertex && (value_mask & 1u)) {
++      size = value[0];
++      has_size = true;
++    }
++  }
++};
++
++std::string BbrrProbe(const RegisterFile& regs, const memory::Memory& memory, const Shader& vertex_shader) {
++  auto init = regs.Get<reg::VGT_DRAW_INITIATOR>();
++  if (!init.num_indices) return "no vertices";
++  if (!vertex_shader.is_ucode_analyzed() || !ShaderInterpreter::CanInterpretShader(vertex_shader)) {
++    return "shader cannot be run on the CPU";
++  }
++  if (init.source_select != xenos::SourceSelect::kDMA && init.source_select != xenos::SourceSelect::kAutoIndex) {
++    return "unsupported index source";
++  }
++  auto dma_size = regs.Get<reg::VGT_DMA_SIZE>();
++  xenos::Endian index_endian = dma_size.swap_mode;
++  const uint16_t* indices_16 = nullptr;
++  const uint32_t* indices_32 = nullptr;
++  if (init.source_select == xenos::SourceSelect::kDMA) {
++    uint32_t base_address = regs[XE_GPU_REG_VGT_DMA_BASE];
++    if (init.index_size == xenos::IndexFormat::kInt16) {
++      if (index_endian == xenos::Endian::k8in32) index_endian = xenos::Endian::k8in16;
++      else if (index_endian == xenos::Endian::k16in32) index_endian = xenos::Endian::kNone;
++      indices_16 = memory.TranslatePhysical<const uint16_t*>(base_address & ~uint32_t(1));
++    } else {
++      indices_32 = memory.TranslatePhysical<const uint32_t*>(base_address & ~uint32_t(3));
++    }
++  }
++  const uint32_t index_offset = regs.Get<reg::VGT_INDX_OFFSET>().indx_offset;
++  const uint32_t min_index = regs.Get<reg::VGT_MIN_VTX_INDX>().min_indx;
++  const uint32_t max_index = regs.Get<reg::VGT_MAX_VTX_INDX>().max_indx;
++  auto vte = regs.Get<reg::PA_CL_VTE_CNTL>();
++  const float x_scale = vte.vport_x_scale_ena ? regs.Get<float>(XE_GPU_REG_PA_CL_VPORT_XSCALE) : 1.0f;
++  const float x_offset = vte.vport_x_offset_ena ? regs.Get<float>(XE_GPU_REG_PA_CL_VPORT_XOFFSET) : 0.0f;
++  const float y_scale = vte.vport_y_scale_ena ? regs.Get<float>(XE_GPU_REG_PA_CL_VPORT_YSCALE) : 1.0f;
++  const float y_offset = vte.vport_y_offset_ena ? regs.Get<float>(XE_GPU_REG_PA_CL_VPORT_YOFFSET) : 0.0f;
++
++  ShaderInterpreter interpreter(regs, memory);
++  interpreter.SetShader(vertex_shader);
++  BbrrProbeSink sink;
++  interpreter.SetExportSink(&sink);
++  uint32_t sampled = 0, in_front = 0, on_screen = 0, killed_or_silent = 0;
++  float min_y = 1e30f, max_y = -1e30f, min_x = 1e30f, max_x = -1e30f, min_w = 1e30f, max_w = -1e30f;
++  float min_z = 1e30f, max_z = -1e30f, size_sum = 0.0f;
++  uint32_t size_count = 0;
++  const uint32_t count = init.num_indices;
++  const uint32_t step = std::max<uint32_t>(1, count / 400);
++  for (uint32_t i = 0; i < count; i += step) {
++    uint32_t vertex_index = i;
++    if (indices_16 || indices_32) {
++      if (i >= dma_size.num_words) break;
++      vertex_index = indices_16 ? indices_16[i] : indices_32[i];
++      vertex_index = xenos::GpuSwap(vertex_index, index_endian) & 0xFFFFFF;
++    }
++    vertex_index = std::min(max_index, std::max(min_index, (vertex_index + index_offset) & 0xFFFFFF));
++    sink.Reset();
++    interpreter.temp_registers()[0] = float(vertex_index);
++    interpreter.Execute();
++    if (!sink.has_position) {
++      ++killed_or_silent;
++      continue;
++    }
++    ++sampled;
++    const float w = sink.position[3];
++    min_w = std::min(min_w, w);
++    max_w = std::max(max_w, w);
++    if (!(w > 0.0f)) continue;
++    ++in_front;
++    const float x = sink.position[0] / w, y = sink.position[1] / w, z = sink.position[2] / w;
++    min_x = std::min(min_x, x * x_scale + x_offset);
++    max_x = std::max(max_x, x * x_scale + x_offset);
++    min_y = std::min(min_y, y * y_scale + y_offset);
++    max_y = std::max(max_y, y * y_scale + y_offset);
++    min_z = std::min(min_z, z);
++    max_z = std::max(max_z, z);
++    if (std::fabs(x) <= 1.0f && std::fabs(y) <= 1.0f && z >= 0.0f && z <= 1.0f) ++on_screen;
++    if (sink.has_size) {
++      size_sum += sink.size;
++      ++size_count;
++    }
++  }
++  return fmt::format(
++      "{} of {} sampled ({} without a position), {} in front, {} on screen; columns {:.0f}..{:.0f}, rows "
++      "{:.0f}..{:.0f}, depth {:.3f}..{:.3f}, w {:.0f}..{:.0f}, point size {:.2f}",
++      sampled, count, killed_or_silent, in_front, on_screen, min_x, max_x, min_y, max_y, min_z, max_z, min_w,
++      max_w, size_count ? size_sum / float(size_count) : -1.0f);
++}
++
+ // Compares the burst matrix m with the mirror pass's matrix mm and, if mm is m reflected about a
+ // horizontal plane, sets bbrr_water_height and bbrr_matrix_layout. Logs what it finds.
+ void BbrrMeasureWater(const float m[4][4], const float mm[4][4]) {
+@@ -3132,6 +3242,20 @@
+           clip_cntl = c.value;
+         }
+         cbuffer_binding_float_vertex_.up_to_date = false;
++        {
++          // Patch 0024: where the normal sparks and the copy land, every 3 seconds.
++          static auto last_probe = std::chrono::steady_clock::time_point();
++          const auto now = std::chrono::steady_clock::now();
++          if (now - last_probe > std::chrono::seconds(3)) {
++            last_probe = now;
++            std::memcpy(constants, saved, sizeof(saved));
++            const std::string normal = BbrrProbe(*register_file_, *memory_, *vertex_shader);
++            std::memcpy(constants, r, sizeof(saved));
++            const std::string copy = BbrrProbe(*register_file_, *memory_, *vertex_shader);
++            REXLOG_INFO("[bbrr] reflection probe, normal: {}", normal);
++            REXLOG_INFO("[bbrr] reflection probe, copy:   {}", copy);
++          }
++        }
+         bbrr_ok = IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
+         clip_cntl = saved_clip_cntl;
+         std::memcpy(constants, saved, sizeof(saved));

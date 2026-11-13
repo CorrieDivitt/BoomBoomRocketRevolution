@@ -195,6 +195,12 @@ How it could be done, cheapest first:
    0023 turns user clip planes off for the copy (a plane left on from the mirror pass would cut away
    everything below the water, and how much depends on the angle) and logs the burst draw's
    `PA_CL_CLIP_CNTL` and planes.
+   Test of 0023: no change; the burst draw has no user clip planes (`PA_CL_CLIP_CNTL 00080000`), and
+   with clipping on the draw-extent estimator uses the viewport, so it does not trim the copy either.
+   Patch 0024 measures instead of guessing: every 3 seconds it runs the burst vertex shader on the
+   CPU (`ShaderInterpreter`) for about 400 sparks, with the normal and the copy's constants, and logs
+   where they land (`[bbrr] reflection probe`): in front of the camera, on screen, pixel rows and
+   columns, depth, point size.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
