@@ -1,0 +1,68 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -3267,23 +3267,50 @@
+             REXLOG_INFO("[bbrr] reflection probe, copy:   {}", copy);
+           }
+         }
+-        bbrr_ok = IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
++        // Patch 0027: the scissor. A copy shifted sideways showed, the reflected one (lower on the
++        // screen) did not, so the burst draw is probably cut to a rectangle around the fireworks.
++        // Logged when it changes; for the copy it is widened to the whole viewport.
++        uint32_t& scissor_tl = (*register_file_)[XE_GPU_REG_PA_SC_WINDOW_SCISSOR_TL];
++        uint32_t& scissor_br = (*register_file_)[XE_GPU_REG_PA_SC_WINDOW_SCISSOR_BR];
++        const uint32_t saved_scissor_tl = scissor_tl, saved_scissor_br = scissor_br;
+         {
+-          // Patch 0026 (test): one more copy, with the normal camera shifted 40% of the screen to the
+-          // right (clip x += 0.4 w). If it shows, re-issued draws reach the screen and the reflected
+-          // copy's trouble is in how it is drawn; if not, re-issued draws never show at all.
+-          float t[4][4];
+-          std::memcpy(t, saved, sizeof(t));
+-          for (int k = 0; k < 4; ++k) t[0][k] += 0.4f * t[3][k];
+-          std::memcpy(constants, t, sizeof(saved));
+-          cbuffer_binding_float_vertex_.up_to_date = false;
+-          IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
+-          static bool logged = false;
+-          if (!logged) {
+-            logged = true;
+-            REXLOG_INFO("[bbrr] water reflections test: also drawing the fireworks shifted right");
++          reg::PA_SC_WINDOW_SCISSOR_TL tl;
++          tl.value = saved_scissor_tl;
++          reg::PA_SC_WINDOW_SCISSOR_BR br;
++          br.value = saved_scissor_br;
++          const auto offset = register_file_->Get<reg::PA_SC_WINDOW_OFFSET>();
++          const auto screen_tl = register_file_->Get<reg::PA_SC_SCREEN_SCISSOR_TL>();
++          const auto screen_br = register_file_->Get<reg::PA_SC_SCREEN_SCISSOR_BR>();
++          const float vx_scale = register_file_->Get<float>(XE_GPU_REG_PA_CL_VPORT_XSCALE);
++          const float vx_offset = register_file_->Get<float>(XE_GPU_REG_PA_CL_VPORT_XOFFSET);
++          const float vy_scale = register_file_->Get<float>(XE_GPU_REG_PA_CL_VPORT_YSCALE);
++          const float vy_offset = register_file_->Get<float>(XE_GPU_REG_PA_CL_VPORT_YOFFSET);
++          static uint64_t logged = ~uint64_t(0);
++          const uint64_t key = (uint64_t(saved_scissor_tl) << 32) | saved_scissor_br;
++          if (key != logged) {
++            logged = key;
++            REXLOG_INFO("[bbrr] water reflections: burst draw scissor ({},{})-({},{}), window offset {} ({},{}), "
++                        "screen scissor ({},{})-({},{}), surface pitch {}",
++                        uint32_t(tl.tl_x), uint32_t(tl.tl_y), uint32_t(br.br_x), uint32_t(br.br_y),
++                        tl.window_offset_disable ? "off" : "on", int32_t(offset.window_x_offset),
++                        int32_t(offset.window_y_offset), int32_t(screen_tl.tl_x), int32_t(screen_tl.tl_y),
++                        int32_t(screen_br.br_x), int32_t(screen_br.br_y),
++                        uint32_t(register_file_->Get<reg::RB_SURFACE_INFO>().surface_pitch));
+           }
++          const int32_t left = int32_t(std::floor(vx_offset - std::fabs(vx_scale)));
++          const int32_t right = int32_t(std::ceil(vx_offset + std::fabs(vx_scale)));
++          const int32_t top = int32_t(std::floor(vy_offset - std::fabs(vy_scale)));
++          const int32_t bottom = int32_t(std::ceil(vy_offset + std::fabs(vy_scale)));
++          tl.tl_x = uint32_t(std::clamp<int32_t>(std::min<int32_t>(tl.tl_x, left), 0, 0x3FFF));
++          tl.tl_y = uint32_t(std::clamp<int32_t>(std::min<int32_t>(tl.tl_y, top), 0, 0x3FFF));
++          br.br_x = uint32_t(std::clamp<int32_t>(std::max<int32_t>(br.br_x, right), 0, 0x3FFF));
++          br.br_y = uint32_t(std::clamp<int32_t>(std::max<int32_t>(br.br_y, bottom), 0, 0x3FFF));
++          scissor_tl = tl.value;
++          scissor_br = br.value;
+         }
++        bbrr_ok = IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
++        scissor_tl = saved_scissor_tl;
++        scissor_br = saved_scissor_br;
+         clip_cntl = saved_clip_cntl;
+         std::memcpy(constants, saved, sizeof(saved));
+         cbuffer_binding_float_vertex_.up_to_date = false;

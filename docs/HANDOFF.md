@@ -32,7 +32,8 @@ Built and confirmed by the user the same day:
   shader's maths itself (GRAPHICS.md, Water reflections). Its run: close up the copy is off the
   bottom of the screen (as in reality); pulled back it is on screen just below the fireworks.
   Still invisible there in a screenshot; **patch 0026** (test) draws a sideways-shifted copy to see
-  whether a re-issued draw shows at all. Built, not run.
+  whether a re-issued draw shows at all: it did. **Patch 0027** drops that test and widens the
+  scissor for the reflected copy (suspected to be cut to the fireworks' rectangle). Built, not run.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:

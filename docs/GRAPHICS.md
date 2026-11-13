@@ -218,6 +218,13 @@ How it could be done, cheapest first:
    be the game's own mirror-pass sprites near the water). Patch 0026 (test) adds one more copy with the
    normal camera shifted 40% of the screen to the right: if that shows, re-issued draws work and the
    fault is in the reflected one; if not, re-issued draws never reach the screen.
+   Test of 0026: the shifted copy showed, so re-issued draws work and only the lower, reflected copy
+   goes missing. The draw log's disassembly also shows the burst shader `BA59` is not PointSprite: it
+   reads position, colour, a float2 size (written straight to the point size) and a float; it fetches
+   texture tf16 in the vertex shader at (x + y + 0.5 z, c32.x / 4), a per-spark fade, which is why the
+   SDK's interpreter refused it. Suspect now: the burst draw's scissor covers only the fireworks' part
+   of the screen. Patch 0027 drops the 0026 test, logs the window scissor, window offset and screen
+   scissor (`burst draw scissor`), and widens the scissor to the whole viewport for the copy only.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
