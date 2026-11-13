@@ -1041,4 +1041,116 @@ bool SettingsFile::Save(const fs::path& path, std::string* error) const {
   return true;
 }
 
+// ---------------------------------------------------------------------------------------
+namespace {
+// "key = value" as src/profiles.cpp reads it.
+bool SplitProfileLine(const std::string& line, std::string* key, std::string* value) {
+  const std::string t = Trim(line);
+  const size_t eq = t.find('=');
+  if (t.empty() || t[0] == '#' || eq == std::string::npos) return false;
+  *key = Trim(t.substr(0, eq));
+  *value = Trim(t.substr(eq + 1));
+  return true;
+}
+std::string XuidText(uint64_t xuid) {
+  char text[32];
+  std::snprintf(text, sizeof(text), "%016llX", static_cast<unsigned long long>(xuid));
+  return text;
+}
+}  // namespace
+
+fs::path ProfilesFile::DefaultPath() { return SettingsFile::DefaultPath().parent_path() / "profiles.ini"; }
+
+bool ProfilesFile::Load(const fs::path& path) {
+  lines_.clear();
+  std::ifstream in(path);
+  if (!in) return false;
+  std::string line;
+  while (std::getline(in, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    lines_.push_back(line);
+  }
+  return true;
+}
+
+uint64_t ProfilesFile::Player1() const {
+  uint64_t xuid = kOriginalXuid;
+  std::string key, value;
+  for (const std::string& line : lines_) {
+    if (SplitProfileLine(line, &key, &value) && key == "player1") {
+      const uint64_t v = std::strtoull(value.c_str(), nullptr, 16);
+      if (v) xuid = v;
+    }
+  }
+  return xuid;
+}
+
+std::string ProfilesFile::Player1Name() const {
+  const uint64_t xuid = Player1();
+  std::string key, value;
+  for (const std::string& line : lines_) {
+    if (!SplitProfileLine(line, &key, &value) || key != "profile") continue;
+    const size_t space = value.find(' ');
+    if (space == std::string::npos) continue;
+    if (std::strtoull(value.substr(0, space).c_str(), nullptr, 16) == xuid) return Clean(value.substr(space + 1));
+  }
+  return "User";
+}
+
+std::string ProfilesFile::Clean(const std::string& name) {
+  std::string out;
+  for (char c : name) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    if (u >= 0x20 && u < 0x7F) out.push_back(c);  // the game's font is plain ASCII
+  }
+  out = Trim(out);
+  if (out.size() > kNameMax) out.resize(kNameMax);
+  return Trim(out);
+}
+
+void ProfilesFile::SetPlayer1Name(const std::string& name_in) {
+  const std::string name = Clean(name_in);
+  if (name.empty()) return;
+  const uint64_t xuid = Player1();
+  const std::string entry = "profile = " + XuidText(xuid) + " " + name;
+  bool done = false, has_player1 = false;
+  std::string key, value;
+  for (std::string& line : lines_) {
+    if (!SplitProfileLine(line, &key, &value)) continue;
+    if (key == "player1") has_player1 = true;
+    if (key != "profile" || done) continue;
+    const size_t space = value.find(' ');
+    if (space != std::string::npos && std::strtoull(value.substr(0, space).c_str(), nullptr, 16) == xuid) {
+      line = entry;
+      done = true;
+    }
+  }
+  if (lines_.empty()) {
+    lines_.push_back("# Boom Boom Rocket Revolution profiles: profile = <XUID> <gamertag>; player1 / player2 = <XUID> or none");
+  }
+  if (!done) lines_.push_back(entry);
+  if (!has_player1) lines_.push_back("player1 = " + XuidText(xuid));
+}
+
+bool ProfilesFile::Save(const fs::path& path, std::string* error) const {
+  std::error_code ec;
+  fs::create_directories(path.parent_path(), ec);
+  const fs::path temp = path.string() + ".tmp";
+  {
+    std::ofstream out(temp, std::ios::trunc);
+    for (const std::string& line : lines_) out << line << "\n";
+    if (!out) {
+      if (error) *error = "could not write " + PathText(path);
+      return false;
+    }
+  }
+  fs::rename(temp, path, ec);
+  if (ec) {
+    fs::remove(temp, ec);
+    if (error) *error = "could not write " + PathText(path);
+    return false;
+  }
+  return true;
+}
+
 }  // namespace bbrr

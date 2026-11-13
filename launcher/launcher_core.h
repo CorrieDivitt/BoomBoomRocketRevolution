@@ -176,6 +176,26 @@ class SettingsFile {
   std::vector<std::string> lines_;
 };
 
+// Documents\boomboomrocket\profiles.ini (src/profiles.cpp): "profile = <XUID> <gamertag>"
+// lines and "player1 = <XUID>". The launcher reads and renames Player 1 only; the game keeps
+// the rest of the file as it is and manages more profiles in BBRR Settings > Profiles.
+class ProfilesFile {
+ public:
+  static constexpr size_t kNameMax = 15;
+  static constexpr uint64_t kOriginalXuid = 0xB13EBABEBABEBABEull;  // the profile "User"
+  static fs::path DefaultPath();
+  bool Load(const fs::path& path);  // false if there is no file yet (not an error)
+  std::string Player1Name() const;
+  // A gamertag as the game accepts it: printable characters, trimmed, at most 15.
+  static std::string Clean(const std::string& name);
+  void SetPlayer1Name(const std::string& name);
+  bool Save(const fs::path& path, std::string* error) const;
+
+ private:
+  uint64_t Player1() const;
+  std::vector<std::string> lines_;
+};
+
 std::string FormatBytes(uint64_t bytes);
 
 }  // namespace bbrr

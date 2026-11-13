@@ -18,7 +18,7 @@ Run `BoomBoomRocketRevolution.exe`, the launcher.
 3. When the launcher says **Ready to install**, press *Install*. Everything goes into the
    launcher's own folder: `Game Files` and `DLC`. Packs can be removed again in the DLC list.
 
-**Game Settings tab:** the Video Settings page of BBRR Settings, plus Menu Layout and Skip
+**Game Settings tab:** Player 1's gamertag, the Video Settings page of BBRR Settings, plus Menu Layout and Skip
 Intro. Changes are saved at once (Documents\boomboomrocket\settings.ini) and used the next
 time the game starts; the in-game menu changes the same settings.
 

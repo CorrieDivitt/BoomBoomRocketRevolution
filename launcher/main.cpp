@@ -269,6 +269,12 @@ struct App {
   std::string settings_note;
   bool close_on_play = true;
 
+  // Player 1's gamertag (profiles.ini)
+  ProfilesFile profiles;
+  fs::path profiles_path;
+  char gamertag[ProfilesFile::kNameMax + 1] = {};
+  std::string gamertag_note;
+
   void Refresh() {
     installed = CheckInstalledGame(install_dir);
     installed_dlc = ListInstalledDlc(install_dir);
@@ -285,6 +291,51 @@ struct App {
         chosen[s->cvar] = ChoiceFor(*s, settings_file.Get("fullscreen", "true") == "false" ? "windowed" : "fullscreen");
       }
     }
+  }
+
+  void LoadGamertag() {
+    profiles_path = ProfilesFile::DefaultPath();
+    profiles.Load(profiles_path);
+    const std::string name = profiles.Player1Name();
+    std::snprintf(gamertag, sizeof(gamertag), "%s", name.c_str());
+  }
+
+  void SaveGamertag() {
+    const std::string name = ProfilesFile::Clean(gamertag);
+    if (name.empty()) {  // nothing usable typed: put the current name back
+      std::snprintf(gamertag, sizeof(gamertag), "%s", profiles.Player1Name().c_str());
+      return;
+    }
+    std::snprintf(gamertag, sizeof(gamertag), "%s", name.c_str());
+    if (name == profiles.Player1Name()) return;
+    profiles.Load(profiles_path);  // the game may have changed it since
+    profiles.SetPlayer1Name(name);
+    std::string error;
+    gamertag_note = profiles.Save(profiles_path, &error) ? "Saved." : "Could not save: " + error;
+  }
+
+  void DrawGamertag() {
+    ImGui::PushFont(bold, 0.0f);
+    ImGui::TextColored(kAccent, "Player");
+    ImGui::PopFont();
+    if (!ImGui::BeginTable("player", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_PadOuterX)) return;
+    ImGui::TableSetupColumn("Setting", ImGuiTableColumnFlags_WidthStretch, 3.0f);
+    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, base_size * 13.0f);
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Gamertag");
+    ImGui::PushStyleColor(ImGuiCol_Text, kDim);
+    ImGui::TextWrapped("Player 1's name in the game and on the leaderboards (up to 15 characters). More players "
+                       "and profiles: BBRR Settings > Profiles in the game.");
+    ImGui::PopStyleColor();
+    if (!gamertag_note.empty()) ImGui::TextColored(kDim, "%s", gamertag_note.c_str());
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(-1);
+    ImGui::InputText("##gamertag", gamertag, sizeof(gamertag));
+    if (ImGui::IsItemDeactivatedAfterEdit()) SaveGamertag();
+    ImGui::EndTable();
+    ImGui::Dummy(ImVec2(0, base_size * 0.2f));
   }
 
   void SaveSetting(const Setting& s) {
@@ -632,6 +683,7 @@ struct App {
         "These settings can be set now or changed in game. Check out the BBRR menu in game for new gameplay "
         "options too.");
     ImGui::PopStyleColor();
+    DrawGamertag();
     const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
     if (ImGui::BeginTable("settings", 2, flags)) {
       ImGui::TableSetupColumn("Setting", ImGuiTableColumnFlags_WidthStretch, 3.0f);
@@ -868,6 +920,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   app.install_dir = ExeFolder();
   app.Refresh();
   app.LoadSettings();
+  app.LoadGamertag();
 
   // "--play" with the game installed: start it straight away (for shortcuts and launchers).
   {
