@@ -15,12 +15,15 @@ Built and confirmed by the user the same day:
 - **Texture Filtering (R-406, done):** Video Settings row (Off/2x/4x/8x/16x) on the SDK's
   `anisotropic_override`; also in the launcher. Distant highlights look more subtle; little
   difference above 4x (the default).
-- **Visualizer pull-back (R-909), built, not run:** hold A to move the camera back and up
+- **Visualizer pull-back (R-909), A confirmed working; X (twice as far) built, not run:** hold A
+  to move the camera back and up
   (`src/visualizer_zoom.cpp`, mid-asm hook at 0x82088B78). The first try, X widening the field of
   view after the camera function returned, did nothing: the camera is built inside that function.
   The second try moved the look-at point (taken for the eye) and only tilted the view: in
   sub_82088580 the camera position is game + 0x1044C, sitting ahead on the path, and r1+112 is
   what it looks at. Now the position is moved away from the look-at point.
+- **Water Reflections (test) is back** in Video Settings (off by default), at the user's request,
+  to look at from the pulled-back Visualizer view (R-417). Built, not run.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
@@ -54,7 +57,7 @@ pushes from their own terminal. Confirmed by the user unless marked otherwise.
 - **Store prep (R-708):** `docs/SUBMISSION.md` with Quiver catalog values (folderName
   `BoomBoomRocket-Revolution`, asset filter `*windows-x64.zip`, exe `BoomBoomRocketRevolution.exe`)
   and RecompStore text. Open: screenshots/logo of our own, the AI-use answer, README install section.
-- **Water Reflections:** option removed, forced off in code (R-417, post-release).
+- **Water Reflections:** option removed, forced off in code (R-417, post-release). Brought back as a test option 2026-11-13.
 - **Endurance (R-114):** song clock now keeps its measured tempo across pauses and lap loops
   (camera stutter after a pause); Autoplay still misses the first notes of each lap: parked by the
   user as a known post-release bug.
@@ -394,7 +397,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-811 | Autoplay | P2 | done |
 | R-812 | DDR Mode | P2 | done |
 | **Phase 9** | **Stretch goals (post-1.0)** | | |
-| R-909 | Visualizer camera pull-back (A) | P2 | in progress |
+| R-909 | Visualizer camera pull-back (A, X twice as far) | P2 | in progress |
 | R-114 | Endurance mode: issues found in testing | P1 | todo |
 | R-417 | Fireworks reflected in the water | P2 | todo |
 | R-504 | Online leaderboard service | P1 | todo |

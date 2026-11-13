@@ -116,6 +116,7 @@ const char* Describe(const std::string& key) {
       {"glow", "A soft glow around fireworks and other bright things."},
       {"citylight", "Buildings near a firework are lit in its colour. Off is the original look."},
       {"waterglow", "The shine on the water takes the colour of the fireworks and moves to where they burst."},
+      {"waterrefl", "Experimental: firework bursts mirrored in the water. They also show over things that should hide them."},
       {"particles", "How many sparks each firework throws, as a multiple of the original (1x)."},
       {"hdr", "For HDR displays with HDR switched on in Windows."},
       {"resolution", "The resolution the game draws at. Higher is sharper and slower."},

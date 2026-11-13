@@ -43,7 +43,13 @@ REXCVAR_DEFINE_DOUBLE(city_light_standoff, 350.0, "BBR",
                       "City Lighting: the nearest the light is allowed to a piece it lights, in world units");
 
 REXCVAR_DEFINE_DOUBLE(water_glow, 2.0, "BBR",
-                      "Water Glow: the water's highlight takes the fireworks' colour and moves to where they are; "
+                      "Water Glow: the water's highlight takes the fireworks' colour and moves to where they are;
+// Water Reflections (test, R-417): the burst draw is issued again inside the emulated GPU with
+// the mirror camera (SDK patch 0019). The bursts have no depth test, so the mirrored copy also
+// paints over things that should hide it; offered again 2026-11-13 as a test option.
+REXCVAR_DEFINE_BOOL(water_reflections, false, "BBR",
+                    "Water Reflections (test): the firework bursts are drawn again with the mirror camera, so "
+                    "they show in the water (they also show over things that should hide them)"); "
                       "0 = off, 0.5 / 1 / 2 = Low / Medium / High");
 // Read by the GPU side (SDK patch 0020) once a frame.
 REXCVAR_DEFINE_DOUBLE(water_glow_spread, 20.0, "BBR",
@@ -144,10 +150,8 @@ void bbr::CityLightProbeUpdate(uint8_t* base, bool song_on) {
     static double glow_sent = -1.0;
     static int reflections_sent = -1;
     const double glow = std::clamp(REXCVAR_GET(water_glow), 0.0, 8.0);
-    // Water Reflections (the bursts drawn again with the mirror camera) painted over other
-    // things in testing, because the bursts have no depth test: kept off until it is reworked
-    // (R-417). There is no setting for it; the SDK side stays in place.
-    const int reflections = 0;
+    // Water Reflections (test): see the cvar above.
+    const int reflections = REXCVAR_GET(water_reflections) ? 1 : 0;
     if (glow != glow_sent) {
       glow_sent = glow;
       rex::graphics::SetWaterGlow(float(glow));

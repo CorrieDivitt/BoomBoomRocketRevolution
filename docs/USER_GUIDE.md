@@ -50,6 +50,7 @@ in any folder above it. `--dlc_path=<folder>` uses a different DLC folder.
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
 | | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
 | | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
+| | Water Reflections (test) | Off (default) or On: an experiment that draws the firework bursts reflected in the water. For now they also show over things that should hide them; changes at once |
 | | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |
@@ -95,9 +96,10 @@ and raise it there too.
 ## Visualizer
 **Single Player > Visualizer** sets off fireworks to whatever music is playing on the PC. Hold
 **RB** to zoom in, as in the original. Hold **A** to pull the camera back and up for a wide view
-of the city with the fireworks in the distance; let go and it glides back.
+of the city with the fireworks in the distance, or **X** to go twice as far; let go and it glides
+back.
 `--visualizer_pull_back=<n>` and `--visualizer_pull_back_lift=<n>` set how far back and how far
-up it goes (defaults 6000 and 1500; 0 for both turns it off).
+up A takes it (defaults 6000 and 1500; X doubles both; 0 for both turns it off).
 
 ## Command-line options
 Settings can also be given when starting the game; these win over the saved settings.

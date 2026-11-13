@@ -1,4 +1,4 @@
-// Visualizer camera pull-back (hold A).
+// Visualizer camera pull-back (hold A; X goes twice as far).
 //
 // The Visualizer camera update (sub_82088580) follows GAME:\content\visualiser.spl. Each update
 // it takes the point P on the path at the current time and the path's direction, then:
@@ -11,16 +11,17 @@
 // 0x12E60, 0.03 an update up to 1), which narrows the field of view.
 //
 // Holding A moves the camera itself: at 0x82088B78, just before the view is built, the camera
-// position is pushed further away from the point it looks at, by up to --visualizer_pull_back
-// units, and raised by up to --visualizer_pull_back_lift, eased in and out at the game's own
-// zoom step. The game rewrites the position every update before this point, so nothing adds
-// up. The look-at point stays, so the view keeps facing the same spot with more of the city
-// and sky around it. (First version, 2026-11-13, moved the look-at point instead - it was
-// taken for the eye - and only tilted the view.)
+// position is pushed further away from the point it looks at by --visualizer_pull_back units
+// and raised by --visualizer_pull_back_lift; holding X does the same twice as far. The amount
+// glides towards its goal (0, 1 for A, 2 for X; X wins if both are held), so moving between
+// A, X and neither is always smooth. The game rewrites the position every update before this
+// point, so nothing adds up. The look-at point stays, so the view keeps facing the same spot
+// with more of the city and sky around it. (First version, 2026-11-13, moved the look-at point
+// instead - it was taken for the eye - and only tilted the view.)
 //
-// A is pad byte +132 (control 4 for sub_82063288), which the Visualizer does not read. Pad
-// state: game + 0x12AD4 + 152 * [game + 0x12F08]; sub_82063DE8 fills the button bytes from
-// XINPUT. Skipped while paused, like RB.
+// A is pad byte +132 and X +134 (controls 4 and 6 for sub_82063288); the Visualizer reads
+// neither. Pad state: game + 0x12AD4 + 152 * [game + 0x12F08]; sub_82063DE8 fills the button
+// bytes from XINPUT. Skipped while paused, like RB.
 #include "midasm_hooks.h"
 #include "widescreen.h"
 
@@ -43,12 +44,13 @@ constexpr uint32_t kCameraPosOffset = 0x1044C;  // camera (game + 0x103FC) + 0x5
 constexpr uint32_t kPadIndexOffset = 0x12F08;   // u32: which pad state drives the camera
 constexpr uint32_t kPadStatesOffset = 0x12AD4;  // 152 bytes each
 constexpr uint32_t kPadStateSize = 152;
-constexpr uint32_t kButtonA = 132;              // byte in a pad state, 1 while held
+constexpr uint32_t kButtonA = 132;              // bytes in a pad state, 1 while held
+constexpr uint32_t kButtonX = 134;
 constexpr uint32_t kGameState = 0x821A0578;     // +336 byte and +180 u32: both 0 when not paused
 constexpr uint32_t kTargetOnStack = 112;        // r1 + 112: the look-at point x, y, z
-constexpr float kStep = 0.03f;                  // the game's own step for RB
+constexpr float kGlide = 0.08f;                 // share of the way to the goal covered each update
 
-float g_amount = 0.0f;  // 0..1
+float g_amount = 0.0f;  // 0..2: multiples of the pull-back
 std::chrono::steady_clock::time_point g_last;
 
 uint32_t LoadU32(const uint8_t* at) {
@@ -86,11 +88,13 @@ void BbrVisualizerEyeHook(PPCRegister& r1, PPCRegister& r31) {
   const bool paused = base[kGameState + 336] != 0 || LoadU32(base + kGameState + 180) != 0;
   if (!paused) {
     const uint32_t pad = LoadU32(base + game + kPadIndexOffset);
-    const bool held = pad < 4 && base[game + kPadStatesOffset + pad * kPadStateSize + kButtonA] != 0;
+    const uint8_t* buttons = base + game + kPadStatesOffset + pad * kPadStateSize;
+    const float goal = pad >= 4 ? 0.0f : buttons[kButtonX] ? 2.0f : buttons[kButtonA] ? 1.0f : 0.0f;
     const float before = g_amount;
-    g_amount = held ? std::min(1.0f, g_amount + kStep) : std::max(0.0f, g_amount - kStep);
+    g_amount += (goal - g_amount) * kGlide;
+    if (std::fabs(goal - g_amount) < 0.002f) g_amount = goal;
     if (before == 0.0f && g_amount > 0.0f) {
-      REXLOG_INFO("[visualizer] camera pulling back (A): camera ({:.0f} {:.0f} {:.0f}), looking at ({:.0f} {:.0f} "
+      REXLOG_INFO("[visualizer] camera pulling back (A / X): camera ({:.0f} {:.0f} {:.0f}), looking at ({:.0f} {:.0f} "
                   "{:.0f}), back {:.0f}, lift {:.0f}",
                   LoadFloat(base + game + kCameraPosOffset), LoadFloat(base + game + kCameraPosOffset + 4),
                   LoadFloat(base + game + kCameraPosOffset + 8), LoadFloat(base + r1.u32 + kTargetOnStack),
@@ -100,8 +104,7 @@ void BbrVisualizerEyeHook(PPCRegister& r1, PPCRegister& r31) {
   }
   if (g_amount <= 0.0f) return;
 
-  // Smooth in and out rather than at a constant speed.
-  const double t = double(g_amount) * double(g_amount) * (3.0 - 2.0 * double(g_amount));
+  const double t = g_amount;
   uint8_t* camera = base + game + kCameraPosOffset;
   const uint8_t* target = base + r1.u32 + kTargetOnStack;
   double c[3], away[3], length = 0.0;
