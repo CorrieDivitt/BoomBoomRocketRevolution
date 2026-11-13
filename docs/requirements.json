@@ -929,11 +929,11 @@
   "category": "UX",
   "title": "Launcher: game files, DLC, settings, play",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Points at a dump, validates hashes, copies to assets/",
   "depends_on": "R-104",
-  "notes": "Uses ReXApp OnFinalizePaths 2026-11-12: the planned builder/launcher should offer the Gamertag (settings.ini key user_gamertag, up to 15 characters) so it can be set before the first game. 2026-11-12, built (compiled and run here under Wine, not yet on Windows): launcher/ -> BoomBoomRocketRevolution.exe (Dear ImGui, Direct3D 11). Setup tab: choose default.xex in the unpacked folder or the original XBLA package (read directly, STFS), checked against launcher/game_files.inc (327 files, SHA-256; unknown versions allowed with a warning); DLC packages added by file or drag and drop (any pack for the title, prototypes included); Ready to install, then Install copies both next to the launcher (Game Files, DLC; done in a temporary folder and swapped in). Game Settings tab: the Video Settings page plus Menu Layout and Skip Intro, from the same table as the game (src/settings_table.h), saved to settings.ini. Play starts boomboomrocket.exe; --play skips the window. The game offers to open the launcher when it finds no game files. Checking and installing were tested on the real files (identical copy; DLC extraction matches tools/stfs/stfs.py). 2026-11-12, first test on Windows by the user: worked well. Changes after it: the file dialogs show all files by default (packages have no extension, so the DLC filter hid them); new Game Settings intro text; Window Mode has a third choice, Borderless Window (cvar window_mode sets --fullscreen and the new --window_borderless, SDK patch 0021; old settings files with only fullscreen = false become Windowed); shorter Glow and City Lighting descriptions; restart-only settings marked (restart required). 2026-11-12: Game Settings tab has Player 1's gamertag (profiles.ini, up to 15 plain characters; saved when the field is left or Enter is pressed). Waiting on a test on Windows to mark done."
+  "notes": "Uses ReXApp OnFinalizePaths 2026-11-12: the planned builder/launcher should offer the Gamertag (settings.ini key user_gamertag, up to 15 characters) so it can be set before the first game. 2026-11-12, built (compiled and run here under Wine, not yet on Windows): launcher/ -> BoomBoomRocketRevolution.exe (Dear ImGui, Direct3D 11). Setup tab: choose default.xex in the unpacked folder or the original XBLA package (read directly, STFS), checked against launcher/game_files.inc (327 files, SHA-256; unknown versions allowed with a warning); DLC packages added by file or drag and drop (any pack for the title, prototypes included); Ready to install, then Install copies both next to the launcher (Game Files, DLC; done in a temporary folder and swapped in). Game Settings tab: the Video Settings page plus Menu Layout and Skip Intro, from the same table as the game (src/settings_table.h), saved to settings.ini. Play starts boomboomrocket.exe; --play skips the window. The game offers to open the launcher when it finds no game files. Checking and installing were tested on the real files (identical copy; DLC extraction matches tools/stfs/stfs.py). 2026-11-12, first test on Windows by the user: worked well. Changes after it: the file dialogs show all files by default (packages have no extension, so the DLC filter hid them); new Game Settings intro text; Window Mode has a third choice, Borderless Window (cvar window_mode sets --fullscreen and the new --window_borderless, SDK patch 0021; old settings files with only fullscreen = false become Windowed); shorter Glow and City Lighting descriptions; restart-only settings marked (restart required). 2026-11-12: Game Settings tab has Player 1's gamertag (profiles.ini, up to 15 plain characters; saved when the field is left or Enter is pressed). 2026-11-13: tested on Windows by the user (gamertag shows in the game): done."
  },
  {
   "id": "R-701",
@@ -1023,7 +1023,8 @@
   "status": "todo",
   "effort": "M",
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
-  "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502 2026-11-12: scripts/package.ps1 -Version x.y.z builds the zip (BoomBoomRocketRevolution-v<ver>-windows-x64.zip: launcher, game, DLLs, ui_scripts, docs; refuses game data) with a .sha256 and a symbols zip."
+  "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502",
+  "notes": "2026-11-12: scripts/package.ps1 -Version x.y.z builds the zip (BoomBoomRocketRevolution-v<ver>-windows-x64.zip: launcher, game, DLLs, ui_scripts, docs; refuses game data) with a .sha256 and a symbols zip."
  },
  {
   "id": "R-708",

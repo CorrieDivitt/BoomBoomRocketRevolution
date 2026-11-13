@@ -1,13 +1,50 @@
-# Handoff notes (written 2026-11-11, end of the features / modifiers session)
+# Handoff notes (updated 2026-11-13, after the launcher and release-prep session)
 
 For whoever picks the project up next, human or Claude. The other docs go deeper on one subject
 each: `PLAN.md` (phases), `TIMING.md` (song clock, judging, end of song), `GRAPHICS.md` (shaders,
 HDR, particles), `DLC_PROTOTYPES.md`, `ANALYSIS.md` (game internals), `USER_GUIDE.md` (what the
 player sees). The requirements list (`requirements.py` -> csv/json and the dashboard) is the task
-list; statuses there are current as of this note.
+list; its current state is copied into the **Tracker** section at the end of this file every time
+`python3 docs/requirements.py` runs. `SUBMISSION.md` covers the store listings.
+
+## Latest session (2026-11-12 evening to 2026-11-13)
+Committed locally as `5441f95` and `1cb40fe` (plus the tracker/handoff commit after them); the user
+pushes from their own terminal. Confirmed by the user unless marked otherwise.
+- **Launcher (R-606, done):** `launcher/` builds `BoomBoomRocketRevolution.exe` (Dear ImGui on
+  Direct3D 11, from the SDK's imgui copy; target `bbrr_launcher` in CMakeLists.txt).
+  Setup tab: Browse for the game (default.xex in an unpacked folder, or the original XBLA package,
+  read directly as STFS), checked against `launcher/game_files.inc` (327 files with SHA-256 of the
+  retail copy; unknown versions allowed with a warning); Add DLC (any package for title 5841086A or
+  the test title 58410859, prototypes allowed; drag and drop works); "Ready to install", then
+  Install copies into the launcher's own folder (`Game Files`, `DLC`). The user chose the word
+  "Install" (nothing is compiled on the player's PC: the release ships the built game).
+  Game Settings tab: Player 1 gamertag (profiles.ini), the Video Settings rows, Menu Layout, Skip
+  Intro, saved to settings.ini at once. Play starts `boomboomrocket.exe`; `--play` skips the window.
+  The game offers to open the launcher if no game files are found. File dialogs default to all
+  files (packages have no extension). Logic in `launcher_core.cpp` is plain C++ and was tested on
+  Linux against the real files (`launcher/core_test.cpp`).
+- **Shared settings table:** `src/settings_table.h` holds every setting (cvar, choices, default,
+  page); the game and the launcher both read it.
+- **Window Mode:** Fullscreen / Windowed / Borderless Window. Cvar `window_mode` (port) sets
+  `fullscreen` and the new SDK cvar `window_borderless` (SDK patch 0021). Old settings files with
+  only `fullscreen = false` become Windowed. Confirmed working.
+- **Packaging:** `scripts\package.ps1 -Version x.y.z` builds
+  `out\release\BoomBoomRocketRevolution-v<ver>-windows-x64.zip` (launcher, game, DLLs, ui_scripts,
+  docs), a `.sha256` and a symbols zip; it refuses game data. Not run yet (next step: unzip into an
+  empty folder and set up from scratch).
+- **Store prep (R-708):** `docs/SUBMISSION.md` with Quiver catalog values (folderName
+  `BoomBoomRocket-Revolution`, asset filter `*windows-x64.zip`, exe `BoomBoomRocketRevolution.exe`)
+  and RecompStore text. Open: screenshots/logo of our own, the AI-use answer, README install section.
+- **Water Reflections:** option removed, forced off in code (R-417, post-release).
+- **Endurance (R-114):** song clock now keeps its measured tempo across pauses and lap loops
+  (camera stutter after a pause); Autoplay still misses the first notes of each lap: parked by the
+  user as a known post-release bug.
+- **Next, in the order agreed:** test release (package, unzip, set up from scratch), full
+  playthrough (R-110, with Camera Speed and leaderboards checks), README/screenshots/AI-use answer,
+  tag v1.0 (R-707), submit to Quiver and RecompStore (R-708). Later: R-704, R-405, R-701.
 
 ## Where things stand
-Everything below is built, pushed (GitHub `main` = `fb76196`) and confirmed in play
+As of 2026-11-11 (see the latest session above for later work), everything below was built, pushed (`fb76196`) and confirmed in play
 by the user unless marked otherwise.
 
 | Area | State |
@@ -196,9 +233,14 @@ it was an offset, not jitter; raising Input Offset fixed it. Late hits: raise In
 Offset if notes look out of step with the music). Positive Audio Offset = notes arrive later.
 
 ## How the work is done
-- Pushing: the shell that sees `F:\Boom Boom Rocket` has no GitHub credentials. Commit there, make a
-  bundle (`git bundle create out\x.bundle origin/main..main`), stage it, and push from a clone in the
-  session workspace (attached with push access).
+- Pushing: the shell that sees `F:\Boom Boom Rocket` can commit but GitHub refuses pushes from it;
+  the user runs `git push` in their own terminal. Git there cannot delete its own lock files: after
+  a commit, rename any `.git\HEAD.lock`, `.git\index.lock`, `.git\objects\maintenance.lock` to
+  `stale-...` directly under `.git`, or the user's git fails with "File exists".
+- Copying files to the PC: check the written file's hash afterwards (once an old version was
+  written while the tool reported success).
+- PowerShell scripts: always give the full `powershell -ExecutionPolicy Bypass -File scripts\x.ps1`
+  form; `.\scripts\x.ps1` fails on the user's machine.
 - Code is edited in the Linux sandbox that sees `F:\Boom Boom Rocket`; it cannot run Windows
   builds. The user builds with `powershell -ExecutionPolicy Bypass -File scripts\build.ps1` and
   tests; the log is `boomboomrocket.log` in the project folder and is the main source of evidence.
@@ -221,8 +263,8 @@ Offset if notes look out of step with the music). Positive Audio Offset = notes 
   `source.url` field (a `/_blob/<id>` address that changes with every upload).
 - **To refresh it:** run the script, upload the new `requirements.csv` to the artifact as an asset,
   then update `datasets/requirements` so `source.url` is the new `/_blob/<id>` (and bump the
-  `edit` / `updated` times). The update needs the document's current version number; it was 51
-  after the last refresh on 2026-11-11, so read the document first to get the live value.
+  `edit` / `updated` times). The update needs the document's current version number (79 after the
+  refresh on 2026-11-13); read the document first to get the live value.
 
 **Horizontal Drift Off (R-810).** Mid-asm hook at 0x8206A4C8 (`BbrArrowDriftHook`, rocket's new
 position at r1+80..88; icon at r31: +0 rocket, +32 path start, +44 firework point). The rocket keeps
@@ -230,3 +272,120 @@ the firework's x and z, then is slid along the camera's left-right direction (th
 x, from the view matrix at game + 0x103B0, order checked by `NoteArrowProjection`) to the screen
 column it first appeared in, kept per icon. Do not solve world x for a screen column: when the
 camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-11-12).
+
+## Tracker
+<!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
+99 requirements: 6 in progress, 31 todo, 62 done. Details and notes per item: docs/requirements.csv or the dashboard.
+
+| ID | Title | Priority | Status |
+|---|---|---|---|
+| **Phase 0** | **Foundation & analysis** | | |
+| R-007 | Document asset formats | P1 | in progress |
+| R-001 | Verify game dump (default.xex + content) | P0 | done |
+| R-002 | Decrypt/decompress XEX to PE image | P0 | done |
+| R-003 | Kernel/XAM import inventory vs ReXGlue | P0 | done |
+| R-004 | Repo scaffolding + ReXGlue SDK submodule | P0 | done |
+| R-005 | Install Windows toolchain | P0 | done |
+| R-006 | Build & install ReXGlue SDK | P0 | done |
+| R-008 | No copyrighted game data in repo | P0 | done |
+| R-009 | Static analysis setup (Ghidra/IDA + XEX loader) | P1 | done |
+| **Phase 1** | **Recompile & boot** | | |
+| R-108 | Stub missing XAM UI calls | P1 | in progress |
+| R-109 | All modes playable | P0 | in progress |
+| R-112 | Clean up prototype DLC packs | P2 | in progress |
+| R-110 | All 10 tracks x 3 difficulties complete | P0 | todo |
+| R-101 | rexglue init project + codegen config | P0 | done |
+| R-102 | Clean codegen of all functions | P0 | done |
+| R-103 | Locate setjmp/longjmp (if used) | P1 | done |
+| R-104 | Boot to title screen (D3D12) | P0 | done |
+| R-105 | VFS mounts: GAME:, game:, DLC%d: | P0 | done |
+| R-106 | Full-license / trial flag | P0 | done |
+| R-107 | Save data & profile settings persistence | P0 | done |
+| R-111 | DLC support (owned track packs) | P0 | done |
+| R-113 | Skip start-up logos | P1 | done |
+| **Phase 2** | **Audio & music sync** | | |
+| R-203 | Native low-latency music path | P2 | todo |
+| R-208 | Per-song offset overrides | P2 | todo |
+| R-210 | Audio device & buffer options | P1 | todo |
+| R-211 | Visualizer with user music files | P2 | todo |
+| R-212 | Timing validation across audio/PC setups | P0 | todo |
+| R-201 | XMA1 music & SFX playback | P0 | done |
+| R-202 | Identify the game's song clock | P0 | done |
+| R-204 | Audio-clock-driven beat timeline | P0 | done |
+| R-205 | Global audio offset setting (ms) | P0 | done |
+| R-206 | Input latency offset setting (ms) | P0 | done |
+| R-207 | Calibration screen (tap to the beat) | P1 | done |
+| R-209 | Sync debug overlay | P1 | done |
+| R-213 | Smooth arrow motion (interpolated song clock) | P0 | done |
+| R-214 | Game volume boost | P2 | done |
+| **Phase 3** | **Frame rate & timing** | | |
+| R-302 | Unlocked frame rate (120/144/240+) | P0 | in progress |
+| R-305 | Low-latency presentation | P1 | todo |
+| R-301 | Determine game loop timing model | P0 | done |
+| R-303 | Fixed-step sim with render interpolation | P1 | done |
+| R-304 | Frame pacing matched to the display | P0 | done |
+| R-306 | High-rate timestamped input | P0 | done |
+| **Phase 4** | **Graphics & resolution** | | |
+| R-405 | Anti-aliasing (MSAA / SMAA / FXAA) | P1 | in progress |
+| R-406 | Anisotropic filtering | P2 | todo |
+| R-408 | Native replacement shaders | P1 | todo |
+| R-412 | D3D9-level renderer replacement | P2 | todo |
+| R-413 | Texture dump & replacement packs | P2 | todo |
+| R-415 | Ultrawide menu/HUD layout pass | P1 | todo |
+| R-401 | Arbitrary resolutions | P0 | done |
+| R-402 | Aspect ratios 16:9 / 16:10 / 21:9 / 32:9 | P0 | done |
+| R-403 | Internal resolution scale | P1 | done |
+| R-404 | Window modes & display select | P0 | done |
+| R-407 | Recover HLSL from .updb shader PDBs | P1 | done |
+| R-409 | HDR bloom & tonemapping for fireworks | P1 | done |
+| R-410 | Improved city lighting | P2 | done |
+| R-411 | Particle quality/quantity scaling | P1 | done |
+| R-414 | In-game Revolution settings menu | P0 | done |
+| R-416 | Track length on the song lists | P2 | done |
+| **Phase 5** | **Leaderboards & achievements** | | |
+| R-501 | Local achievements from SPA | P1 | done |
+| R-502 | Local leaderboards | P0 | done |
+| R-503 | Implement XUserReadStats / XSessionWriteStats / stats enumerator | P0 | done |
+| R-506 | Player identity / profile | P1 | done |
+| **Phase 6** | **Input, UX & settings** | | |
+| R-603 | Button glyph swap | P2 | todo |
+| R-601 | Controller support (XInput, DualSense, Switch Pro) | P0 | done |
+| R-602 | Keyboard support & rebinding | P0 | done |
+| R-604 | Local 2-player | P1 | done |
+| R-605 | Settings persistence | P0 | done |
+| R-606 | Launcher: game files, DLC, settings, play | P1 | done |
+| **Phase 7** | **QA, CI & release** | | |
+| R-701 | GitHub Actions Windows build | P1 | todo |
+| R-702 | Input replay regression tests | P1 | todo |
+| R-703 | Sync accuracy test | P0 | todo |
+| R-704 | Performance target | P1 | todo |
+| R-705 | Build & user guides | P1 | todo |
+| R-707 | Public release v1.0 | P0 | todo |
+| R-708 | Store listings: Quiver Launcher and RecompStore | P1 | todo |
+| R-706 | Licensing decision for project code | P0 | done |
+| **Phase 8** | **Modern rhythm features** | | |
+| R-801 | Research modern rhythm-game features | P1 | todo |
+| R-802 | Note speed / scroll-speed modifier | P2 | done |
+| R-803 | Timing feedback (early/late, ms offset) | P2 | done |
+| R-806 | Average timing on the results screen | P2 | done |
+| R-807 | Offset suggestion on the results screen | P2 | done |
+| R-808 | Background setting (practice) | P2 | done |
+| R-809 | Rocket Acceleration setting | P2 | done |
+| R-810 | Horizontal Drift setting | P2 | done |
+| R-811 | Autoplay | P2 | done |
+| R-812 | DDR Mode | P2 | done |
+| **Phase 9** | **Stretch goals (post-1.0)** | | |
+| R-114 | Endurance mode: issues found in testing | P1 | todo |
+| R-417 | Fireworks reflected in the water | P2 | todo |
+| R-504 | Online leaderboard service | P1 | todo |
+| R-505 | Score integrity checks | P2 | todo |
+| R-805 | Practice tools (section loop, slow-down) | P2 | todo |
+| R-902 | Accessibility review | P2 | todo |
+| R-903 | VR support | P2 | todo |
+| R-904 | Gameplay across the full screen width | P2 | todo |
+| R-906 | Custom charts and automatic chart generation | P2 | todo |
+| R-907 | True HDR rendering (float render target) | P2 | todo |
+| R-804 | Beat guides (measure lines / timing bars) - dropped | P2 | done |
+| R-901 | Reduce background/camera motion option | P2 | done |
+| R-905 | Visualizer driven by audio playing in Windows | P2 | done |
+<!-- tracker:end -->
