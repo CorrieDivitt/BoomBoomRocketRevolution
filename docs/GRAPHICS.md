@@ -201,6 +201,11 @@ How it could be done, cheapest first:
    CPU (`ShaderInterpreter`) for about 400 sparks, with the normal and the copy's constants, and logs
    where they land (`[bbrr] reflection probe`): in front of the camera, on screen, pixel rows and
    columns, depth, point size.
+   Run of 0024: no numbers; the SDK's shader interpreter refuses the burst shader ("shader cannot
+   be run on the CPU"). Patch 0025 does the maths itself: it reads each sampled spark's position from
+   the vertex buffer (first three-float attribute of the shader's vertex bindings) and applies
+   `PointSprite.hlsl` (clip_i = dot(c_i, (p, 1)); size factor (1 - c7.x) + 1000 c7.x / clip.z). It
+   also logs the sparks' world heights, the viewport and the vertex layout.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.

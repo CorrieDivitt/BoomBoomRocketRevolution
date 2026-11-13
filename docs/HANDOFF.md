@@ -15,8 +15,8 @@ Built and confirmed by the user the same day:
 - **Texture Filtering (R-406, done):** Video Settings row (Off/2x/4x/8x/16x) on the SDK's
   `anisotropic_override`; also in the launcher. Distant highlights look more subtle; little
   difference above 4x (the default).
-- **Visualizer pull-back (R-909), A confirmed working; X (twice as far) built, not run:** hold A
-  to move the camera back and up
+- **Visualizer pull-back (R-909, done):** hold A to move the camera back and up, X twice as far
+  (both confirmed)
   (`src/visualizer_zoom.cpp`, mid-asm hook at 0x82088B78). The first try, X widening the field of
   view after the camera function returned, did nothing: the camera is built inside that function.
   The second try moved the look-at point (taken for the eye) and only tilted the view: in
@@ -27,8 +27,9 @@ Built and confirmed by the user the same day:
   **SDK patch 0022** (run `scripts\patch-sdk.ps1`) gives the mirrored bursts their own reflected
   matrix; tested, no real change (the mirror matrix was already a plain reflection). **Patch 0023**
   turns user clip planes off for the copy; tested, no change (there were none). **Patch 0024** logs
-  where the normal sparks and the copy land on screen (`[bbrr] reflection probe`) so the next step
-  is based on measurements (GRAPHICS.md, Water reflections). Built, not run.
+  where the normal sparks and the copy land on screen (`[bbrr] reflection probe`); its run gave no
+  numbers (the SDK's shader interpreter refuses the burst shader), so **patch 0025** does the
+  shader's maths itself (GRAPHICS.md, Water reflections). Built, not run.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
@@ -303,7 +304,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-101 requirements: 4 in progress, 30 todo, 67 done. Details and notes per item: docs/requirements.csv or the dashboard.
+101 requirements: 3 in progress, 30 todo, 68 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -402,7 +403,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-811 | Autoplay | P2 | done |
 | R-812 | DDR Mode | P2 | done |
 | **Phase 9** | **Stretch goals (post-1.0)** | | |
-| R-909 | Visualizer camera pull-back (A, X twice as far) | P2 | in progress |
 | R-114 | Endurance mode: issues found in testing | P1 | todo |
 | R-417 | Fireworks reflected in the water | P2 | todo |
 | R-504 | Online leaderboard service | P1 | todo |
@@ -418,4 +418,5 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-804 | Beat guides (measure lines / timing bars) - dropped | P2 | done |
 | R-901 | Reduce background/camera motion option | P2 | done |
 | R-905 | Visualizer driven by audio playing in Windows | P2 | done |
+| R-909 | Visualizer camera pull-back (A, X twice as far) | P2 | done |
 <!-- tracker:end -->
