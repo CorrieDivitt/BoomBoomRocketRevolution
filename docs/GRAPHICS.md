@@ -229,6 +229,11 @@ How it could be done, cheapest first:
    0) and the burst draw has depth test off. Patch 0028 (test) adds the normal fireworks, unflipped,
    moved right and down onto the water (clip x += 0.4 w, y -= 0.5 w), to tell "the flipped camera"
    apart from "something hides the lower screen".
+   Test of 0028: the unflipped copy showed on the water, so the lower screen is fine and the flip is
+   the problem. Seen from the camera, reflected sparks lie far beyond the water surface, at the far
+   plane (probe depth 0.999..1.000), so they are clipped. Patch 0029 removes the test copy and pins
+   the reflected copy's depth to the middle of the range (clip z = 0.5 w): no depth test, and spark
+   size comes from the vertex, so nothing else depends on it.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
