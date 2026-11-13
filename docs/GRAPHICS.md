@@ -239,6 +239,12 @@ How it could be done, cheapest first:
    not. Patch 0030 (last try before parking): a screen-space flip of the normal fireworks about the
    row of the water point under the sparks' average position (clip y' = 2 line w - y), keeping the
    normal depth and w. Logged as `screen flip about row`.
+   Test of 0030: worse, no reflections at all (not even the steep-view ones). **Parked** at the user's
+   request; 0030 moved to `patches/parked/`. Lead for next time: every vertically flipped copy
+   vanished and every unflipped one showed. A vertical flip reverses the winding of the quads the SDK
+   draws for point sprites, so face culling (`PA_SU_SC_MODE_CNTL` cull bits) is the prime suspect:
+   clear the cull bits for the copy only, keeping the 3D-flipped matrix of 0022 and the mid-range
+   depth of 0029.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.

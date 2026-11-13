@@ -36,8 +36,9 @@ Built and confirmed by the user the same day:
   scissor for the reflected copy; tested, no change (the scissor was already the whole screen).
   **Patch 0028** (test) drew the fireworks unflipped on the water: they showed. So the flipped
   copy is lost at the far plane; **patch 0029** pinned its depth to mid-range: no change.
-  **Patch 0030** (last try; the user will park R-417 if it fails) flips the fireworks on screen
-  about the water line instead. Built, not run.
+  **Patch 0030** (screen flip) showed nothing at all. **R-417 parked**; 0030 moved to
+  `patches/parked/`, option off by default. Next lead: face culling of the flipped sprites
+  (GRAPHICS.md, Water reflections).
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:
@@ -412,7 +413,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-812 | DDR Mode | P2 | done |
 | **Phase 9** | **Stretch goals (post-1.0)** | | |
 | R-114 | Endurance mode: issues found in testing | P1 | todo |
-| R-417 | Fireworks reflected in the water | P2 | todo |
+| R-417 | Fireworks reflected in the water - parked | P2 | todo |
 | R-504 | Online leaderboard service | P1 | todo |
 | R-505 | Score integrity checks | P2 | todo |
 | R-801 | Research modern rhythm-game features | P1 | todo |
