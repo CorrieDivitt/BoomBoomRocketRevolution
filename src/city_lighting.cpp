@@ -43,14 +43,14 @@ REXCVAR_DEFINE_DOUBLE(city_light_standoff, 350.0, "BBR",
                       "City Lighting: the nearest the light is allowed to a piece it lights, in world units");
 
 REXCVAR_DEFINE_DOUBLE(water_glow, 2.0, "BBR",
-                      "Water Glow: the water's highlight takes the fireworks' colour and moves to where they are;
+                      "Water Glow: the water's highlight takes the fireworks' colour and moves to where they are; "
+                      "0 = off, 0.5 / 1 / 2 = Low / Medium / High");
 // Water Reflections (test, R-417): the burst draw is issued again inside the emulated GPU with
 // the mirror camera (SDK patch 0019). The bursts have no depth test, so the mirrored copy also
 // paints over things that should hide it; offered again 2026-11-13 as a test option.
 REXCVAR_DEFINE_BOOL(water_reflections, false, "BBR",
                     "Water Reflections (test): the firework bursts are drawn again with the mirror camera, so "
-                    "they show in the water (they also show over things that should hide them)"); "
-                      "0 = off, 0.5 / 1 / 2 = Low / Medium / High");
+                    "they show in the water (they also show over things that should hide them)");
 // Read by the GPU side (SDK patch 0020) once a frame.
 REXCVAR_DEFINE_DOUBLE(water_glow_spread, 20.0, "BBR",
                       "Water Glow: how tight the fireworks' highlight on the water is (shininess; the moon's is 50, "
