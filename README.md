@@ -13,8 +13,7 @@ Windows program, not an emulator running it.
 > **No part of Boom Boom Rocket is included here or in the download.** You need your own copy of the
 > game (and any DLC you own). The launcher checks your files and installs them next to itself.
 
-**39 new features and 38 new settings** on top of the original game: 26 options in the new BBRR Settings
-menu, three for profiles and controllers, and a key for every button. All are listed below.
+**38 new features and 38 new settings** on top of the original game, all listed below.
 
 ---
 
@@ -78,7 +77,6 @@ menu, three for profiles and controllers, and a key for every button. All are li
 - **Visualizer that listens to your PC:** fireworks go off to whatever music Windows is playing, with a
   sensitivity setting and a camera that pulls back for a wide view.
 - **Song lengths and tempos** on the song lists.
-- **Louder sound:** the quiet original mix plays at 150%, with a limiter so nothing distorts.
 - **Skip Intro:** straight to the title screen.
 
 ### Controls
@@ -182,8 +180,6 @@ code is all here to check.
 
 **Calibrate once on each PC.** Speakers, headphones, TVs and controllers all add their own delay:
 BBRR Settings > Calibration > Auto Calibration takes a minute.
-
-**Exit Game** on the main menu asks first, so one button press too many won't close the game.
 
 **If something goes wrong**, the logs (one per start) and any crash dumps are in
 `Documents\boomboomrocket\logs`. Please attach the newest log, and the crash dump if there is one, to an
