@@ -23,7 +23,9 @@ Built and confirmed by the user the same day:
   sub_82088580 the camera position is game + 0x1044C, sitting ahead on the path, and r1+112 is
   what it looks at. Now the position is moved away from the look-at point.
 - **Water Reflections (test) is back** in Video Settings (off by default), at the user's request,
-  to look at from the pulled-back Visualizer view (R-417). Built, not run.
+  to look at from the pulled-back Visualizer view (R-417). Seen working only from steep views;
+  **SDK patch 0022** (run `scripts\patch-sdk.ps1`) gives the mirrored bursts their own reflected
+  matrix so they should show at any angle (GRAPHICS.md, Water reflections). Built, not run.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:

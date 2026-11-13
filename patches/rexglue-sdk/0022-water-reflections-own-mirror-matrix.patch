@@ -1,0 +1,142 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2886,6 +2886,90 @@
+ constexpr uint64_t kBbrrBurstVertexShader = 0xBA59DDB09CB51DE2ull;
+ uint32_t bbrr_mirror[16];
+ uint64_t bbrr_mirror_frame = ~uint64_t(0);
++
++// Patch 0022: the mirrored bursts get their own reflected matrix instead of the mirror pass's.
++// The burst shader (PointSprite.hlsl) computes clip = mul(float4(p, 1), WorldViewProj) from c0-c3
++// and sizes each spark by 1 / clip.z, so the copy needs a matrix whose depth is the reflected
++// point's real depth. The mirror pass's matrix only gave that for steep views (the reflections
++// vanished as the camera levelled out, seen 2026-11-13). Reflecting about the water plane y = h:
++// p' = (x, 2h - y, z). The water height is measured from the mirror pass of the same frame, which
++// is the same camera reflected about the water; -100 (seen in the draw log) until measured.
++float bbrr_water_height = -100.0f;
++bool bbrr_mirror_measured = false;  // this frame's mirror matrix already compared
++int bbrr_matrix_layout = 0;         // 0 unknown, 1 one output per register, 2 one input per register
++
++// Compares the burst matrix m with the mirror pass's matrix mm and, if mm is m reflected about a
++// horizontal plane, sets bbrr_water_height and bbrr_matrix_layout. Logs what it finds.
++void BbrrMeasureWater(const float m[4][4], const float mm[4][4]) {
++  auto near_equal = [](float a, float b) {
++    return std::fabs(a - b) <= 1e-3f * std::max(1.0f, std::max(std::fabs(a), std::fabs(b)));
++  };
++  static int last_logged_layout = -1;
++  static float last_logged_height = 1e30f;
++  static bool logged_depth_row = false;
++  // Layout 1 (dp4 per register): clip_i = dot(c_i, p). Reflection: .y negated, .w += 2h .y,
++  // .x and .z unchanged, in registers 0, 1 and 3 (register 2, depth, may be skewed by the game).
++  // Layout 2 (one input per register): clip = x c0 + y c1 + z c2 + c3. Reflection: c1 negated,
++  // c3 += 2h c1, c0 unchanged (c2 and the .z components may be skewed).
++  for (int layout = 1; layout <= 2; ++layout) {
++    float sum = 0.0f;
++    int count = 0;
++    bool plain = true;
++    for (int i = 0; i < 4 && plain; ++i) {
++      for (int k = 0; k < 4 && plain; ++k) {
++        const float got = mm[i][k];
++        if (layout == 1) {
++          if (i == 2) continue;
++          if (k == 0 || k == 2) plain = near_equal(got, m[i][k]);
++          else if (k == 1) plain = near_equal(got, -m[i][k]);
++          else if (std::fabs(m[i][1]) > 1e-6f) { sum += (got - m[i][3]) / (2.0f * m[i][1]); ++count; }
++        } else {
++          if (k == 2) continue;
++          if (i == 0) plain = near_equal(got, m[i][k]);
++          else if (i == 1) plain = near_equal(got, -m[i][k]);
++          else if (i == 3 && std::fabs(m[1][k]) > 1e-6f) { sum += (got - m[3][k]) / (2.0f * m[1][k]); ++count; }
++        }
++      }
++    }
++    if (!plain || count == 0) continue;
++    const float height = sum / float(count);
++    if (!(std::fabs(height) < 100000.0f)) continue;
++    bbrr_water_height = height;
++    bbrr_matrix_layout = layout;
++    if (layout != last_logged_layout || std::fabs(height - last_logged_height) > 1.0f) {
++      last_logged_layout = layout;
++      last_logged_height = height;
++      REXLOG_INFO("[bbrr] water reflections: water plane y = {:.1f} (matrix layout {})", height, layout);
++    }
++    if (!logged_depth_row) {
++      logged_depth_row = true;
++      // Does the mirror pass skew depth (an oblique near plane at the water)?
++      float worst = 0.0f;
++      for (int k = 0; k < 4; ++k) {
++        float plain_value;
++        float got;
++        if (layout == 1) {
++          plain_value = k == 1 ? -m[2][1] : k == 3 ? m[2][3] + 2.0f * height * m[2][1] : m[2][k];
++          got = mm[2][k];
++        } else {
++          plain_value = k == 1 ? -m[k][2] : k == 3 ? m[3][2] + 2.0f * height * m[1][2] : m[k][2];
++          got = mm[k][2];
++          if (k == 1) plain_value = -m[1][2];
++        }
++        worst = std::max(worst, std::fabs(got - plain_value) / std::max(1.0f, std::fabs(plain_value)));
++      }
++      REXLOG_INFO("[bbrr] water reflections: the mirror pass's depth row {} a plain reflection (difference {:.3f})",
++                  worst < 1e-3f ? "is" : "is not", worst);
++    }
++    return;
++  }
++  static bool logged_mismatch = false;
++  if (!logged_mismatch) {
++    logged_mismatch = true;
++    REXLOG_INFO("[bbrr] water reflections: the mirror pass is not a plain reflection of the burst camera; "
++                "using water plane y = {:.1f}, matrix layout 1", bbrr_water_height);
++  }
++}
+ bool bbrr_redrawing = false;
+ 
+ bool BbrrLightWater(RegisterFile& regs, float glow, BbrrConstantGuard& guard) {
+@@ -2972,6 +3056,7 @@
+     if (bbrr_vs == kBbrrMirrorCityVertexShader && bbrr_mirror_frame != bbrr_frame) {
+       std::memcpy(bbrr_mirror, &regs[XE_GPU_REG_SHADER_CONSTANT_000_X], sizeof(bbrr_mirror));
+       bbrr_mirror_frame = bbrr_frame;
++      bbrr_mirror_measured = false;
+     }
+     static bool bbrr_logged_depth[2] = {};
+     const Shader* bbrr_ps = active_pixel_shader();
+@@ -2985,15 +3070,36 @@
+                   bbrr_which == 0 ? "firework burst" : "water", uint32_t(depth.z_enable),
+                   uint32_t(depth.z_write_enable), uint32_t(depth.zfunc), depth.value);
+     }
+-    if (bbrr_vs == kBbrrBurstVertexShader && !bbrr_redrawing && rex::graphics::WaterReflections() &&
+-        bbrr_mirror_frame == bbrr_frame) {
++    if (bbrr_vs == kBbrrBurstVertexShader && !bbrr_redrawing && rex::graphics::WaterReflections()) {
+       bbrr_redrawing = true;
+       bool bbrr_ok = IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
+       if (bbrr_ok) {
+         uint32_t* constants = &(*register_file_)[XE_GPU_REG_SHADER_CONSTANT_000_X];
+         uint32_t saved[16];
+         std::memcpy(saved, constants, sizeof(saved));
+-        std::memcpy(constants, bbrr_mirror, sizeof(saved));
++        // Patch 0022: the burst matrix reflected about the water plane (see BbrrMeasureWater).
++        float m[4][4], r[4][4];
++        std::memcpy(m, saved, sizeof(m));
++        if (bbrr_mirror_frame == bbrr_frame && !bbrr_mirror_measured) {
++          bbrr_mirror_measured = true;
++          float mm[4][4];
++          std::memcpy(mm, bbrr_mirror, sizeof(mm));
++          BbrrMeasureWater(m, mm);
++        }
++        const float h2 = 2.0f * bbrr_water_height;
++        std::memcpy(r, m, sizeof(r));
++        if (bbrr_matrix_layout == 2) {
++          for (int k = 0; k < 4; ++k) {
++            r[1][k] = -m[1][k];
++            r[3][k] = m[3][k] + h2 * m[1][k];
++          }
++        } else {
++          for (int i = 0; i < 4; ++i) {
++            r[i][1] = -m[i][1];
++            r[i][3] = m[i][3] + h2 * m[i][1];
++          }
++        }
++        std::memcpy(constants, r, sizeof(saved));
+         cbuffer_binding_float_vertex_.up_to_date = false;
+         bbrr_ok = IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
+         std::memcpy(constants, saved, sizeof(saved));

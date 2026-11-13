@@ -181,6 +181,14 @@ How it could be done, cheapest first:
    screen, so single sparks may shimmer or vanish in it; the sparks cost twice the GPU time
    (up to 68,000 points at Particle Density 5x); the sparks' own sizing and fading use the normal
    camera's distance, which may look slightly off in the mirror.
+   Patch 0022 (2026-11-13): the copy only showed from steep views (about 50 degrees down or more)
+   and vanished as the camera levelled out. The burst shader sizes each spark by 1 / clip z
+   (`PointSprite.hlsl`), so the copy needs the reflected point's real depth, which the borrowed
+   mirror-pass matrix only gave for steep views. The copy now uses the burst matrix reflected about
+   the water plane y = h (clip_i = dot(c_i, p), so each register's .y is negated and .w gains 2h .y);
+   h is measured each frame from the mirror pass (-100). Still no depth test: the copy shows over
+   buildings in front of the water. Making it hide behind them is the next step (draw it into the
+   mirror picture, or test it against depth at the water surface).
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
