@@ -152,3 +152,35 @@ The goal: buildings near a firework light up in its colour, instead of the whole
 
 Anti-aliasing (R-405): FXAA is already selectable. The SDK also contains CAS and FSR output
 filters (`GuestOutputPaintConfig`), which could be exposed as a "Sharpening" setting with little work.
+
+## Water reflections (researched 2026-11-12, from the draw log of a frame in play)
+How the water works today: each frame the game first draws a **mirror pass** - the sky dome
+(`04F2/B36F`), the city (`C837/2B08`, about 110 draws, plus `6773/88B6`) and two small point-sprite
+draws (`1DB9/C471`, 1 and 213 points close to the ground: street lights or rockets on their launch
+pads) - with the camera flipped about the water plane (y = -100; the view matrix's second row is
+negated). That picture is then sampled by the water quad (`B90D/FB9F`), drawn after the normal city.
+
+What is missing from the mirror pass: the **bursts** (`BA59/7C30`, up to ~19,000 points per frame) and
+the **lit smoke** (`BBFF/9567`). (Correction: `63B4/4B1E` is not the sparks - its pixel shader multiplies
+by c11.x = 0, so it draws nothing; probably a star field that is switched off.) They are only drawn in
+the normal pass, after the water. So the water cannot show them: they are not in the picture it reads.
+
+How it could be done, cheapest first:
+1. **Firework light on the water (small).** The water shader has its own light constants
+   (`pc0` position, `pc4` colour). Feeding it the same light City Lighting gives the buildings would
+   wash the firework colours over the water near a burst. Not a reflection - no shapes - but cheap,
+   low risk, and it reuses patch 0011.
+2. **Real reflections of the sparks (medium).** Built 2026-11-12 in a simpler form first (patch 0019):
+   the burst draw is issued again inside the emulated GPU with the mirror camera. See the tracker (R-417).
+   Have the game draw its sparks (and possibly smoke)
+   a second time during the mirror pass, with the mirrored camera. Best done on the game side: find
+   the game function that draws the spark system and the one that runs the mirror pass, and call
+   the first from inside the second, so it picks up the mirrored camera the way the street lights do.
+   Steps: a probe build that logs which game functions issue those draws (the return addresses of
+   the draw calls); then the change; then checks. Risks: the mirror picture may be smaller than the
+   screen, so single sparks may shimmer or vanish in it; the sparks cost twice the GPU time
+   (up to 68,000 points at Particle Density 5x); the sparks' own sizing and fading use the normal
+   camera's distance, which may look slightly off in the mirror.
+3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
+   the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
+   emulation does not keep around; not recommended.

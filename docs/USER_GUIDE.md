@@ -30,6 +30,8 @@ different folder.
 | | Anti-Aliasing | Off, FXAA, FXAA High; changes at once |
 | | Glow | Off (default), Low, Medium, High: a soft glow around fireworks and other bright things, but not the HUD; changes at once |
 | | City Lighting | Off, Low, Medium (default), High, Very High, Acid Trip (deliberately over the top, no brightness cap): buildings near a firework are lit in its colour, fading with distance; Off is the original look; changes at once |
+| | Water Glow | Off, Low, Medium, High (default): the moonlit shine on the water takes the colour of the fireworks and moves to where they burst, and their colour washes lightly over the water; changes at once |
+| | Water Reflections (test) | Off (default) or On: an experiment that draws the firework bursts reflected in the water. For now they also show over things that should hide them |
 | | Particle Density | A multiplier on the number of particles in each firework: 0.25x, 0.5x, 0.75x, 1x (default, the original amount), then 2x to 5x; 0x turns the fireworks' sparks off completely; changes at once |
 | | HDR | Off (default) or On, for HDR displays with HDR switched on in Windows; changes at once |
 | | Resolution | 720p, 1440p (default), 2160p, 2880p; needs a restart, the game offers one |
@@ -38,7 +40,8 @@ different folder.
 | | Input Offset | Moves how presses are judged. Positive = presses count as made earlier |
 | | Show Accuracy | After each hit, shows how early (+) or late (-) it was in milliseconds; adds a timing line to the results screen |
 | | Assist Tick | Plays a click at the exact moment of every rocket |
-| Modifiers | Scroll Speed | 0.25x to 4x in steps of 0.25 (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step, without pausing; the new speed shows briefly in the middle of the screen and is saved |
+| Modifiers | Scroll Speed | 0.25x to 4x in steps of 0.25 (default 1x). Arrows travel faster and sit further apart, as in StepMania; the timing against the music does not change. During a song, **RB** raises it and **LB** lowers it one step (hold the button to keep going), without pausing; the new speed shows briefly in the middle of the screen and is saved |
+| | Camera Speed | 100 (default) down to 0 in steps of 10: how fast the camera travels through the city during a song, in percent. Lower values mean less background movement, for anyone who finds the moving city disorienting; at 0 the camera stays still. The launch and burst points slow down with it, so the arrows still reach the line on time. Applies from the next song |
 | | Rocket Acceleration | Default (the game's own movement) or Static (arrows move at one even speed along their path the whole way up). Changes at once, also during a song |
 | | Horizontal Drift | Default (the original): arrows drift sideways towards where their firework will go off. Off: each arrow climbs straight up and stays in the screen column where it first appears, even when the camera swings, so none come in from the sides. Changes at once |
 | | DDR Mode | Off (default) or On: a novelty mode like DDR. Arrows climb straight up in four lanes in the middle of the screen, sorted by button: Left (X), Down (A), Up (Y), Right (B). Two arrows of the same button on the same beat share a lane and overlap. Changes at once |
@@ -83,6 +86,7 @@ Settings can also be given when starting the game; these win over the saved sett
 | `--skip_intro=false` | Show the start-up logos |
 | `--ui_mods=false` | Turn off every menu addition (BBRR Settings, hit timing, renamed texts) |
 | `--game_debug_log=true` | Write the game's own debug messages to the log |
+| `--game_volume=<n>` | The whole game's sound: 1 is as the game made it; the default is 1.5 (150%), as the original mix is quiet next to other PC sound. Up to 2 |
 | `--scroll_speed=<n>` | Scroll speed multiplier, any value from 0.25 to 8 |
 | `--scroll_speed_buttons=false` | LB / RB do not change the scroll speed |
 | `--no_background_draws=<list>` | Which draws No Background skips (vertex:pixel shader hash pairs); only needed if something is hidden that should not be, or the other way round |

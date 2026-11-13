@@ -1,0 +1,55 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2494,12 +2494,12 @@
+ 
+ // Puts back the constants a draw was given once the draw has been issued.
+ struct BbrrConstantGuard {
+-  uint32_t* slots[8] = {};
+-  uint32_t saved[8] = {};
++  uint32_t* slots[12] = {};
++  uint32_t saved[12] = {};
+   int count = 0;
+   bool* up_to_date = nullptr;
+   void Set(uint32_t* slot, float value) {
+-    if (count >= 8) return;
++    if (count >= 12) return;
+     slots[count] = slot;
+     saved[count] = *slot;
+     std::memcpy(slot, &value, sizeof(float));
+@@ -2894,14 +2894,33 @@
+   const float brightest = std::max(f.total[0], std::max(f.total[1], f.total[2]));
+   if (!(brightest > 0.02f)) return false;
+   const uint32_t pixel_base = XE_GPU_REG_SHADER_CONSTANT_256_X;
+-  float colour[4];
++  // Patch 0020: how wide the highlight spreads (its shininess: the moon's is 50, lower is
++  // wider) and a wash of the fireworks' colour over the whole water, for the light that falls
++  // on it as it does on the buildings. Both can be tried in play (--water_glow_spread,
++  // --water_glow_wash); read once a frame.
++  static uint64_t read_frame = ~uint64_t(0);
++  static float spread = 20.0f, wash = 0.06f;
++  if (read_frame != bbrr_frame) {
++    read_frame = bbrr_frame;
++    const double s_value = std::strtod(rex::cvar::GetFlagByName("water_glow_spread").c_str(), nullptr);
++    const double w_value = std::strtod(rex::cvar::GetFlagByName("water_glow_wash").c_str(), nullptr);
++    if (s_value >= 1.0 && s_value <= 100.0) spread = float(s_value);
++    if (w_value >= 0.0 && w_value <= 1.0) wash = float(w_value);
++  }
++  float colour[4], ambient[4];
+   BbrrReadFloats(regs, pixel_base, 4, colour);
++  BbrrReadFloats(regs, pixel_base, 1, ambient);
++  // The wash goes into the ambient colour's green and blue (its red also sets the water's
++  // opacity, so it is left alone).
+   for (int k = 0; k < 3; ++k) {
+     guard.Set(&regs[pixel_base + (2 << 2) + uint32_t(k)], f.centre[k]);
+     guard.Set(&regs[pixel_base + (4 << 2) + uint32_t(k)],
+               std::min(colour[k] + f.total[k] * 0.8f * glow, 4.0f));
+   }
+-  guard.Set(&regs[pixel_base + (3 << 2)], 20.0f);  // a broader highlight than the moon's (50)
++  guard.Set(&regs[pixel_base + (3 << 2)], spread);
++  for (int k = 1; k < 3; ++k) {
++    guard.Set(&regs[pixel_base + (1 << 2) + uint32_t(k)], std::min(ambient[k] + f.total[k] * wash * glow, 1.0f));
++  }
+   return true;
+ }
+ }  // namespace

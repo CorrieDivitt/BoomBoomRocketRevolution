@@ -27,6 +27,7 @@ set(BOOMBOOMROCKET_SOURCES
     src/autoplay.cpp
     src/modifiers.cpp
     src/city_lighting.cpp
+    src/camera_speed.cpp
     src/settings.cpp
     src/profiles.cpp
     src/visualizer.cpp

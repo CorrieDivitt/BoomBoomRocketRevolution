@@ -2,6 +2,8 @@
 #include <string>
 
 namespace bbr {
+// Applies Game Volume (--game_volume) when it has changed; called once a frame.
+void UpdateGameVolume();
 // Loads <user folder>/boomboomrocket/settings.ini and applies it. Values given on the
 // command line win over the file. Call before the runtime is set up.
 void LoadSettings();

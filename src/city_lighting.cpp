@@ -42,6 +42,19 @@ REXCVAR_DEFINE_DOUBLE(city_light_ceiling, 0.35, "BBR",
 REXCVAR_DEFINE_DOUBLE(city_light_standoff, 350.0, "BBR",
                       "City Lighting: the nearest the light is allowed to a piece it lights, in world units");
 
+REXCVAR_DEFINE_DOUBLE(water_glow, 2.0, "BBR",
+                      "Water Glow: the water's highlight takes the fireworks' colour and moves to where they are; "
+                      "0 = off, 0.5 / 1 / 2 = Low / Medium / High");
+// Read by the GPU side (SDK patch 0020) once a frame.
+REXCVAR_DEFINE_DOUBLE(water_glow_spread, 20.0, "BBR",
+                      "Water Glow: how tight the fireworks' highlight on the water is (shininess; the moon's is 50, "
+                      "lower spreads wider)");
+REXCVAR_DEFINE_DOUBLE(water_glow_wash, 0.06, "BBR",
+                      "Water Glow: how much of the fireworks' colour washes over the whole water (0 to 1)");
+REXCVAR_DEFINE_BOOL(water_reflections, false, "BBR",
+                    "Water Reflections: the firework bursts are drawn again with the mirror camera, so they show "
+                    "in the water");
+
 REXCVAR_DEFINE_BOOL(city_light_probe, false, "BBR",
                     "Development: log city draws, firework bursts and spark emitters once per run "
                     "(for the city lighting work); nothing on screen changes");
@@ -53,6 +66,8 @@ namespace rex::graphics {
 void RequestDrawDump(uint32_t frames);  // SDK patch 0005
 void SetConstantWatch(uint64_t pixel_hash);  // SDK patch 0010
 void SetCityLighting(float strength);  // SDK patch 0011
+void SetWaterGlow(float strength);     // SDK patch 0019
+void SetWaterReflections(bool on);     // SDK patch 0019
 }  // namespace rex::graphics
 #endif
 
@@ -125,6 +140,23 @@ void bbr::CityLightProbeUpdate(uint8_t* base, bool song_on) {
       sent = want;
       rex::graphics::SetCityLighting(float(want));
       REXLOG_INFO("[city] City Lighting strength {}", want);
+    }
+  }
+  {
+    // Water Glow and Water Reflections (SDK patch 0019).
+    static double glow_sent = -1.0;
+    static int reflections_sent = -1;
+    const double glow = std::clamp(REXCVAR_GET(water_glow), 0.0, 8.0);
+    const int reflections = REXCVAR_GET(water_reflections) ? 1 : 0;
+    if (glow != glow_sent) {
+      glow_sent = glow;
+      rex::graphics::SetWaterGlow(float(glow));
+      REXLOG_INFO("[city] Water Glow strength {}", glow);
+    }
+    if (reflections != reflections_sent) {
+      reflections_sent = reflections;
+      rex::graphics::SetWaterReflections(reflections != 0);
+      REXLOG_INFO("[city] Water Reflections {}", reflections ? "on" : "off");
     }
   }
   static bool watching = false;

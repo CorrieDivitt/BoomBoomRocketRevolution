@@ -244,7 +244,7 @@
   "effort": "M",
   "acceptance": "30 charts finish with correct results screen and grade",
   "depends_on": "R-109",
-  "notes": ""
+  "notes": " During the playthrough also test Camera Speed (R-901) at 100, 50 and 0 on every song, including the camera move at the end of the song."
  },
  {
   "id": "R-111",
@@ -466,6 +466,19 @@
   "acceptance": "Arrow scrolling is visibly smooth at 60/120/144 fps; hit timing unchanged; A/B via --smooth_song_clock",
   "depends_on": "R-202",
   "notes": "Verified 2026-11-10: arrows very smooth with src/song_clock.cpp (audio position stepped up to 21 ms)"
+ },
+ {
+  "id": "R-214",
+  "phase": 2,
+  "phase_name": "Audio & music sync",
+  "category": "Audio",
+  "title": "Game volume boost",
+  "priority": "P2",
+  "status": "done",
+  "effort": "S",
+  "acceptance": "BBRR Settings > Game Volume 100-200%; loud passages rounded off by a limiter instead of distorting; a log line reports how loud the game mix is",
+  "depends_on": "R-201",
+  "notes": "Requested 2026-11-12: the game is quieter than other programs at full volume. The SDK already had an output gain (rex/audio/downmix.h) that nothing set; it hard-clipped above full scale. SDK patch 0018 applies a gain above 1 after the channel mix with a soft limiter (knee at 0.8) and logs every 30 s the game mix peak and average level and how much was rounded off. Setting --game_volume, default 100%. Built, not run; the level line will show how much headroom the game leaves. Measured 2026-11-12 at 100% (Denon AVR, 6 channels): during songs the game mix peaks at -2 to 0 dBFS (bursts) but averages only -27 to -34 dBFS across the six channels (about -22 to -29 dBFS on the two front channels that carry the music), roughly 10 dB below typical PC audio. A wide-dynamic-range mix: a plain boost reaches the limiter on loud bursts. Suggested: try 150%-175% and watch the 'rounded off' share in the log; a compressor (lifting the quiet parts) would be the better long-term fix. Tested at 150% 2026-11-12: output peaks reach full scale only on bursts and 0.002-0.014% of samples were rounded off (inaudible); room to go higher. Settled 2026-11-12: no menu setting; the game plays at 150% by default (--game_volume to change it). Done."
  },
  {
   "id": "R-301",
@@ -754,6 +767,19 @@
   "notes": "First version (untested): UI scripts are Lua 5.1 and can be replaced from ui_scripts/ (src/ui_mod.cpp); screen ui_scripts/Options/BBRR.lua with aspect ratio, menu layout, audio offset, skip intro; saved to settings.ini (src/settings.cpp). Still to add: resolution scale, frame rate, window mode, DLC, calibration Tracker clean-up 2026-11-12: marked done. The menu has been in daily use for days: pages Profiles, Video Settings, Calibration, Modifiers, Keyboard (see docs/USER_GUIDE.md); the note above describes the first version only."
  },
  {
+  "id": "R-417",
+  "phase": 4,
+  "phase_name": "Graphics & resolution",
+  "category": "Lighting",
+  "title": "Fireworks reflected in the water",
+  "priority": "P2",
+  "status": "in_progress",
+  "effort": "M",
+  "acceptance": "Bursts and sparks show in the water's reflection, optional",
+  "depends_on": "R-410",
+  "notes": "Researched 2026-11-12 (docs/GRAPHICS.md, Water reflections): the water samples a mirror pass of the sky, city and ground-level lights; the sparks and smoke are only drawn in the normal pass. Options: firework light on the water via the water shader's light constants (small), or drawing the sparks again in the mirror pass from the game side (medium, needs a probe build first). 2026-11-12: both built as Video Settings toggles, not run. Correction to the research: the 4,000-point draw 63B4/4B1E is not the sparks (its pixel shader multiplies by c11.x = 0, so it draws nothing: likely a star field switched off); the bursts are BA59/7C30 (up to ~19,000 points), the lit smoke BBFF/9567, and rockets with their trails 1DB9/C471 are already in the mirror pass. Water Glow (--water_glow): the water's single specular highlight (light position c2, shininess c3, colour c4; the moon) is moved to this frame's fireworks and given their colour, shininess 20. Water Reflections (--water_reflections): the burst draw is issued a second time with the mirror camera captured from the city's mirror pass (C837 c0-c3); whether it shows depends on whether the water writes depth - the first frame logs the depth state of the water and burst draws ('[bbrr] water draw: depth test ...'). SDK patch 0019. Test 2026-11-12: Water Glow looked really nice and is to be kept (now on by default at Medium) - but only the rocket tails showed in the water, and the user wants the light that falls on the buildings to fall on the water too. Patch 0020: the highlight spreads wider (shininess 6 instead of 20; Video Settings > Water Glow Spread: Narrow 20 / Medium 6 / Wide 2) and the fireworks' colour washes over the water (ambient green and blue, --water_glow_wash 0.06; red is left alone as it also sets the water's opacity). Water Glow has levels Off / Low / Medium / High. Water Reflections: the log shows the burst draw has no depth test (and the water writes depth), so the mirrored copy painted over everything - seen in visualizer mode. Doing it properly means drawing the bursts into the mirror picture before the water reads it (a register-state snapshot replayed in the next frame's mirror pass); kept as 'Water Reflections (test)', off by default. Settled 2026-11-12: the Spread row is gone, the highlight is always Narrow (shininess 20; --water_glow_spread still works); Water Glow Off / Low / Medium / High with High the default."
+ },
+ {
   "id": "R-501",
   "phase": 5,
   "phase_name": "Leaderboards & achievements",
@@ -794,8 +820,8 @@
  },
  {
   "id": "R-504",
-  "phase": 5,
-  "phase_name": "Leaderboards & achievements",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Online",
   "title": "Online leaderboard service",
   "priority": "P1",
@@ -803,12 +829,12 @@
   "effort": "XL",
   "acceptance": "Self-hosted REST service; scores submitted & fetched; basic validation",
   "depends_on": "R-503",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals 2026-11-12 at the user's request."
  },
  {
   "id": "R-505",
-  "phase": 5,
-  "phase_name": "Leaderboards & achievements",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
   "category": "Online",
   "title": "Score integrity checks",
   "priority": "P2",
@@ -816,7 +842,7 @@
   "effort": "M",
   "acceptance": "Server rejects impossible scores (max per chart from note counts)",
   "depends_on": "R-504",
-  "notes": ""
+  "notes": " Moved to the post-1.0 stretch goals 2026-11-12 at the user's request."
  },
  {
   "id": "R-506",
@@ -1033,11 +1059,11 @@
   "category": "Accessibility",
   "title": "Reduce background/camera motion option",
   "priority": "P2",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Setting (Off/Reduced/Static) that damps or freezes the city camera movement from the *_SplCamera splines without affecting gameplay or note timing",
   "depends_on": "R-104",
-  "notes": "Stretch goal: background movement can be disorienting (user feedback 2026-11-10)"
+  "notes": "Stretch goal: background movement can be disorienting (user feedback 2026-11-10) 2026-11-12: built as Modifiers > Camera Speed (100 down to 0 in steps of 10, --camera_speed, src/camera_speed.cpp). The camera, launch and burst points follow three looping splines per song (_SplCamera, _SplLaunch, _SplTarget), loaded by sub_82086948 and read by sub_82085F08 at song time; on those three the song time is multiplied by the speed, so the whole scene travels less far and rockets still reach the target line on time. Applies from the next song. Possible side effect: below 100 the closing camera move (_Out spline) may jump. Built, not run. Confirmed working by the user 2026-11-12 and marked done; menu order changed so Left lowers it. TO TEST during the full playthrough (R-110): every song at a few speeds (100, 50, 0), the closing camera move at song end, the menu background."
  },
  {
   "id": "R-902",
@@ -1141,7 +1167,7 @@
   "effort": "M",
   "acceptance": "Adjustable approach speed independent of song tempo; judging unchanged",
   "depends_on": "R-801",
-  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Confirmed working in play 2026-11-11. Now also live: RB / LB step it up / down during a song (notes not yet launched are retimed, arrows in the air are repositioned every frame; hooks on sub_82064C50 and sub_8206A328), with a brief on-screen notice. First live build launched new arrows late (fixed: the rewritten launch time must be before 'now'); fix accepted 2026-11-11 pending issues in testing. Song select screen: speed panel right of the list with LB / RB, and each bar shows BPM x speed (right) and length (left, smaller font); mid-song change and bar layout confirmed in play 2026-11-11. Follow-ups (accepted 2026-11-11 pending issues in testing): first notes of a song get their full path back when the speed allows (the game builds them part-way up); panel moved right with LB / RB icons (confirmed in a screenshot); 'Length' and 'BPM' headings level with the screen title. 2026-11-11 (2): first arrow of a song still appeared late at higher speeds (log: its flight stayed at the shortened 1.6 s). The full path is now taken from any full-length note with the same end whose path runs through the shortened start (the old rule also required the same note kind, which first notes rarely share); each attempt is logged. Untested. 2026-11-11 (3): still 'no full path found' for the first notes (each note has its own end). Second way added: the full start is where the line from the end through the shortened start meets the plane of the songs' launch points (the start coordinate that varies least), flight = path length / the song's rocket speed. Untested. 2026-11-12: choices 0.25x to 4x in steps of 0.25 (16 steps). At 0.25x and 0.5x early arrows went missing; fix: a retimed launch is never put before the song start; confirmed working at 0.25x 2026-11-12. Speeds below 1x now retime every waiting note at load and on each LB/RB step (RetimeWaiting), since the game only checks a note once its launch time has come. Marked done 2026-11-12 (first-arrow fixes accepted pending issues in testing)."
+  "notes": "Modifiers page in BBRR Settings with Scroll Speed 0.5x-4x (--scroll_speed): each note's flight time is divided by the multiplier when the chart loads (hook on sub_82065E70, src/modifiers.cpp), so arrows launch later and travel faster along the same path. Confirmed working in play 2026-11-11. Now also live: RB / LB step it up / down during a song (notes not yet launched are retimed, arrows in the air are repositioned every frame; hooks on sub_82064C50 and sub_8206A328), with a brief on-screen notice. First live build launched new arrows late (fixed: the rewritten launch time must be before 'now'); fix accepted 2026-11-11 pending issues in testing. Song select screen: speed panel right of the list with LB / RB, and each bar shows BPM x speed (right) and length (left, smaller font); mid-song change and bar layout confirmed in play 2026-11-11. Follow-ups (accepted 2026-11-11 pending issues in testing): first notes of a song get their full path back when the speed allows (the game builds them part-way up); panel moved right with LB / RB icons (confirmed in a screenshot); 'Length' and 'BPM' headings level with the screen title. 2026-11-11 (2): first arrow of a song still appeared late at higher speeds (log: its flight stayed at the shortened 1.6 s). The full path is now taken from any full-length note with the same end whose path runs through the shortened start (the old rule also required the same note kind, which first notes rarely share); each attempt is logged. Untested. 2026-11-11 (3): still 'no full path found' for the first notes (each note has its own end). Second way added: the full start is where the line from the end through the shortened start meets the plane of the songs' launch points (the start coordinate that varies least), flight = path length / the song's rocket speed. Untested. 2026-11-12: choices 0.25x to 4x in steps of 0.25 (16 steps). At 0.25x and 0.5x early arrows went missing; fix: a retimed launch is never put before the song start; confirmed working at 0.25x 2026-11-12. Speeds below 1x now retime every waiting note at load and on each LB/RB step (RetimeWaiting), since the game only checks a note once its launch time has come. Marked done 2026-11-12 (first-arrow fixes accepted pending issues in testing). 2026-11-12: holding RB / LB keeps stepping (first repeat after 0.4 s, then every 0.15 s), during songs and on song select (requested)."
  },
  {
   "id": "R-803",

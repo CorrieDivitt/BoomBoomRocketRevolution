@@ -1,0 +1,96 @@
+diff --git a/src/audio/sdl/sdl_audio_driver.cpp b/src/audio/sdl/sdl_audio_driver.cpp
+--- a/src/audio/sdl/sdl_audio_driver.cpp
++++ b/src/audio/sdl/sdl_audio_driver.cpp
+@@ -9,6 +9,7 @@
+  * @modified    Tom Clay, 2026 - Adapted for ReXGlue runtime
+  */
+ 
++#include <cmath>
+ #include <algorithm>
+ #include <array>
+ #include <cstring>
+@@ -158,6 +159,52 @@
+   }
+ }
+ 
++// Boom Boom Rocket Revolution (patch 0018): the volume boost and a level report.
++namespace {
++// Soft limiter: unchanged up to kKnee, then eased towards full scale so nothing clips.
++inline float BbrrSoftLimit(float v) {
++  constexpr float kKnee = 0.8f;
++  const float a = std::fabs(v);
++  if (a <= kKnee) return v;
++  const float limited = kKnee + (1.0f - kKnee) * std::tanh((a - kKnee) / (1.0f - kKnee));
++  return v < 0.0f ? -limited : limited;
++}
++
++void BbrrBoostAndMeasure(float* data, int sample_count, float boost, float gain) {
++  static float peak_in = 0.0f, peak_out = 0.0f;
++  static double sum_squares = 0.0;
++  static uint64_t samples = 0, limited = 0;
++  static uint32_t frames = 0;
++  for (int i = 0; i < sample_count; ++i) {
++    const float in = data[i];
++    peak_in = std::max(peak_in, std::fabs(in));
++    sum_squares += double(in) * double(in);
++    if (boost != 1.0f) {
++      const float raw = in * boost;
++      const float out = BbrrSoftLimit(raw);
++      if (out != raw) ++limited;
++      data[i] = out;
++    }
++    peak_out = std::max(peak_out, std::fabs(data[i]));
++  }
++  samples += uint64_t(sample_count);
++  // One line about every 30 s (a frame is 5.33 ms): how loud the game's own mix is, and how
++  // much of it the boost had to round off.
++  if (++frames >= 5625) {
++    const double rms = samples ? std::sqrt(sum_squares / double(samples)) : 0.0;
++    auto db = [](double v) { return v > 1e-9 ? 20.0 * std::log10(v) : -180.0; };
++    REXAPU_INFO("[audio] last 30 s: game mix peak {:.1f} dBFS, average {:.1f} dBFS; volume x{:.2f}, output peak "
++                "{:.1f} dBFS, {:.3f}% of samples rounded off",
++                db(peak_in), db(rms), double(gain), db(peak_out),
++                samples ? 100.0 * double(limited) / double(samples) : 0.0);
++    peak_in = peak_out = 0.0f;
++    sum_squares = 0.0;
++    samples = limited = 0;
++    frames = 0;
++  }
++}
++}  // namespace
++
+ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int additional_amount,
+                                  [[maybe_unused]] int total_amount) {
+   SCOPE_profile_cpu_f("apu");
+@@ -178,6 +225,11 @@
+   const StereoFold fold = GetStereoFold();
+   const SurroundMix mix = GetSurroundMix();
+   const float gain = GetOutputGain();
++  // Boom Boom Rocket Revolution (patch 0018): above unity the gain is applied after the
++  // channel mix with a soft limiter, instead of in the mix with a hard clip at full scale,
++  // so loud passages are rounded off rather than distorted.
++  const bool boost = gain > 1.0f;
++  const float mix_gain = boost ? 1.0f : gain;
+   while (additional_amount > 0) {
+     static uint32_t sdl_callback_count = 0;
+     std::unique_lock<std::mutex> guard(driver->frames_mutex_);
+@@ -201,16 +253,17 @@
+         switch (driver->sdl_device_channels_) {
+           case 2:
+             conversion::sequential_6_BE_to_interleaved_2_LE(data, buffer, channel_samples_, fold,
+-                                                            gain);
++                                                            mix_gain);
+             break;
+           case 6:
+             conversion::sequential_6_BE_to_interleaved_6_LE(data, buffer, channel_samples_, mix,
+-                                                            gain);
++                                                            mix_gain);
+             break;
+           default:
+             assert_unhandled_case(driver->sdl_device_channels_);
+             break;
+         }
++        BbrrBoostAndMeasure(data, sample_count, boost ? gain : 1.0f, gain);
+       }
+       if (!SDL_PutAudioStreamData(stream, data, len)) {
+         REXAPU_ERROR("SDL_PutAudioStreamData() failed: {}", SDL_GetError());

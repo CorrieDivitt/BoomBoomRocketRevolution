@@ -410,6 +410,7 @@ void bbr::UpdateNoBackground(uint8_t* base) {
   const bool song_on = g_song_screens.load() || state == 1 || state == 4;
   bbr::AutoplayUpdate(base, song_on);
   bbr::CityLightProbeUpdate(base, song_on);
+  bbr::UpdateGameVolume();
   const bool hide = REXCVAR_GET(no_background) && song_on;
   static bool hiding = false;
   static bool dumped = false;

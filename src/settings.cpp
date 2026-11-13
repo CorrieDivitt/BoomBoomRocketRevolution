@@ -14,6 +14,7 @@
 #include "profiles.h"
 #include "keyboard.h"
 
+#include <rex/audio/downmix.h>
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/logging.h>
@@ -35,6 +36,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+// The game's own mix averages about 10 dB below other PC sound (measured 2026-11-12), so it
+// plays at 150% by default; a soft limiter (SDK patch 0018) rounds off the rare peaks.
+REXCVAR_DEFINE_DOUBLE(game_volume, 1.5, "BBR",
+                      "The whole game's sound: 1 = as the game made it, up to 2. Default 1.5; a soft limiter "
+                      "keeps loud passages from distorting");
 
 REXCVAR_DEFINE_STRING(frame_rate, "display", "BBR",
                       "Frames per second: display (match the main display's refresh rate) or a number. "
@@ -126,9 +133,19 @@ const std::vector<Setting>& Settings() {
     s.push_back({"visualizer", "visualizer_sensitivity", "Visualizer Sensitivity",
                  {{"0.5", "Low"}, {"1", "Normal"}, {"2", "High"}, {"4", "Very High"}}, 1, "main"});
     // Every rocket hit at 0 ms; songs that used it save no score (src/autoplay.cpp).
+    // How fast the song's camera travels (src/camera_speed.cpp); applies from the next song.
+    s.push_back({"camera_speed", "camera_speed", "Camera Speed",
+                 {{"0", "0"}, {"10", "10"}, {"20", "20"}, {"30", "30"}, {"40", "40"}, {"50", "50"}, {"60", "60"},
+                  {"70", "70"}, {"80", "80"}, {"90", "90"}, {"100", "100"}},
+                 10, "modifiers"});
     s.push_back({"autoplay", "autoplay", "Autoplay", {{"false", "Off"}, {"true", "On"}}, 0, "modifiers"});
     s.push_back({"no_background", "no_background", "Background", {{"false", "Default"}, {"true", "Off"}}, 0,
                  "modifiers"});
+    // Fireworks and the water (src/city_lighting.cpp, SDK patch 0019).
+    s.push_back({"waterglow", "water_glow", "Water Glow",
+                 {{"0", "Off"}, {"0.5", "Low"}, {"1", "Medium"}, {"2", "High"}}, 3, "video"});
+    s.push_back({"waterreflect", "water_reflections", "Water Reflections (test)", {{"false", "Off"}, {"true", "On"}}, 0,
+                 "video"});
     s.push_back({"hdr", "output_hdr", "HDR", {{"false", "Off"}, {"true", "On"}}, 0, "video"});
     s.push_back({"resolution", "resolution_scale", "Resolution",
                  {{"1", "720p"}, {"2", "1440p"}, {"3", "2160p"}, {"4", "2880p"}}, 1, "video", true});
@@ -147,8 +164,8 @@ const std::vector<Page>& Pages() {
                                 "action:bind_start", "action:keys_reset"}},
       // Rows handled by src/profiles.cpp.
       {"profiles", "Profiles", {"profile_p1", "profile_p2", "controller_p1", "action:rename_p1", "action:rename_p2", "action:new_profile"}},
-      {"modifiers", "Modifiers", {"scroll_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
-      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "citylight", "particles", "hdr", "resolution"}},
+      {"modifiers", "Modifiers", {"scroll_speed", "camera_speed", "rocket_acceleration", "horizontal_drift", "ddr_mode", "no_background", "autoplay"}},
+      {"video", "Video Settings", {"aspect", "window", "antialiasing", "glow", "citylight", "waterglow", "waterreflect", "particles", "hdr", "resolution"}},
       // Its own screen (ui_scripts/Options/BBRR_calibrate.lua), listed here for its title.
       {"calibrate", "Auto Calibration", {}},
       {"timing", "Calibration", {"page:calibrate", "audio_offset", "input_offset", "hit_timing", "assist_tick"}},
@@ -277,6 +294,17 @@ void RestartGame() {
 #endif
 }
 }  // namespace
+
+// Game Volume goes to the SDK's output stage (rex/audio/downmix.h); called once a frame.
+void UpdateGameVolume() {
+  static double sent = -1.0;
+  const double want = std::clamp(REXCVAR_GET(game_volume), 0.0, 2.0);
+  if (want == sent) return;
+  sent = want;
+  rex::audio::SetOutputGain(float(want));
+  REXLOG_INFO("[settings] game volume x{:.2f}", want);
+}
+
 
 // Sets the runtime's guest refresh rate. There is no menu setting for it: the game runs
 // at the main display's refresh rate, and (with the SDK patch in patches/rexglue-sdk)
@@ -602,6 +630,7 @@ std::string SettingsStrings() {
                     "BBRR_CAL_TAP_M1 = -1 / 16\n"
                     "BBRR_CAL_RING = O\n"
                     "BBRR_EXIT_GAME = Exit Game\n"
+                    "BBRR_EXIT_TO_MENU = Exit to Menu\n"
                     "BBRR_RESTART_SONG = Restart Song\n"
                     "BBRR_REPLAY_SONG = Replay Song\n"
                     "BBRR_RESTART_SONG_INFO = Are you sure you want to restart this song?  Doing so will mean your current score will not be saved.\n"

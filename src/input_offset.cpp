@@ -502,15 +502,32 @@ bool bbr::SongTimeNow(double* out) {
 // The game's controller read (src/autoplay.cpp hook on sub_820E6E50): LB (0x0100) / RB
 // (0x0200) presses step the scroll speed down / up (src/modifiers.cpp). Every source the game
 // sees counts: XInput and SDL pads and the keyboard (Q / E).
+// Holding a shoulder button keeps stepping: the first repeat after kRepeatDelay, then one
+// step every kRepeatEvery, until the button is let go (or the speed reaches its end).
 void bbr::NoteGuestButtons(uint32_t user, uint16_t buttons) {
+  constexpr double kRepeatDelay = 0.4, kRepeatEvery = 0.15;
   static uint16_t previous[4] = {};
+  static double next_repeat[4][2] = {};
   if (user >= 4) return;
   const uint16_t shoulders = buttons & 0x0300;
   const uint16_t pressed = shoulders & ~previous[user];
   previous[user] = shoulders;
-  if (pressed) {
-    g_shoulder_steps.fetch_add(((pressed & 0x0200) ? 1 : 0) - ((pressed & 0x0100) ? 1 : 0));
-    g_shoulder_time.store(Now(), std::memory_order_relaxed);
+  const double now = Now();
+  int steps = 0;
+  for (int i = 0; i < 2; ++i) {
+    const uint16_t bit = i == 0 ? 0x0100 : 0x0200;  // LB, RB
+    const int step = i == 0 ? -1 : 1;
+    if (pressed & bit) {
+      steps += step;
+      next_repeat[user][i] = now + kRepeatDelay;
+    } else if ((shoulders & bit) && now >= next_repeat[user][i]) {
+      steps += step;
+      next_repeat[user][i] = now + kRepeatEvery;
+    }
+  }
+  if (steps != 0) {
+    g_shoulder_steps.fetch_add(steps);
+    g_shoulder_time.store(now, std::memory_order_relaxed);
   }
 }
 
