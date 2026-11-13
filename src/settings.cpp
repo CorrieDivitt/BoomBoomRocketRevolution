@@ -83,6 +83,11 @@ const std::vector<Setting>& Settings() {
     s.push_back({"assist_tick", "assist_tick", "Assist Tick", {{"true", "On"}, {"false", "Off"}}, 1});
     s.push_back({"skip_intro", "skip_intro", "Skip Intro", {{"true", "On"}, {"false", "Off"}}, 0});
     s.push_back({"layout", "ui_anchor", "Menu Layout", {{"edges", "Screen Edges"}, {"center", "Centred"}}, 0});
+    // An experiment (SDK patch 0017): tell the game its players are signed in to Xbox Live, so
+    // its own leaderboard code runs - scores written at the end of a song, tables read back -
+    // against the scores kept on this PC (src/leaderboards.cpp). Needs a restart.
+    s.push_back({"livemode", "profiles_signed_in_to_live", "Leaderboards Test", {{"false", "Off"}, {"true", "On"}}, 0,
+                 "main", true});
     s.push_back({"aspect", "aspect_ratio", "Aspect Ratio",
                  {{"auto", "Match Window"}, {"16:9", "16:9"}, {"21:9", "21:9"}, {"32:9", "32:9"}}, 0, "video"});
     s.push_back({"window", "fullscreen", "Window Mode", {{"true", "Fullscreen"}, {"false", "Windowed"}}, 0, "video"});
@@ -135,7 +140,7 @@ const std::vector<Setting>& Settings() {
 // On a page, settings that need a restart go last (the footnote says "the last N settings").
 const std::vector<Page>& Pages() {
   static const std::vector<Page> pages = {
-      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "page:keyboard", "visualizer", "skip_intro", "layout"}},
+      {"main", "BBRR Settings", {"page:profiles", "page:video", "page:timing", "page:modifiers", "page:keyboard", "visualizer", "skip_intro", "layout", "livemode"}},
       // Rows other than "keyboard" handled by src/keyboard.cpp.
       {"keyboard", "Keyboard", {"keyboard", "keyboard_dpad", "action:bind_a", "action:bind_b", "action:bind_x",
                                 "action:bind_y", "action:bind_lb", "action:bind_rb", "action:bind_triggers",
@@ -400,6 +405,10 @@ void ExitSoon() {
 int g_pending_keyboard = -1;  // Use Keyboard choice waiting for the page to be saved (0-based)
 
 std::string SettingsCommand(const std::string& command, const std::string& key, const std::string& value) {
+  if (command == "bbrr.log") {  // a line from a UI script, for finding things out
+    REXLOG_INFO("[ui] {}", key);
+    return "";
+  }
   if (command == "bbrr.save") {
     if (g_pending_keyboard >= 0) {
       if (const Setting* k = Find("keyboard")) Apply(*k, size_t(g_pending_keyboard));
@@ -435,7 +444,7 @@ std::string SettingsCommand(const std::string& command, const std::string& key, 
   if (command.rfind("bbrr.metro.", 0) == 0) return MetronomeCommand(command, key, value);
   if (command.rfind("bbrr.hit.", 0) == 0) return HitCommand(command);
   if (command.rfind("bbrr.speed.", 0) == 0) return SpeedCommand(command);
-  if (command.rfind("bbrr.autoplay.", 0) == 0) return AutoplayCommand(command);
+  if (command.rfind("bbrr.autoplay.", 0) == 0) return AutoplayCommand(command, key);
   if (command == "bbrr.ui.keep") {
     // key = "x0,y0,x1,y1": a rectangle whose contents must not follow a window edge.
     float r[4];

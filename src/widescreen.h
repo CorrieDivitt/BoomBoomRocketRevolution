@@ -12,6 +12,9 @@ bool WidescreenRequested();
 void ApplyAspect(uint8_t* base);
 // Guest memory base (set once the game is running; null before that).
 uint8_t* GuestBase();
+// Called with the name of every UI script the game loads: the leaderboard screens show
+// their song lists without lengths and tempos (src/song_length.cpp).
+void SongLengthNoteScreen(const char* name);
 // Width/height ratio the 2D layer is laid out for (16/9 unless widescreen is on).
 double UiAspectRatio();
 // Called whenever the game loads a UI script (src/ui_mod.cpp): a new screen is starting.

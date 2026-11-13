@@ -110,11 +110,11 @@
   "category": "Analysis",
   "title": "Static analysis setup (Ghidra/IDA + XEX loader)",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "Image loads with symbols for imports; pdata functions applied",
   "depends_on": "R-002",
-  "notes": "Used for game-loop/timing reverse engineering"
+  "notes": "Used for game-loop/timing reverse engineering Tracker clean-up 2026-11-12: closed, not needed: all the reverse engineering was done from the recompiled code and logs, without Ghidra or IDA."
  },
  {
   "id": "R-101",
@@ -201,11 +201,11 @@
   "category": "Runtime",
   "title": "Save data & profile settings persistence",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Unlocks/scores survive restart (XamContentCreateEx, XamUser*ProfileSettings)",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": " Tracker clean-up 2026-11-12: marked done. The user reports scores and profiles saving across restarts; each profile has its own save data (src/profiles.cpp)."
  },
  {
   "id": "R-108",
@@ -214,11 +214,11 @@
   "category": "Runtime",
   "title": "Stub missing XAM UI calls",
   "priority": "P1",
-  "status": "todo",
+  "status": "in_progress",
   "effort": "S",
   "acceptance": "XamShowAchievementsUI / MarketplaceUI / GamerCardUIForXUID return gracefully (or open native overlay)",
   "depends_on": "R-104",
-  "notes": "Not implemented in ReXGlue v0.10.1"
+  "notes": "Not implemented in ReXGlue v0.10.1 Tracker clean-up 2026-11-12: XamShowAchievementsUI is implemented (SDK patch 0006: the in-game achievements list). Marketplace and gamer card calls not checked."
  },
  {
   "id": "R-109",
@@ -286,6 +286,19 @@
   "notes": "--skip_intro (default on) runs the UI clock 16x until Main\\TitleScreen.lua is requested (src/intro_skip.cpp); untested Marked done 2026-11-12 on the user's say-so."
  },
  {
+  "id": "R-114",
+  "phase": 1,
+  "phase_name": "Recompile & boot",
+  "category": "Gameplay",
+  "title": "Endurance mode: issues found in testing",
+  "priority": "P1",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "The issues the user found in Endurance mode are written down, reproduced and fixed; a full Endurance game plays correctly",
+  "depends_on": "R-109",
+  "notes": "Added 2026-11-12: the user tested Endurance mode and found some issues, to be tested and addressed later. Details still to be recorded."
+ },
+ {
   "id": "R-201",
   "phase": 2,
   "phase_name": "Audio & music sync",
@@ -344,11 +357,11 @@
   "category": "Sync",
   "title": "Global audio offset setting (ms)",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "S",
   "acceptance": "-200..+200 ms offset applied to judging and visuals",
   "depends_on": "R-204",
-  "notes": "--audio_offset_ms works (default -20; user found -15..-25 best on USB headset). Still needs exposing in the settings menu (R-414)"
+  "notes": "--audio_offset_ms works (default -20; user found -15..-25 best on USB headset). Still needs exposing in the settings menu (R-414) Tracker clean-up 2026-11-12: marked done. Audio Offset is in BBRR Settings > Calibration and is set by Auto Calibration."
  },
  {
   "id": "R-206",
@@ -370,11 +383,11 @@
   "category": "Sync",
   "title": "Calibration screen (tap to the beat)",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Guided sound tap test and picture tap test (as in band games) suggest the audio offset; later also the input offset",
   "depends_on": "R-205,R-206",
-  "notes": "First version (untested): BBRR Settings > Calibration (ui_scripts/Options/BBRR_calibrate.lua): 12 taps to clicks, 12 taps to a ring lining up; audio offset = (sound lateness - picture lateness) - host audio queue. Picture lateness is logged for the future input offset (R-206)"
+  "notes": "First version (untested): BBRR Settings > Calibration (ui_scripts/Options/BBRR_calibrate.lua): 12 taps to clicks, 12 taps to a ring lining up; audio offset = (sound lateness - picture lateness) - host audio queue. Picture lateness is logged for the future input offset (R-206) Tracker clean-up 2026-11-12: marked done. Auto Calibration (sound test, then picture test) sets both offsets; in use since 2026-11-11."
  },
  {
   "id": "R-208",
@@ -396,11 +409,11 @@
   "category": "Sync",
   "title": "Sync debug overlay",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "S",
   "acceptance": "Overlay shows audio time, game beat, delta, frame time",
   "depends_on": "R-204",
-  "notes": "Hit Timing (per-hit +/- ms next to the arrow, like StepMania) and Assist Tick (click at each rocket's moment) in BBRR Settings > Calibration; [input] log prints average and spread every 40 hits. Needs play-testing."
+  "notes": "Hit Timing (per-hit +/- ms next to the arrow, like StepMania) and Assist Tick (click at each rocket's moment) in BBRR Settings > Calibration; [input] log prints average and spread every 40 hits. Needs play-testing. Tracker clean-up 2026-11-12: marked done as delivered: Show Accuracy (per-hit ms), the results-screen timing line and Assist Tick, all confirmed in play, plus frame and song-clock figures in the log. The on-screen overlay of audio time / beat / delta first described was not built."
  },
  {
   "id": "R-210",
@@ -478,7 +491,7 @@
   "effort": "XL",
   "acceptance": "Gameplay identical at 60/144/240 fps (replay test); no speed-up",
   "depends_on": "R-301",
-  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built."
+  "notes": "120 and 144 fps play correctly. Frame-locked code found and fixed so far: fade timer (0x821D4330) and the fail slow-down step (0x821A0794, 1.67 s at any fps; accepted 2026-11-11 pending issues in testing). Particle/camera code still needs a visual check; replay test not built. Tracker clean-up 2026-11-12: left open: the user will test frame rate more."
  },
  {
   "id": "R-303",
@@ -487,11 +500,11 @@
   "category": "Timing",
   "title": "Fixed-step sim with render interpolation",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "L",
   "acceptance": "Simulation at 60 Hz, camera/particles interpolated per frame",
   "depends_on": "R-301",
-  "notes": "Fallback if delta-time patching is impractical"
+  "notes": "Fallback if delta-time patching is impractical Tracker clean-up 2026-11-12: closed, not needed: it was a fallback in case variable frame rate did not work, and it does."
  },
  {
   "id": "R-304",
@@ -500,11 +513,11 @@
   "category": "Timing",
   "title": "Frame pacing matched to the display",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "No frame-rate setting needed: the game runs at the display's refresh rate with each frame started on a real display refresh; no judder; optional unlimited mode",
   "depends_on": "R-302",
-  "notes": "Untested: guest refresh rate = main display refresh (src/settings.cpp ApplyFrameRate); SDK patch 0002 ticks the guest vblank from the desktop compositor (DwmFlush) with an evenly spaced timer fallback and no millisecond sleeps in the GPU wait. Before: 120 fps limit gave 5.5-12 ms frame times (judder) on a 120 Hz display"
+  "notes": "Untested: guest refresh rate = main display refresh (src/settings.cpp ApplyFrameRate); SDK patch 0002 ticks the guest vblank from the desktop compositor (DwmFlush) with an evenly spaced timer fallback and no millisecond sleeps in the GPU wait. Before: 120 fps limit gave 5.5-12 ms frame times (judder) on a 120 Hz display Tracker clean-up 2026-11-12: marked done. The log of 2026-11-12 shows steady pacing on the user's 120 Hz display: frame time average 8.33 ms, 7.75-8.94 ms, 0 late frames over 10 s stretches. The optional unlimited mode was not built."
  },
  {
   "id": "R-305",
@@ -526,11 +539,11 @@
   "category": "Input",
   "title": "High-rate timestamped input",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Input polled >= 1 kHz on its own thread; presses timestamped against audio clock",
   "depends_on": "R-204",
-  "notes": "--precise_input (default on): controller read every 1 ms on its own thread; a press is judged at the song time the button went down, keeping one 60 Hz frame of leeway. A press is used only by the first frame that judges after it. XInput pads only. Play-tested 2026-11-11 (felt good); far-off hits are logged for follow-up."
+  "notes": "--precise_input (default on): controller read every 1 ms on its own thread; a press is judged at the song time the button went down, keeping one 60 Hz frame of leeway. A press is used only by the first frame that judges after it. XInput pads only. Play-tested 2026-11-11 (felt good); far-off hits are logged for follow-up. Tracker clean-up 2026-11-12: marked done. Play-tested 2026-11-11 and in use since."
  },
  {
   "id": "R-401",
@@ -552,11 +565,11 @@
   "category": "Graphics",
   "title": "Aspect ratios 16:9 / 16:10 / 21:9 / 32:9",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Hor+ 3D view; UI anchored and not stretched",
   "depends_on": "R-401",
-  "notes": "--aspect_ratio=auto: 3D view, menu shape, full-screen covers and edge anchoring work on 3440x1440 (src/widescreen.cpp). Arrow icons fixed (clip-space quad used a fixed 9/16 factor, hooked in sub_8206A600); follows window resize. Per-screen layout polish tracked in R-415"
+  "notes": "--aspect_ratio=auto: 3D view, menu shape, full-screen covers and edge anchoring work on 3440x1440 (src/widescreen.cpp). Arrow icons fixed (clip-space quad used a fixed 9/16 factor, hooked in sub_8206A600); follows window resize. Per-screen layout polish tracked in R-415 Tracker clean-up 2026-11-12: marked done for now at the user's decision. 16:9 and 21:9 (3440x1440) work; 32:9 and 16:10 are untested."
  },
  {
   "id": "R-415",
@@ -604,11 +617,11 @@
   "category": "Graphics",
   "title": "Window modes & display select",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "Windowed, borderless, exclusive fullscreen; monitor choice",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": " Tracker clean-up 2026-11-12: marked done for now at the user's decision. Fullscreen and Windowed are in Video Settings and switch live; borderless as a choice and picking a monitor were not built."
  },
  {
   "id": "R-405",
@@ -734,11 +747,11 @@
   "category": "UI",
   "title": "In-game Revolution settings menu",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "L",
   "acceptance": "'BBRR Settings' entry in the game's own Help & Options menu opens a settings screen in the game's style (spinner rows, A save / B cancel / X defaults); settings saved to a file and applied at start-up; home for the calibration screen",
   "depends_on": "R-401",
-  "notes": "First version (untested): UI scripts are Lua 5.1 and can be replaced from ui_scripts/ (src/ui_mod.cpp); screen ui_scripts/Options/BBRR.lua with aspect ratio, menu layout, audio offset, skip intro; saved to settings.ini (src/settings.cpp). Still to add: resolution scale, frame rate, window mode, DLC, calibration"
+  "notes": "First version (untested): UI scripts are Lua 5.1 and can be replaced from ui_scripts/ (src/ui_mod.cpp); screen ui_scripts/Options/BBRR.lua with aspect ratio, menu layout, audio offset, skip intro; saved to settings.ini (src/settings.cpp). Still to add: resolution scale, frame rate, window mode, DLC, calibration Tracker clean-up 2026-11-12: marked done. The menu has been in daily use for days: pages Profiles, Video Settings, Calibration, Modifiers, Keyboard (see docs/USER_GUIDE.md); the note above describes the first version only."
  },
  {
   "id": "R-501",
@@ -760,11 +773,11 @@
   "category": "Leaderboards",
   "title": "Local leaderboards",
   "priority": "P0",
-  "status": "done",
+  "status": "in_progress",
   "effort": "M",
   "acceptance": "66 scoreboard IDs (contents.txt) store top scores locally per mode/difficulty",
   "depends_on": "R-107",
-  "notes": "Verified 2026-11-10: scores show in song select and persist across restarts (src/leaderboards.cpp)"
+  "notes": "Verified 2026-11-10: scores show in song select and persist across restarts (src/leaderboards.cpp) Correction 2026-11-12: this was never working. The log shows the local score table has always been empty ('loaded 0 views', no score ever written): the game only writes leaderboard scores through an Xbox Live session, which a local profile never starts. The scores seen on song select on 2026-11-10 come from the game's own save data, not from this table. 2026-11-12 (evening): working with the Leaderboards Test setting on (SDK patch 0017, profiles reported as signed in to Xbox Live): a song's score was saved locally (views 1, 47, 249 in leaderboards.txt), shown on the game's own leaderboard screen, and the game's leaderboard view appeared after the song. To do: decide whether the setting becomes the default, and watch for side effects of the game believing it is online."
  },
  {
   "id": "R-503",
@@ -777,7 +790,7 @@
   "effort": "L",
   "acceptance": "Game's own leaderboard screens show data; XamUserCreateStatsEnumerator implemented",
   "depends_on": "R-502",
-  "notes": "ReadStats path verified via song select; full leaderboard screens (ByRank/ByXuid enumerators) still to verify"
+  "notes": "ReadStats path verified via song select; full leaderboard screens (ByRank/ByXuid enumerators) still to verify 2026-11-12: the user reports the main menu's Leaderboards entry has always been greyed out, so the screens were never reachable. Cause: the menu script switches the entry off unless the profile is signed in to Xbox Live (local profiles report signed in locally). ui_scripts/Main/MainMenu.lua now keeps the entry on, and logs the call ('[ui] main menu SetItemActive'). Built, not run; what the screens behind it do (they start an Xbox Live session) is unknown. 2026-11-12 first test: the entry is selectable now, but choosing it showed the game's 'not signed in' message (the menu checks Profile.HasOnlineProfile again when the entry is chosen). ui_scripts/Main/MainMenu.lua and new wrappers for LbChooseGameType, LbChooseSong and Leaderboards now run those screens as if signed in. Not run. Later 2026-11-12: the menu check is in the main menu's Message function (found by disassembling the compiled Lua; a small Lua 5.1 bytecode lister was written for this); with Message run as if signed in, the user reached the leaderboard screens. The table then said the player was offline: the reader's start step (sub_8209A1E0) wants sign-in state 2 (Xbox Live) in the game's player record (0x821D4180 + 64 x player, +56) and local profiles are 1. A hook now shows 2 for the length of that call only. Song lengths and tempos are no longer drawn on the leaderboard screens' song list (requested). Built, not run. 2026-11-12 (later): with the sign-in fix the table opens but every board says no scores - because nothing has ever been written (see R-502). The write path (sub_82079DC0 -> sub_820C2EF8 / sub_820C3098 -> XSessionWriteStats) needs a session object, a stats object and a started session, none of which exist offline. Experiment, built, not run: SDK patch 0017 and a restart-only setting 'Leaderboards Test' report local profiles as signed in to Xbox Live so the game runs its own session and stats code against the SDK's local stand-ins. 2026-11-12 (evening): the game's leaderboard screens show the saved scores (user-confirmed with the Leaderboards Test setting on). A second profile as Player 2 saw Player 1's score, as expected for a table shared by everyone on this PC."
  },
  {
   "id": "R-504",
@@ -825,11 +838,11 @@
   "category": "Input",
   "title": "Controller support (XInput, DualSense, Switch Pro)",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "All controllers work via SDL3 with hot-plug",
   "depends_on": "R-104",
-  "notes": ""
+  "notes": " Tracker clean-up 2026-11-12: marked done for now at the user's decision. Xbox controllers work, with a choice of which pad is Player 1 and two players tested; PlayStation and Switch controllers are untested and precise input is XInput-only."
  },
  {
   "id": "R-602",
@@ -864,11 +877,11 @@
   "category": "Input",
   "title": "Local 2-player",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "S",
   "acceptance": "Two controllers, or controller + keyboard",
   "depends_on": "R-601",
-  "notes": " 2026-11-12, built, untested: local profiles. SDK patch 0006: KernelState::SignInUser / SignOutUser / user_profile(slot) for slots 0-3, XamUser* calls answer for any signed-in slot, profile title data kept by XUID (content/<title>/profile/<XUID>, the old name folder is moved over), achievements per profile (achievements/<XUID>/<title>.toml; slot from the XGI entry's first word; other slots written without a pop-up). Game: src/profiles.cpp keeps profiles.ini (up to 8; original XUID B13EBABEBABEBABE named User keeps the old data), BBRR Settings > Profiles picks Player 1 / Player 2 (None), renames and creates; saving signs them in and sends XN_SYS_SIGNINCHANGED (0x0A), a rename sends 0x0E. Assumption to check: multiplayer works with any second controller; Player 2 profile only adds a name, save data and achievements for it. Pop-up profile picker: later if needed. 2026-11-12: seen working (two profiles, two controllers; old scores kept under User; per-player achievements list). Profiles page: Left/Right pick Player 1 / Player 2 and skip the other player's profile; A saves; rename rows show no name. Controllers: SDL connection order = player order (first found is Player 1). Open: Swap Controllers row or press-to-join, delete profile, launcher field. 2026-11-12, built, untested: Player 1 Controller row (SDK patch 0007: SlotAssignment preferred order by device key <guid>#<n>, InputSystem::ListControllers / SetPlayerOrder, XN_SYS_INPUTDEVICESCHANGED sent); saved as player1_controller in profiles.ini. Player 1 Controller confirmed working 2026-11-12."
+  "notes": " 2026-11-12, built, untested: local profiles. SDK patch 0006: KernelState::SignInUser / SignOutUser / user_profile(slot) for slots 0-3, XamUser* calls answer for any signed-in slot, profile title data kept by XUID (content/<title>/profile/<XUID>, the old name folder is moved over), achievements per profile (achievements/<XUID>/<title>.toml; slot from the XGI entry's first word; other slots written without a pop-up). Game: src/profiles.cpp keeps profiles.ini (up to 8; original XUID B13EBABEBABEBABE named User keeps the old data), BBRR Settings > Profiles picks Player 1 / Player 2 (None), renames and creates; saving signs them in and sends XN_SYS_SIGNINCHANGED (0x0A), a rename sends 0x0E. Assumption to check: multiplayer works with any second controller; Player 2 profile only adds a name, save data and achievements for it. Pop-up profile picker: later if needed. 2026-11-12: seen working (two profiles, two controllers; old scores kept under User; per-player achievements list). Profiles page: Left/Right pick Player 1 / Player 2 and skip the other player's profile; A saves; rename rows show no name. Controllers: SDL connection order = player order (first found is Player 1). Open: Swap Controllers row or press-to-join, delete profile, launcher field. 2026-11-12, built, untested: Player 1 Controller row (SDK patch 0007: SlotAssignment preferred order by device key <guid>#<n>, InputSystem::ListControllers / SetPlayerOrder, XN_SYS_INPUTDEVICESCHANGED sent); saved as player1_controller in profiles.ini. Player 1 Controller confirmed working 2026-11-12. Tracker clean-up 2026-11-12: marked done; the user tested two players during the controller and profile testing."
  },
  {
   "id": "R-605",
@@ -877,11 +890,11 @@
   "category": "UX",
   "title": "Settings persistence",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "User TOML in %APPDATA%; CLI overrides",
   "depends_on": "R-414",
-  "notes": ""
+  "notes": " Tracker clean-up 2026-11-12: marked done. Settings are saved to <Documents>/boomboomrocket/settings.ini (one 'cvar = value' per line, not TOML in %APPDATA% as first written) and command-line options win over them."
  },
  {
   "id": "R-606",
@@ -1137,11 +1150,11 @@
   "category": "Feature",
   "title": "Timing feedback (early/late, ms offset)",
   "priority": "P2",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Per-hit early/late indicator and end-of-song timing histogram / mean offset",
   "depends_on": "R-801,R-306",
-  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11; readout raised to 40 px above the target line so fireworks do not bury it, position locked in. Left: two-player results screen; optional histogram. Setting renamed 'Show Accuracy' (was 'Hit Timing') 2026-11-11; cvar still --hit_timing."
+  "notes": "Per-hit +/- ms readout next to the arrow (Hit Timing) and a results-screen line with average, spread (standard deviation), early and late counts, centred below the results box. Position and numbers confirmed in play 2026-11-11; readout raised to 40 px above the target line so fireworks do not bury it, position locked in. Left: two-player results screen; optional histogram. Setting renamed 'Show Accuracy' (was 'Hit Timing') 2026-11-11; cvar still --hit_timing. Tracker clean-up 2026-11-12: marked done. Not built: the optional histogram and a two-player results line."
  },
  {
   "id": "R-804",
@@ -1150,11 +1163,11 @@
   "category": "Feature",
   "title": "Beat guides (measure lines / timing bars) - dropped",
   "priority": "P2",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Not planned: kept only as a record of what was tried",
   "depends_on": "R-801",
-  "notes": "Dropped 2026-11-11 at the user's request. Tried: measure lines on the beat grid (cannot follow arrows: every note has its own flight time, 3.2-5.7 s in one song, and arrows ease along their paths, so arrows on one beat are only level at the target line), then a bar through every arrow (Timing Bars), which the user did not like. Code removed."
+  "notes": "Dropped 2026-11-11 at the user's request. Tried: measure lines on the beat grid (cannot follow arrows: every note has its own flight time, 3.2-5.7 s in one song, and arrows ease along their paths, so arrows on one beat are only level at the target line), then a bar through every arrow (Timing Bars), which the user did not like. Code removed. Tracker clean-up 2026-11-12: closed (dropped earlier at the user's request; it was still counted as to do)."
  },
  {
   "id": "R-808",
@@ -1206,7 +1219,7 @@
   "effort": "M",
   "acceptance": "Modifiers > Autoplay: every rocket hit at 0 ms (Perfect); a song in which it was on at any moment (countdown to end) saves no score locally or to leaderboards",
   "depends_on": "R-801",
-  "notes": "Built 2026-11-12, untested: src/autoplay.cpp. Presses go through the game's own controller read (sub_820E6E50, XamInputGetState wrapper): the due rocket's button is added for one read; the judging hook judges it at the rocket's time. Button per rocket byte +8: first guess 0=A 1=B 2=X 3=Y (the game's colour order Green, Red, Blue, Yellow), self-corrects when a press is not judged, kept in cache/autoplay_buttons.txt. Scores: leaderboard writes ignored for that song; results-screen profile save (GUI.save_needed) skipped for the rest of the run. Note: the game's save does not reach disk yet anyway (R-107). 2026-11-12 first test: no presses at all (no button table written). User confirmed arrow colour = button (green A, red B, blue X, yellow Y). Second build: no filter on button value or player byte (any value learns its own button, first guess value % 4 = A, B, X, Y), plus one-off log lines: the first rockets' bytes 0-11, and pad reads / rockets tracked / presses in the first 5 s of play. Second test: still no automatic hits; the user's own presses all read 0.00. Log: ~190 pad reads a second (more than one per frame: menus and gameplay both read), so a button held for one read was usually missed by the gameplay read; rocket byte 8 is 0/2/4/6 (byte 1 the matching bit). Third build: byte 8 / 2 -> A, B, X, Y (colour order), buttons held 35 ms with a 30 ms gap, only Autoplay's own presses judged at 0 ms, self-learning removed. Third build confirmed working 2026-11-12. Confirmed working 2026-11-12. 2026-11-12 (later), untested: playing along gave non-zero timings because the player's own press could judge a rocket before Autoplay's (not stale input); now the player's A/B/X/Y are removed from the controller read while the song clock moves (pause menu unaffected). Achievements blocked too: hook on XUserWriteAchievements (sub_820E7478, XGI message 0xB0008) sends a count of 0 when Autoplay was used in the song."
+  "notes": "Built 2026-11-12, untested: src/autoplay.cpp. Presses go through the game's own controller read (sub_820E6E50, XamInputGetState wrapper): the due rocket's button is added for one read; the judging hook judges it at the rocket's time. Button per rocket byte +8: first guess 0=A 1=B 2=X 3=Y (the game's colour order Green, Red, Blue, Yellow), self-corrects when a press is not judged, kept in cache/autoplay_buttons.txt. Scores: leaderboard writes ignored for that song; results-screen profile save (GUI.save_needed) skipped for the rest of the run. Note: the game's save does not reach disk yet anyway (R-107). 2026-11-12 first test: no presses at all (no button table written). User confirmed arrow colour = button (green A, red B, blue X, yellow Y). Second build: no filter on button value or player byte (any value learns its own button, first guess value % 4 = A, B, X, Y), plus one-off log lines: the first rockets' bytes 0-11, and pad reads / rockets tracked / presses in the first 5 s of play. Second test: still no automatic hits; the user's own presses all read 0.00. Log: ~190 pad reads a second (more than one per frame: menus and gameplay both read), so a button held for one read was usually missed by the gameplay read; rocket byte 8 is 0/2/4/6 (byte 1 the matching bit). Third build: byte 8 / 2 -> A, B, X, Y (colour order), buttons held 35 ms with a 30 ms gap, only Autoplay's own presses judged at 0 ms, self-learning removed. Third build confirmed working 2026-11-12. Confirmed working 2026-11-12. 2026-11-12 (later), untested: playing along gave non-zero timings because the player's own press could judge a rocket before Autoplay's (not stale input); now the player's A/B/X/Y are removed from the controller read while the song clock moves (pause menu unaffected). Achievements blocked too: hook on XUserWriteAchievements (sub_820E7478, XGI message 0xB0008) sends a count of 0 when Autoplay was used in the song. 2026-11-12 (evening): Autoplay did not press anything when the song was played from the second controller: presses only ever went to controller slot 0. Now they go to the slot that plays (UIGlobals.primary_pad, reported by ui_scripts/Ingame/Hud.lua) and, in two-player modes, to each rocket's own player (rocket byte 11). Built, not run. Still to test: that a song played with Autoplay saves no leaderboard score. 2026-11-12 (evening, Leaderboards Test on): Autoplay from the second controller now presses (user-confirmed) and the score was not saved, but (1) a firework was unlocked and (2) the results screen ignored every button: when the game ends its Xbox Live session it only lets go of the controller once the profile save has started, and Autoplay skips that save (it would have waited 60 s). Fixes, built, not run: the judging function's 'is this firework unlocked already' question (sub_8207A6E0 called from 0x82066B14) is answered yes in an Autoplay song, so nothing unlocks; LevelBreakdown.lua marks the skipped save as started (GUI.started_save) so the screen carries on. Confirmed 2026-11-12: no unlock and the results screen carries on. The 'new high score' screen still appeared after an Autoplay song; ui_scripts/Ingame/LevelComplete.lua now clears UIGlobals.show_highscore_achieved in an Autoplay song (bbrr.autoplay.song). Not run."
  },
  {
   "id": "R-812",

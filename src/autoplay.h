@@ -27,6 +27,7 @@ bool AutoplayPressedFor(uint32_t rocket);
 // Called by the press-judging hook after the game judged a press for this rocket.
 void AutoplayNoteJudged(uint8_t* base, uint32_t rocket);
 
-// For UI scripts: "bbrr.autoplay.nosave" -> "1" when the results screen must not save.
-std::string AutoplayCommand(const std::string& command);
+// For UI scripts: "bbrr.autoplay.nosave" -> "1" when the results screen must not save;
+// "bbrr.autoplay.song" -> "1" when Autoplay was on at some point in this song.
+std::string AutoplayCommand(const std::string& command, const std::string& key = "");
 }  // namespace bbr

@@ -47,12 +47,21 @@ local function AddLine(y, text)
   })
 end
 
+-- After an Autoplay song the game's profile save is skipped. The screen also waits for that
+-- save before it lets go of the controller when the game ends an Xbox Live session (with
+-- Leaderboards Test on), so it is told the save has started - nothing is saved, as
+-- save_needed is false - or the results screen ignores every button for 60 seconds.
+function SkipSave()
+  if no_save and GUI ~= nil then
+    GUI.save_needed = false
+    GUI.started_save = true
+  end
+end
+
 function Init(...)
   game_Init(...)
   no_save = BBRR("bbrr.autoplay.nosave") == "1"
-  if no_save and GUI ~= nil then
-    GUI.save_needed = false
-  end
+  SkipSave()
   -- On a wide screen the results box, its labels and values and the Rating beside it stay
   -- together in the middle; only the button prompts below (about y = 420) follow the edges.
   BBRR("bbrr.ui.keep", "-300,0,940," .. (BOX_BOTTOM + 64))
@@ -69,8 +78,6 @@ function Init(...)
 end
 
 function Update(...)
-  if no_save and GUI ~= nil then
-    GUI.save_needed = false
-  end
+  SkipSave()
   return game_Update(...)
 end

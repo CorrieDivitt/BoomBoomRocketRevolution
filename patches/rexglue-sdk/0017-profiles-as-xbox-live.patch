@@ -1,0 +1,33 @@
+diff --git a/src/kernel/xam/xam_user.cpp b/src/kernel/xam/xam_user.cpp
+--- a/src/kernel/xam/xam_user.cpp
++++ b/src/kernel/xam/xam_user.cpp
+@@ -29,6 +29,11 @@
+ #include <rex/system/xtypes.h>
+ 
+ REXCVAR_DEFINE_UINT32(user_language, 1, "Kernel", "User's language ID");
++// Boom Boom Rocket Revolution (patch 0017): report signed-in local profiles to the game as
++// signed in to Xbox Live (state 2 instead of 1), so its own leaderboard code runs; the
++// port serves the leaderboards from this PC.
++REXCVAR_DEFINE_BOOL(profiles_signed_in_to_live, false, "Kernel",
++                    "Report signed-in profiles as signed in to Xbox Live (state 2)");
+ 
+ namespace rex {
+ namespace kernel {
+@@ -69,6 +74,7 @@
+   if (user_index < 4) {
+     if (const auto* user_profile = REX_KERNEL_STATE()->user_profile(user_index)) {
+       signin_state = user_profile->signin_state();
++      if (signin_state == 1 && REXCVAR_GET(profiles_signed_in_to_live)) signin_state = 2;
+     }
+   }
+   return signin_state;
+@@ -96,7 +102,8 @@
+   }
+ 
+   info->xuid = user_profile->xuid();
+-  info->signin_state = user_profile->signin_state();
++  info->signin_state =
++      user_profile->signin_state() == 1 && REXCVAR_GET(profiles_signed_in_to_live) ? 2 : user_profile->signin_state();
+   rex::string::copy_truncating(info->name, user_profile->name(), rex::countof(info->name));
+   return X_E_SUCCESS;
+ }

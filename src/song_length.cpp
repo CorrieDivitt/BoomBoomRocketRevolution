@@ -15,12 +15,15 @@
 // "SongBPM <n>" and "SongLength <seconds>" lines. Songs whose chart is not a loose file
 // get neither.
 
+#include "widescreen.h"
+
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
 #include <rex/hook.h>
 #include <rex/logging.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
@@ -54,6 +57,8 @@ constexpr uint32_t kLengthSlot = 124;           // stored string that carries th
 constexpr uint32_t kNameSlot = 125;             // ... and one that holds the name "STR124"
 
 bool g_in_menu = false;
+// True while a leaderboard screen is up: its song list shows the plain titles.
+std::atomic<bool> g_plain_lists{false};
 int g_row_track = -1;  // track number of the row whose title was just looked up
 
 std::filesystem::path ContentFolder() {
@@ -199,6 +204,19 @@ void DrawBeside(PPCContext& ctx, uint8_t* base, const TitleCall& title, const st
 }
 }  // namespace
 
+// Called with the name of every UI script the game loads. The leaderboard screens (Main\Lb...,
+// Main\Leaderboards) list songs too, but a length and tempo beside a score table is clutter.
+// Only a screen of the Main or Ingame group changes the answer: helper scripts and popups
+// load while a screen is up.
+void bbr::SongLengthNoteScreen(const char* name) {
+  if (!name) return;
+  const bool is_main = std::strncmp(name, "Main\\", 5) == 0 || std::strncmp(name, "Main/", 5) == 0;
+  const bool ingame = std::strncmp(name, "Ingame", 6) == 0;
+  if (!is_main && !ingame) return;
+  const bool leaderboard = is_main && (std::strncmp(name + 5, "Lb", 2) == 0 || std::strncmp(name + 5, "Leaderboards", 12) == 0);
+  g_plain_lists.store(leaderboard, std::memory_order_relaxed);
+}
+
 REX_HOOK_RAW(sub_82094D40) {
   g_in_menu = true;
   g_row_track = -1;
@@ -221,7 +239,8 @@ REX_HOOK_RAW(sub_8208D7E0) {
 REX_HOOK_RAW(sub_820908D8) {
   const int track = g_row_track;
   g_row_track = -1;
-  if (!g_in_menu || track < 0 || !REXCVAR_GET(show_song_length) || ctx.r3.u32 != kRenderer || ctx.r6.u32 != 1) {
+  if (!g_in_menu || track < 0 || !REXCVAR_GET(show_song_length) || g_plain_lists.load(std::memory_order_relaxed) ||
+      ctx.r3.u32 != kRenderer || ctx.r6.u32 != 1) {
     __imp__sub_820908D8(ctx, base);
     return;
   }

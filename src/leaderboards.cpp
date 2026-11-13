@@ -40,6 +40,7 @@
 #include <vector>
 
 REX_EXTERN(__imp__sub_8215FA28);
+REX_EXTERN(__imp__sub_8209A1E0);
 REX_EXTERN(__imp__sub_820E7368);
 REX_EXTERN(__imp__sub_820E7478);
 
@@ -335,6 +336,37 @@ REX_HOOK_RAW(sub_820E7478) {
     ctx.r3.u64 = 0;
   }
   __imp__sub_820E7478(ctx, base);
+}
+
+// The leaderboard screen's "start reading" step (sub_8209A1E0, r3 = the screen's reader).
+// It only goes ahead for a player signed in to Xbox Live: it looks at the game's own record
+// of the player (0x821D4180 + 64 x player, the player number at reader +740), whose word at
+// +56 is the sign-in state - 0 nobody, 1 signed in on this console only, 2 Xbox Live - and
+// otherwise tells the screen "OFFLINE". The port's profiles are local (1), and the scores
+// come from this PC, so for the length of this one call a signed-in player counts as on
+// Xbox Live. Nothing else sees the changed value.
+REX_HOOK_RAW(sub_8209A1E0) {
+  g_base = base;
+  const uint32_t reader = ctx.r3.u32;
+  uint32_t state_at = 0;
+  if (reader >= 0x10000) {
+    const uint32_t player = ld32(reader + 740);
+    if (player < 4) {
+      const uint32_t at = 0x821D4180 + player * 64 + 56;
+      if (ld32(at) == 1) {
+        state_at = at;
+        st32(at, 2);
+      }
+      static bool logged = false;
+      if (!logged) {
+        logged = true;
+        REXLOG_INFO("[leaderboards] reading scores for player {}: sign-in state {} ({})", player, state_at ? 1 : ld32(at),
+                    state_at ? "treated as Xbox Live for this read" : "left as it is");
+      }
+    }
+  }
+  __imp__sub_8209A1E0(ctx, base);
+  if (state_at) st32(state_at, 1);
 }
 
 // XSessionWriteStats(hSession, xuid, numViews, pViews, pOverlapped)
