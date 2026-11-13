@@ -1,0 +1,26 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -3268,6 +3268,22 @@
+           }
+         }
+         bbrr_ok = IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
++        {
++          // Patch 0026 (test): one more copy, with the normal camera shifted 40% of the screen to the
++          // right (clip x += 0.4 w). If it shows, re-issued draws reach the screen and the reflected
++          // copy's trouble is in how it is drawn; if not, re-issued draws never show at all.
++          float t[4][4];
++          std::memcpy(t, saved, sizeof(t));
++          for (int k = 0; k < 4; ++k) t[0][k] += 0.4f * t[3][k];
++          std::memcpy(constants, t, sizeof(saved));
++          cbuffer_binding_float_vertex_.up_to_date = false;
++          IssueDraw(primitive_type, index_count, index_buffer_info, major_mode_explicit);
++          static bool logged = false;
++          if (!logged) {
++            logged = true;
++            REXLOG_INFO("[bbrr] water reflections test: also drawing the fireworks shifted right");
++          }
++        }
+         clip_cntl = saved_clip_cntl;
+         std::memcpy(constants, saved, sizeof(saved));
+         cbuffer_binding_float_vertex_.up_to_date = false;

@@ -213,6 +213,11 @@ How it could be done, cheapest first:
    real ones (rows about 170..550 against 90..520), depth 0.999..1.000. Vertex layout: fetch 95,
    stride 7 words, position float3 at 0. c5.x and c7.x read 0, so the burst shader's constants differ
    from `PointSprite.hlsl`.
+   Yet a screenshot from a far, level view shows the buildings reflected and no fireworks, where the
+   probe puts the copy. So the copy has probably never been visible (the steep-view "reflections" may
+   be the game's own mirror-pass sprites near the water). Patch 0026 (test) adds one more copy with the
+   normal camera shifted 40% of the screen to the right: if that shows, re-issued draws work and the
+   fault is in the reflected one; if not, re-issued draws never reach the screen.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
