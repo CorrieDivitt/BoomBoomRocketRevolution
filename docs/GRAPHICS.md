@@ -225,6 +225,10 @@ How it could be done, cheapest first:
    SDK's interpreter refused it. Suspect now: the burst draw's scissor covers only the fireworks' part
    of the screen. Patch 0027 drops the 0026 test, logs the window scissor, window offset and screen
    scissor (`burst draw scissor`), and widens the scissor to the whole viewport for the copy only.
+   Test of 0027: no change; the scissor is already the whole screen ((0,0)-(1280,720), window offset
+   0) and the burst draw has depth test off. Patch 0028 (test) adds the normal fireworks, unflipped,
+   moved right and down onto the water (clip x += 0.4 w, y -= 0.5 w), to tell "the flipped camera"
+   apart from "something hides the lower screen".
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
