@@ -275,18 +275,18 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-99 requirements: 6 in progress, 31 todo, 62 done. Details and notes per item: docs/requirements.csv or the dashboard.
+99 requirements: 5 in progress, 31 todo, 63 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
 | **Phase 0** | **Foundation & analysis** | | |
-| R-007 | Document asset formats | P1 | in progress |
 | R-001 | Verify game dump (default.xex + content) | P0 | done |
 | R-002 | Decrypt/decompress XEX to PE image | P0 | done |
 | R-003 | Kernel/XAM import inventory vs ReXGlue | P0 | done |
 | R-004 | Repo scaffolding + ReXGlue SDK submodule | P0 | done |
 | R-005 | Install Windows toolchain | P0 | done |
 | R-006 | Build & install ReXGlue SDK | P0 | done |
+| R-007 | Document asset formats | P1 | done |
 | R-008 | No copyrighted game data in repo | P0 | done |
 | R-009 | Static analysis setup (Ghidra/IDA + XEX loader) | P1 | done |
 | **Phase 1** | **Recompile & boot** | | |

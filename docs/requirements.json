@@ -84,11 +84,11 @@
   "category": "Analysis",
   "title": "Document asset formats",
   "priority": "P1",
-  "status": "in_progress",
+  "status": "done",
   "effort": "M",
   "acceptance": "Spec for .lvl/.spl/.mdl/.config/.bbr/.xpr/XMA in docs/ANALYSIS.md",
   "depends_on": "R-001",
-  "notes": ".lvl/.spl/.config are text; .bbr/.xpr binary; audio XMA1 48kHz stereo"
+  "notes": "ANALYSIS.md section 5 (2026-11-13): .lvl grid loader rules and columns, firework types/colours, data errors in shipped charts; .spl/.mdl/.config/colours.raw/contents.txt; city.bbr fully mapped (9 counts, 8 tables + string pool, sizes match the file); XPR2 + D3DBaseTexture fetch fields (126 DXT2/3); XMA1 fmt fields and loop flags"
  },
  {
   "id": "R-008",
