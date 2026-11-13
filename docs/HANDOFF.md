@@ -25,7 +25,9 @@ Built and confirmed by the user the same day:
 - **Water Reflections (test) is back** in Video Settings (off by default), at the user's request,
   to look at from the pulled-back Visualizer view (R-417). Seen working only from steep views;
   **SDK patch 0022** (run `scripts\patch-sdk.ps1`) gives the mirrored bursts their own reflected
-  matrix so they should show at any angle (GRAPHICS.md, Water reflections). Built, not run.
+  matrix; tested, no real change (the mirror matrix was already a plain reflection). **Patch 0023**
+  turns user clip planes off for the copy and logs them (GRAPHICS.md, Water reflections). Built,
+  not run.
 Closed from code alone: R-007 (asset formats, ANALYSIS.md section 5), R-108 (both remaining XAM UI
 stubs are unreachable or harmless; the game discards their results), R-211 (covered by R-905).
 R-801 moved to the stretch goals; phase 8 is done. Phase 1 now waits only on play testing:

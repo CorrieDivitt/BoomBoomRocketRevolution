@@ -189,6 +189,12 @@ How it could be done, cheapest first:
    h is measured each frame from the mirror pass (-100). Still no depth test: the copy shows over
    buildings in front of the water. Making it hide behind them is the next step (draw it into the
    mirror picture, or test it against depth at the water surface).
+   Test of 0022: no real change. The log showed the mirror pass's matrix is a plain reflection
+   about y = -50 (not -100 as noted above), so the depth theory was wrong, and the draw list puts the
+   water (draw 1504) before the bursts (1513), so the water does not cover the copy either. Patch
+   0023 turns user clip planes off for the copy (a plane left on from the mirror pass would cut away
+   everything below the water, and how much depends on the angle) and logs the burst draw's
+   `PA_CL_CLIP_CNTL` and planes.
 3. **Replaying the draws on the GPU side (large).** Copy the spark draw into the mirror pass inside
    the emulated GPU. Avoids finding the game functions but means re-creating render state the GPU
    emulation does not keep around; not recommended.
