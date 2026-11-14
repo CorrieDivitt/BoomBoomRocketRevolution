@@ -350,7 +350,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-101 requirements: 1 in progress, 27 todo, 73 done. Details and notes per item: docs/requirements.csv or the dashboard.
+103 requirements: 1 in progress, 28 todo, 74 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -422,10 +422,10 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-605 | Settings persistence | P0 | done |
 | R-606 | Launcher: game files, DLC, settings, play | P1 | done |
 | **Phase 7** | **QA, CI & release** | | |
-| R-707 | Public release v1.0 | P0 | todo |
 | R-708 | Store listings: Quiver Launcher and RecompStore | P1 | todo |
 | R-705 | Build & user guides | P1 | done |
 | R-706 | Licensing decision for project code | P0 | done |
+| R-707 | Public release v1.0 | P0 | done |
 | **Phase 8** | **Modern rhythm features** | | |
 | R-802 | Note speed / scroll-speed modifier | P2 | done |
 | R-803 | Timing feedback (early/late, ms offset) | P2 | done |
@@ -461,6 +461,8 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-906 | Custom charts and automatic chart generation | P2 | todo |
 | R-907 | True HDR rendering (float render target) | P2 | todo |
 | R-908 | Prototype DLC titles in other languages | P2 | todo |
+| R-910 | Maximum Endurance mode (uncapped BPM) | P2 | todo |
+| R-911 | More fireworks in the Visualizer | P2 | todo |
 | R-804 | Beat guides (measure lines / timing bars) - dropped | P2 | done |
 | R-901 | Reduce background/camera motion option | P2 | done |
 | R-905 | Visualizer driven by audio playing in Windows | P2 | done |

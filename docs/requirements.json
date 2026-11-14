@@ -1020,11 +1020,11 @@
   "category": "Release",
   "title": "Public release v1.0",
   "priority": "P0",
-  "status": "todo",
+  "status": "done",
   "effort": "M",
   "acceptance": "Tagged GitHub release with build artifacts (no game data)",
   "depends_on": "R-110,R-111,R-204,R-302,R-401,R-502",
-  "notes": "2026-11-12: scripts/package.ps1 -Version x.y.z builds the zip (BoomBoomRocketRevolution-v<ver>-windows-x64.zip: launcher, game, DLLs, ui_scripts, docs; refuses game data) with a .sha256 and a symbols zip."
+  "notes": "2026-11-12: scripts/package.ps1 -Version x.y.z builds the zip (BoomBoomRocketRevolution-v<ver>-windows-x64.zip: launcher, game, DLLs, ui_scripts, docs; refuses game data) with a .sha256 and a symbols zip. Released 2026-11-13: v1.0.0 tagged and published on GitHub by the user."
  },
  {
   "id": "R-708",
@@ -1181,6 +1181,32 @@
   "acceptance": "In the Visualizer, holding A moves the camera back (and up) for a wide view of the city and fireworks, X twice as far; releasing eases it back",
   "depends_on": "R-905",
   "notes": "Requested 2026-11-13. First try (X widening the field of view after sub_82088580 returned) did nothing in game: the camera is set up inside that function, so the change came too late. The user then asked for A to physically move the camera back. Built 2026-11-13, not yet run: mid-asm hook BbrVisualizerEyeHook at 0x82088B78 (just before the eye at r1+112 goes to sub_82061018) pushes the eye back along the view direction (towards the look-at point at game+0x1044C) by --visualizer_pull_back (6000) and up by --visualizer_pull_back_lift (1500), eased at the game's zoom step (0.03 an update), skipped while paused. The game's RB zoom is a lens zoom: z at game+0x12E60, d = 2500 + 1600z is both the look-at distance and the field of view's divisor. Defaults are a guess at the scale; the log prints eye and look-at when A is first pressed, to tune from. 2026-11-13, second try: A only tilted the view up. The log showed the roles were swapped: game+0x1044C (camera+0x50) is the camera position, sitting d ahead on the path, and r1+112 is the point it looks at (sub_82061018: forward = normalize(target - camera+0x50)). Fixed: the hook now moves the camera position away from the look-at point (2566 -> 8355 units with the defaults, checked with positions from the user's log). Not yet run. Confirmed by the user 2026-11-13: A works well. Then asked for X to do the same twice as far: the amount now glides towards a goal (0, 1 for A, 2 for X, X wins if both), 8% of the way each update, so switching between them is smooth (2566 -> 8355 -> 14191 units with the log positions). X not yet run. Confirmed by the user 2026-11-13: A and X both work well; locked in."
+ },
+ {
+  "id": "R-910",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
+  "category": "Feature",
+  "title": "Maximum Endurance mode (uncapped BPM)",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "M",
+  "acceptance": "An Endurance variant where the tempo keeps rising lap after lap with no upper limit, so a run ends only when the player fails",
+  "depends_on": "R-114",
+  "notes": "Requested 2026-11-13 as a post-release goal. Endurance raises the tempo each lap up to a cap; this mode removes the cap (song clock, scroll speed and judging must keep up at high tempos)."
+ },
+ {
+  "id": "R-911",
+  "phase": 9,
+  "phase_name": "Stretch goals (post-1.0)",
+  "category": "Feature",
+  "title": "More fireworks in the Visualizer",
+  "priority": "P2",
+  "status": "todo",
+  "effort": "S",
+  "acceptance": "A setting that multiplies the number of fireworks the Visualizer launches to the music",
+  "depends_on": "R-905",
+  "notes": "Requested 2026-11-13 as a post-release goal. Separate from Particle Density (sparks per firework); watch the spark limit (68,000)."
  },
  {
   "id": "R-801",
