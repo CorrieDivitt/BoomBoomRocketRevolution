@@ -350,7 +350,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-103 requirements: 1 in progress, 27 todo, 75 done. Details and notes per item: docs/requirements.csv or the dashboard.
+103 requirements: 27 todo, 76 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -365,7 +365,6 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-008 | No copyrighted game data in repo | P0 | done |
 | R-009 | Static analysis setup (Ghidra/IDA + XEX loader) | P1 | done |
 | **Phase 1** | **Recompile & boot** | | |
-| R-109 | All modes playable | P0 | in progress |
 | R-101 | rexglue init project + codegen config | P0 | done |
 | R-102 | Clean codegen of all functions | P0 | done |
 | R-103 | Locate setjmp/longjmp (if used) | P1 | done |
@@ -374,6 +373,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-106 | Full-license / trial flag | P0 | done |
 | R-107 | Save data & profile settings persistence | P0 | done |
 | R-108 | Stub missing XAM UI calls | P1 | done |
+| R-109 | All modes playable | P0 | done |
 | R-110 | All 10 tracks x 3 difficulties complete | P0 | done |
 | R-111 | DLC support (owned track packs) | P0 | done |
 | R-112 | Clean up prototype DLC packs | P2 | done |

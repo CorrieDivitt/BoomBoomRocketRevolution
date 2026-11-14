@@ -227,11 +227,11 @@
   "category": "Gameplay",
   "title": "All modes playable",
   "priority": "P0",
-  "status": "in_progress",
+  "status": "done",
   "effort": "L",
   "acceptance": "Standard, Endurance, Practice, Freestyle, Visualizer, 2P Battle, 2P Endurance complete without crash",
   "depends_on": "R-104",
-  "notes": "First full song played with no obvious issues (2026-11-10)"
+  "notes": "First full song played with no obvious issues (2026-11-10) Marked done 2026-11-13 at the user's request after the 1.0 release."
  },
  {
   "id": "R-110",
