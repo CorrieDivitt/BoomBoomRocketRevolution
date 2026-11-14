@@ -83,7 +83,7 @@ pushes from their own terminal. Confirmed by the user unless marked otherwise.
 - **Launcher (R-606, done):** `launcher/` builds `BoomBoomRocketRevolution.exe` (Dear ImGui on
   Direct3D 11, from the SDK's imgui copy; target `bbrr_launcher` in CMakeLists.txt).
   Setup tab: Browse for the game (default.xex in an unpacked folder, or the original XBLA package,
-  read directly as STFS), checked against `launcher/game_files.inc` (327 files with SHA-256 of the
+  read directly as STFS), checked against `launcher/game_files.inc` (325 files since v1.0.1, see issue #1; 327 before, with SHA-256 of the
   retail copy; unknown versions allowed with a warning); Add DLC (any package for title 5841086A or
   the test title 58410859, prototypes allowed; drag and drop works); "Ready to install", then
   Install copies into the launcher's own folder (`Game Files`, `DLC`). The user chose the word

@@ -117,6 +117,9 @@ Regenerate the full list with `python tools/xex/analyze.py "Game Files/default.x
 - **Dump gotcha:** `Ride_Of_The_Valkyries_SplCamera_Out.spl` and `..._SplTarget_Out.spl` are 39 characters; some
   extraction tools truncate names to 38 (`*.sp`), which makes that song fail with a dirty-disc error.
   `scripts/bootstrap.ps1` now restores the `.spl` copies.
+  The `.sp` names are not game files: v1.0.0's launcher file list wrongly required them (issue #1),
+  so clean dumps and the original package were refused. Since v1.0.1 the list has the 325 real files and
+  the launcher installs a cut-short `.sp` as `.spl` when the real one is absent.
 
 ## 5. Asset format specifications (R-007)
 

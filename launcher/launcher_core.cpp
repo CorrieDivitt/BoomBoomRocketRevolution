@@ -513,6 +513,43 @@ bool CheckXex(const std::vector<uint8_t>& xex, GameSource* s) {
   return true;
 }
 
+// Some extraction tools cut file names at 38 characters, so the game's two 39-character names
+// (Ride_Of_The_Valkyries_Spl{Camera,Target}_Out.spl) arrive as *_Out.sp. Where the real file is
+// missing from a folder, the cut-short one beside it is used and installed under the right name.
+constexpr size_t kTruncatedNameLength = 38;
+
+fs::path FolderFile(const fs::path& folder, const std::string& path) {
+  std::error_code ec;
+  const fs::path file = folder / FromUtf8(path);
+  if (fs::is_regular_file(file, ec)) return file;
+  const size_t slash = path.find_last_of('/');
+  const size_t name_at = slash == std::string::npos ? 0 : slash + 1;
+  if (path.size() - name_at > kTruncatedNameLength) {
+    const fs::path cut = folder / FromUtf8(path.substr(0, name_at + kTruncatedNameLength));
+    if (fs::is_regular_file(cut, ec)) return cut;
+  }
+  return file;
+}
+
+// The same repair for a folder copied as it is (a version with no file list): Content\*.sp
+// gets its last letter back unless the .spl is already there.
+void RepairTruncatedNames(const fs::path& game_folder) {
+  std::error_code ec;
+  std::vector<fs::path> cut;
+  for (auto it = fs::directory_iterator(game_folder / "Content", ec); !ec && it != fs::directory_iterator();
+       it.increment(ec)) {
+    if (it->is_regular_file(ec) && Lower(PathText(it->path().extension())) == ".sp" &&
+        PathText(it->path().filename()).size() == kTruncatedNameLength) {
+      cut.push_back(it->path());
+    }
+  }
+  for (const fs::path& from : cut) {
+    fs::path to = from;
+    to += "l";
+    if (!fs::exists(to, ec)) fs::rename(from, to, ec);
+  }
+}
+
 void SummariseMismatch(GameSource* s, const std::vector<std::string>& missing, const std::vector<std::string>& differ) {
   auto list = [](const std::vector<std::string>& v) {
     std::string out;
@@ -581,7 +618,7 @@ GameSource CheckGameSource(const fs::path& chosen_in, Progress* progress) {
     for (const ManifestFile& f : manifest) {
       if (progress && progress->cancel) break;
       const bool is_xex = Lower(f.path) == "default.xex";
-      const fs::path file = is_xex ? chosen : s.folder / FromUtf8(f.path);
+      const fs::path file = is_xex ? chosen : FolderFile(s.folder, f.path);
       const uint64_t size = fs::is_regular_file(file, ec) ? fs::file_size(file, ec) : UINT64_MAX;
       if (size == UINT64_MAX) {
         missing.push_back(f.path);
@@ -726,7 +763,8 @@ bool InstallGame(const GameSource& source, const fs::path& install_dir, Progress
     if (source.known_version) {
       for (const ManifestFile& f : GameManifest()) {
         const bool is_xex = Lower(f.path) == "default.xex";
-        const fs::path from = is_xex && fs::is_regular_file(source.chosen, ec) ? source.chosen : source.folder / FromUtf8(f.path);
+        const fs::path from =
+            is_xex && fs::is_regular_file(source.chosen, ec) ? source.chosen : FolderFile(source.folder, f.path);
         if (!CopyWithProgress(from, part / FromUtf8(f.path), progress, error)) {
           fs::remove_all(part, ec);
           return false;
@@ -750,6 +788,7 @@ bool InstallGame(const GameSource& source, const fs::path& install_dir, Progress
           return false;
         }
       }
+      RepairTruncatedNames(part);
     }
   } else if (source.kind == SourceKind::kPackage) {
     Package package;

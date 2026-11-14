@@ -1,6 +1,8 @@
 // The files of Boom Boom Rocket (Xbox Live Arcade, title 5841086A, default.xex version 0x102),
 // as unpacked from its package: path, size in bytes, SHA-256. Used by the launcher to check
 // the player's own copy. Generated from a retail copy; no game data is in this file.
+// Only the game's real file names belong here: a dump made with a tool that cuts names at 38
+// characters has *_Out.sp beside or instead of *_Out.spl, and those are not game files.
 {"achievement01.png", 2260, "9bab03a316be926ee7a54e823c97693f49980defee8a5d10e283ffa23ed5f001"},
 {"achievement02.png", 2472, "1d48a99481815796329356cd0ed5859e1e2713dbe478de01e7242e044f41ed1e"},
 {"achievement03.png", 2314, "6becf57f4ab1b39914be1e0fc32727bf24dac4d30154c87a6897ebff706d2676"},
@@ -131,12 +133,10 @@
 {"Content/Ride_Of_The_Valkyries_Med.lvl", 4586, "da674b5613674f9bd96b2cbe045245b6ffdd8bbcd2c4dd95760be596cfd52540"},
 {"Content/Ride_Of_The_Valkyries_SplCamera.spl", 159, "0858c5b4db263dc0697d3d1407431b36ab517239d4a23e548f9330a22e73cf7d"},
 {"Content/Ride_Of_The_Valkyries_SplCamera_In.spl", 106, "fe9a2b11eca5199b7a7e09f450f6beef6bf9bb9ddaa63a15534b772fc68cad14"},
-{"Content/Ride_Of_The_Valkyries_SplCamera_Out.sp", 105, "30dfa599d7012b137aa4d8f2df35c9330ef0cdf68d58a6eac53ce7d6b424e35b"},
 {"Content/Ride_Of_The_Valkyries_SplCamera_Out.spl", 105, "30dfa599d7012b137aa4d8f2df35c9330ef0cdf68d58a6eac53ce7d6b424e35b"},
 {"Content/Ride_Of_The_Valkyries_SplLaunch.spl", 4200, "67317775ac4ee33131b53ceaf952dfaaaf05c58cfa2d5b11e7dae43f076c261a"},
 {"Content/Ride_Of_The_Valkyries_SplTarget.spl", 159, "dfefae9f9b315a9cb62bb666775875a098181019a269c00f06828a3300b6a0c9"},
 {"Content/Ride_Of_The_Valkyries_SplTarget_In.spl", 108, "6ae9fd300cf0be2daab643fcba35d4de7d88eff6bd91d77aa4d690bd2d5e900d"},
-{"Content/Ride_Of_The_Valkyries_SplTarget_Out.sp", 107, "d696ff186d97caacfadc16921634badfa19bb06df4e4042c88adf4d484080cb7"},
 {"Content/Ride_Of_The_Valkyries_SplTarget_Out.spl", 107, "d696ff186d97caacfadc16921634badfa19bb06df4e4042c88adf4d484080cb7"},
 {"Content/Rocket.mdl", 5703, "17937a2b8d8d45a259a7920f2264d06f6eaf8982555834e4135b691f43548dec"},
 {"Content/Sax.mdl", 3417, "a4f2db645b42e288004596a08425025959bf4fd09ce27f993f693147053fe342"},
