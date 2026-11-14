@@ -1033,11 +1033,11 @@
   "category": "Release",
   "title": "Store listings: Quiver Launcher and RecompStore",
   "priority": "P1",
-  "status": "todo",
+  "status": "done",
   "effort": "S",
   "acceptance": "Listed in both catalogs, installing from the GitHub release",
   "depends_on": "R-707",
-  "notes": "2026-11-12: prepared in docs/SUBMISSION.md (Quiver catalog fields from its open-source client: folderName, release asset filter, launcher exe, optional setupFiles hash; RecompStore text). Still to do: 1.0 release, screenshots and a logo of our own, the AI-use answer, README install section."
+  "notes": "2026-11-12: prepared in docs/SUBMISSION.md (Quiver catalog fields from its open-source client: folderName, release asset filter, launcher exe, optional setupFiles hash; RecompStore text). Still to do: 1.0 release, screenshots and a logo of our own, the AI-use answer, README install section. Submitted to Quiver Launcher and RecompStore 2026-11-13 by the user."
  },
  {
   "id": "R-806",

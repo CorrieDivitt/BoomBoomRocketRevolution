@@ -350,7 +350,7 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 
 ## Tracker
 <!-- tracker:start (written by docs/requirements.py; do not edit by hand) -->
-103 requirements: 1 in progress, 28 todo, 74 done. Details and notes per item: docs/requirements.csv or the dashboard.
+103 requirements: 1 in progress, 27 todo, 75 done. Details and notes per item: docs/requirements.csv or the dashboard.
 
 | ID | Title | Priority | Status |
 |---|---|---|---|
@@ -422,10 +422,10 @@ camera swings that becomes ill-conditioned and the arrows fly about (seen 2026-1
 | R-605 | Settings persistence | P0 | done |
 | R-606 | Launcher: game files, DLC, settings, play | P1 | done |
 | **Phase 7** | **QA, CI & release** | | |
-| R-708 | Store listings: Quiver Launcher and RecompStore | P1 | todo |
 | R-705 | Build & user guides | P1 | done |
 | R-706 | Licensing decision for project code | P0 | done |
 | R-707 | Public release v1.0 | P0 | done |
+| R-708 | Store listings: Quiver Launcher and RecompStore | P1 | done |
 | **Phase 8** | **Modern rhythm features** | | |
 | R-802 | Note speed / scroll-speed modifier | P2 | done |
 | R-803 | Timing feedback (early/late, ms offset) | P2 | done |
