@@ -77,6 +77,7 @@ Copy-Item (Join-Path $Root "ui_scripts") (Join-Path $Stage "ui_scripts") -Recurs
 Copy-Item (Join-Path $Root "LICENSE") (Join-Path $Stage "LICENSE.txt")
 Copy-Item (Join-Path $Root "THIRD_PARTY_NOTICES.md") $Stage
 Copy-Item (Join-Path $Root "docs\USER_GUIDE.md") $Stage
+Copy-Item (Join-Path $Root "recomplauncher.json") $Stage
 @"
 Boom Boom Rocket Revolution $Version
 ====================================
