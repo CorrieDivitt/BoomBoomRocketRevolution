@@ -1,5 +1,7 @@
 # Boom Boom Rocket Revolution
 
+<a href="https://recomplauncher.com/game/boomboomrocketrevolution"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
+
 **Boom Boom Rocket (Xbox Live Arcade) as a native Windows game, played from your own copy**, smooth at
 any refresh rate, sharper and wider than the original, with modern rhythm-game options, calibration,
 local leaderboards and achievements.

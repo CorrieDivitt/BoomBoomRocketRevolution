@@ -480,7 +480,13 @@ struct App {
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     for (int i = 1; argv && i < argc; ++i) {
-      if (std::wstring(argv[i]) == L"--play") continue;
+      const std::wstring a = argv[i];
+      if (a == L"--play" || a == L"--prepare") continue;
+      if (a == L"--game") {  // the launcher's own option and its value: not for the game
+        ++i;
+        continue;
+      }
+      if (a.rfind(L"--game=", 0) == 0) continue;
       command += L" \"" + std::wstring(argv[i]) + L"\"";
     }
     if (argv) LocalFree(argv);
@@ -910,12 +916,95 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   }
   return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
+
+// Writes a line to the launcher's own stdout/stderr (the launcher is a window program, so this
+// goes straight to the handles a parent process gave it, if any).
+void WriteStd(DWORD which, const std::string& text) {
+  HANDLE h = GetStdHandle(which);
+  if (!h || h == INVALID_HANDLE_VALUE) return;
+  DWORD written = 0;
+  WriteFile(h, text.data(), DWORD(text.size()), &written, nullptr);
+}
+
+// "--prepare --game <path>": the same check and install as the Setup tab's Install button
+// (CheckGameSource, then InstallGame into this folder), without a window. Prints
+// "progress <0..1> <text>" lines; exit code 0 when the game is ready.
+int RunPrepare(const fs::path& install_dir, const fs::path& game_path) {
+  auto fail = [](std::string message) {
+    for (char& c : message) {
+      if (c == '\r' || c == '\n') c = ' ';
+    }
+    WriteStd(STD_ERROR_HANDLE, message + "\n");
+    return 1;
+  };
+  if (game_path.empty()) return fail("--prepare needs the game: --game <path to default.xex, its folder, or the game package>");
+
+  Progress progress;
+  std::atomic<int> phase{0};  // 0 = checking the copy, 1 = installing it
+  std::atomic<bool> finished{false};
+  bool ok = false;
+  std::string error;
+  std::thread worker([&] {
+    GameSource source = CheckGameSource(game_path, &progress);
+    if (!source.ok) {
+      error = !source.errors.empty() ? source.errors.front() : source.summary;
+    } else {
+      phase = 1;
+      ok = InstallGame(source, install_dir, &progress, &error);
+      if (!ok && error.empty()) error = "the install did not finish";
+    }
+    finished = true;
+  });
+  std::string last;
+  WriteStd(STD_OUTPUT_HANDLE, "progress 0.00 Starting\n");
+  while (!finished) {
+    Sleep(250);
+    const uint64_t total = progress.total, done = progress.done;
+    double fraction = total ? double(done) / double(total) : 0.0;
+    if (fraction > 1.0) fraction = 1.0;
+    const double overall = phase == 0 ? fraction * 0.5 : 0.5 + fraction * 0.5;
+    std::string stage = progress.Stage();
+    if (stage.empty()) stage = "Working";
+    char number[16];
+    std::snprintf(number, sizeof(number), "%.2f", overall);
+    const std::string line = std::string("progress ") + number + " " + stage + "\n";
+    if (line != last) {
+      WriteStd(STD_OUTPUT_HANDLE, line);
+      last = line;
+    }
+  }
+  worker.join();
+  if (!ok) return fail(error.empty() ? std::string("the game files could not be set up") : error);
+  WriteStd(STD_OUTPUT_HANDLE, "progress 1.00 Game files ready\n");
+  return 0;
+}
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
   ImGui_ImplWin32_EnableDpiAwareness();
   const float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
+
+  // "--game <path>": the player's copy (default.xex, its folder, or the game package).
+  // "--prepare": check and install it without a window (see RunPrepare).
+  bool prepare = false;
+  fs::path game_arg;
+  {
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    for (int i = 1; argv && i < argc; ++i) {
+      const std::wstring a = argv[i];
+      if (a == L"--prepare") {
+        prepare = true;
+      } else if (a == L"--game" && i + 1 < argc) {
+        game_arg = fs::path(std::wstring(argv[++i]));
+      } else if (a.rfind(L"--game=", 0) == 0) {
+        game_arg = fs::path(a.substr(7));
+      }
+    }
+    if (argv) LocalFree(argv);
+  }
+  if (prepare) return RunPrepare(ExeFolder(), game_arg);
 
   App app;
   g_app = &app;
@@ -986,6 +1075,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
   ImGui_ImplWin32_Init(hwnd);
   ImGui_ImplDX11_Init(g_device, g_context);
+
+  // --game without --prepare: check that copy now, as if it had been picked in the dialog.
+  if (!game_arg.empty()) app.CheckGame(game_arg);
 
   bool done = false;
   while (!done) {

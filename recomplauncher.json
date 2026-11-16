@@ -1,0 +1,37 @@
+{
+    "$schema": "https://recomplauncher.com/schema/recomplauncher.json",
+    "format": 1,
+    "repo": "CorrieDivitt/BoomBoomRocketRevolution",
+    "name": "Boom Boom Rocket Revolution",
+    "game": {
+        "kind": "iso_or_folder",
+        "label": "Your copy of Boom Boom Rocket (Xbox Live Arcade): the default.xex in your unpacked game folder, or the game's package file as it came from your Xbox 360."
+    },
+    "prepare": {
+        "program": [
+            "BoomBoomRocketRevolution.exe"
+        ],
+        "args": [
+            "--prepare",
+            "--game",
+            "{game}"
+        ],
+        "label": "Checking and installing your game files",
+        "timeout": 1800
+    },
+    "start": {
+        "program": [
+            "boomboomrocket.exe"
+        ]
+    },
+    "saves": [
+        "{documents}/boomboomrocket"
+    ],
+    "folders": {
+        "logs": [
+            {
+                "path": "{documents}/boomboomrocket/logs"
+            }
+        ]
+    }
+}
